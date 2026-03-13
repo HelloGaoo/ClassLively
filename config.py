@@ -40,6 +40,27 @@ class LanguageSerializer(ConfigSerializer):
         return Language(QLocale(value)) if value != "Auto" else Language.AUTO
 
 
+class LogLevel(Enum):
+    """ 日志级别枚举 """
+    DEBUG = "Debug"
+    INFO = "Info"
+    WARNING = "Warning"
+    ERROR = "Error"
+
+
+class LogLevelSerializer(ConfigSerializer):
+    """ 日志级别序列化器 """
+
+    def serialize(self, level):
+        return level.value
+
+    def deserialize(self, value: str):
+        for level in LogLevel:
+            if level.value == value:
+                return level
+        return LogLevel.INFO
+
+
 class Config(QConfig):
     """ 应用配置 """
 
@@ -52,6 +73,20 @@ class Config(QConfig):
     )
     language = OptionsConfigItem(
         "MainWindow", "Language", Language.AUTO, OptionsValidator(Language), LanguageSerializer(), restart=True
+    )
+    
+    # 日志配置
+    logLevel = OptionsConfigItem(
+        "Log", "LogLevel", LogLevel.INFO, OptionsValidator(LogLevel), LogLevelSerializer()
+    )
+    disableLog = ConfigItem(
+        "Log", "DisableLog", False, BoolValidator()
+    )
+    logMaxCount = RangeConfigItem(
+        "Log", "MaxCount", 50, RangeValidator(10, 500)
+    )
+    logMaxDays = RangeConfigItem(
+        "Log", "MaxDays", 7, RangeValidator(30, 365)
     )
 
 

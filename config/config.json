@@ -1,8 +1,14 @@
 {
+    "Log": {
+        "DisableLog": false,
+        "LogLevel": "Info",
+        "MaxCount": 215,
+        "MaxDays": 365
+    },
     "MainWindow": {
         "DpiScale": "Auto",
         "Language": "Auto",
-        "ThemeColor": "#ff5f8ebc",
+        "ThemeColor": "#ff0099bc",
         "ThemeMode": "Auto"
     },
     "QFluentWidgets": {

@@ -3,7 +3,8 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QWidget, QLabel
 from qfluentwidgets import (
     SettingCardGroup, OptionsSettingCard, ScrollArea, ExpandLayout, 
-    Theme, setTheme, isDarkTheme, FluentIcon as FIF, CustomColorSettingCard, setThemeColor
+    Theme, setTheme, isDarkTheme, FluentIcon as FIF, CustomColorSettingCard, setThemeColor,
+    SwitchSettingCard, RangeSettingCard
 )
 from config import cfg
 
@@ -37,6 +38,37 @@ class SettingInterface(ScrollArea):
             "更改应用程序的主要颜色",
             parent=self.appearanceGroup
         )
+        
+        self.logGroup = SettingCardGroup("日志", self.scrollWidget)
+        self.logLevelCard = OptionsSettingCard(
+            cfg.logLevel,
+            FIF.INFO,
+            "日志级别",
+            "设置日志的输出级别",
+            texts=["Debug", "Info", "Warning", "Error"],
+            parent=self.logGroup
+        )
+        self.disableLogCard = SwitchSettingCard(
+            FIF.CLOSE, 
+            "禁用日志",
+            "完全禁用日志输出",
+            configItem=cfg.disableLog,
+            parent=self.logGroup
+        )
+        self.logMaxCountCard = RangeSettingCard(
+            cfg.logMaxCount,
+            FIF.INFO,
+            "日志数量上限",
+            "设置日志文件的最大条目数",
+            parent=self.logGroup
+        )
+        self.logMaxDaysCard = RangeSettingCard(
+            cfg.logMaxDays,
+            FIF.INFO,
+            "日志时间上限",
+            "设置日志文件的最大保存天数",
+            parent=self.logGroup
+        )
 
         self.__initWidget()
 
@@ -59,10 +91,16 @@ class SettingInterface(ScrollArea):
 
         self.appearanceGroup.addSettingCard(self.themeCard)
         self.appearanceGroup.addSettingCard(self.themeColorCard)
+        
+        self.logGroup.addSettingCard(self.logLevelCard)
+        self.logGroup.addSettingCard(self.disableLogCard)
+        self.logGroup.addSettingCard(self.logMaxCountCard)
+        self.logGroup.addSettingCard(self.logMaxDaysCard)
 
         self.expandLayout.setSpacing(28)
         self.expandLayout.setContentsMargins(60, 10, 60, 0)
         self.expandLayout.addWidget(self.appearanceGroup)
+        self.expandLayout.addWidget(self.logGroup)
 
     def __setQss(self):
         """ 设置样式表 """

@@ -1,4 +1,5 @@
 from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout
+from PyQt5.QtCore import QLocale, QTranslator
 from PyQt5.QtGui import QFontDatabase, QFont
 from qfluentwidgets import (NavigationInterface, NavigationItemPosition, MessageBox,
                             setTheme, Theme, FluentWindow, NavigationAvatarWidget,
