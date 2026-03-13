@@ -65,7 +65,7 @@ class Config(QConfig):
     themeMode = OptionsConfigItem(
         "MainWindow", "ThemeMode", Theme.AUTO, OptionsValidator([Theme.LIGHT, Theme.DARK, Theme.AUTO]), ThemeSerializer()
     )
-    themeColor = ColorConfigItem("MainWindow", "ThemeColor", "#0099BC")
+    themeColor = ColorConfigItem("MainWindow", "ThemeColor", "#30c361")
     dpiScale = OptionsConfigItem(
         "MainWindow", "DpiScale", "Auto", OptionsValidator([1, 1.25, 1.5, 1.75, 2, "Auto"]), restart=True
     )

@@ -100,7 +100,7 @@ if __name__ == "__main__":
             "MainWindow": {
                 "DpiScale": "Auto",
                 "Language": "Auto",
-                "ThemeColor": "#0099BC",
+                "ThemeColor": "#30c361",
                 "ThemeMode": "Auto"
             },
             "Log": {
