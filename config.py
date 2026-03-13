@@ -1,13 +1,11 @@
 import os
 from enum import Enum
 
-from PyQt5.QtCore import Qt, QLocale
-from PyQt5.QtGui import QGuiApplication, QFont
+from PyQt5.QtCore import QLocale
 from qfluentwidgets import (
     qconfig, QConfig, ConfigItem, OptionsConfigItem, BoolValidator,
     ColorConfigItem, OptionsValidator, RangeConfigItem, RangeValidator,
-    FolderListValidator, EnumSerializer, FolderValidator, ConfigSerializer, __version__,
-    Theme
+    ConfigSerializer, Theme
 )
 
 
@@ -74,8 +72,7 @@ class Config(QConfig):
     language = OptionsConfigItem(
         "MainWindow", "Language", Language.AUTO, OptionsValidator(Language), LanguageSerializer(), restart=True
     )
-    
-    # 日志配置
+
     logLevel = OptionsConfigItem(
         "Log", "LogLevel", LogLevel.INFO, OptionsValidator(LogLevel), LogLevelSerializer()
     )

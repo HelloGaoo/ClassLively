@@ -2,8 +2,8 @@
     "Log": {
         "DisableLog": false,
         "LogLevel": "Info",
-        "MaxCount": 215,
-        "MaxDays": 365
+        "MaxCount": 328,
+        "MaxDays": 280
     },
     "MainWindow": {
         "DpiScale": "Auto",
@@ -13,9 +13,7 @@
     },
     "QFluentWidgets": {
         "FontFamilies": [
-            "Segoe UI",
-            "Microsoft YaHei",
-            "PingFang SC"
+            "HarmonyOS Sans SC"
         ]
     }
 }

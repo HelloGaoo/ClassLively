@@ -10,7 +10,7 @@ QScrollArea {
 
 /* 标签 */
 QLabel#settingLabel {
-    font: 33px 'HarmonyOS Sans SC';
+    font: 33px;
     background-color: transparent;
     color: white;
 }

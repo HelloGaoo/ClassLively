@@ -4,7 +4,7 @@ from PyQt5.QtWidgets import QWidget, QLabel
 from qfluentwidgets import (
     SettingCardGroup, OptionsSettingCard, ScrollArea, ExpandLayout, 
     Theme, setTheme, isDarkTheme, FluentIcon as FIF, CustomColorSettingCard, setThemeColor,
-    SwitchSettingCard, RangeSettingCard
+    SwitchSettingCard, RangeSettingCard, InfoBar
 )
 from config import cfg
 
@@ -25,10 +25,7 @@ class SettingInterface(ScrollArea):
             FIF.BRUSH,
             "应用颜色主题",
             "更改应用程序的颜色外观",
-            texts=[
-                "浅色", "深色",
-                "使用系统设置"
-            ],
+            texts=["浅色", "深色", "使用系统设置"],
             parent=self.appearanceGroup
         )
         self.themeColorCard = CustomColorSettingCard(
@@ -81,7 +78,6 @@ class SettingInterface(ScrollArea):
         self.setWidgetResizable(True)
 
         self.__setQss()
-
         self.__initLayout()
         self.__connectSignalToSlot()
 
@@ -110,20 +106,26 @@ class SettingInterface(ScrollArea):
         theme = 'dark' if isDarkTheme() else 'light'
         try:
             qss_path = os.path.join(os.path.dirname(__file__), 'resource', 'qss', theme, 'setting_interface.qss')
-            print(f"加载QSS文件: {qss_path}")
             with open(qss_path, encoding='utf-8') as f:
                 self.setStyleSheet(f.read())
-        except Exception as e:
-            print(f"QSS文件加载失败: {e}")
+        except Exception:
             pass
 
     def __onThemeChanged(self, theme: Theme):
         """ 主题变更槽函数 """
         setTheme(theme)
-
         self.__setQss()
+
+    def __showRestartTooltip(self):
+        """ 显示重启提示 """
+        InfoBar.warning(
+            '',
+            "配置需要重启应用程序才能生效",
+            parent=self.window()
+        )
 
     def __connectSignalToSlot(self):
         """ 连接信号与槽 """
         cfg.themeChanged.connect(self.__onThemeChanged)
         self.themeColorCard.colorChanged.connect(setThemeColor)
+        cfg.appRestartSig.connect(self.__showRestartTooltip)
