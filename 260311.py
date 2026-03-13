@@ -2,7 +2,7 @@ from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QHB
 from PyQt5.QtGui import QFontDatabase, QFont
 from qfluentwidgets import (NavigationInterface, NavigationItemPosition, MessageBox,
                             setTheme, Theme, FluentWindow, NavigationAvatarWidget,
-                            isDarkTheme, InfoBar, InfoBarPosition)
+                            isDarkTheme, InfoBar, InfoBarPosition, FluentTranslator)
 from qfluentwidgets import FluentIcon as FIF
 import sys
 import os
@@ -97,6 +97,11 @@ if __name__ == "__main__":
     install_fonts()
     
     app = QApplication(sys.argv)
+    
+    # 国际化
+    locale = QLocale(QLocale.Chinese, QLocale.China)
+    fluentTranslator = FluentTranslator(locale)
+    app.installTranslator(fluentTranslator)
     
     # 加载字体
     font_dir = os.path.join(os.getcwd(), "font", "HarmonyOS_Sans")

@@ -3,7 +3,7 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QWidget, QLabel
 from qfluentwidgets import (
     SettingCardGroup, OptionsSettingCard, ScrollArea, ExpandLayout, 
-    Theme, setTheme, isDarkTheme, FluentIcon as FIF
+    Theme, setTheme, isDarkTheme, FluentIcon as FIF, CustomColorSettingCard, setThemeColor
 )
 from config import cfg
 
@@ -30,6 +30,13 @@ class SettingInterface(ScrollArea):
             ],
             parent=self.appearanceGroup
         )
+        self.themeColorCard = CustomColorSettingCard(
+            cfg.themeColor,
+            FIF.PALETTE,
+            "主要颜色",
+            "更改应用程序的主要颜色",
+            parent=self.appearanceGroup
+        )
 
         self.__initWidget()
 
@@ -51,6 +58,7 @@ class SettingInterface(ScrollArea):
         self.settingLabel.move(60, 63)
 
         self.appearanceGroup.addSettingCard(self.themeCard)
+        self.appearanceGroup.addSettingCard(self.themeColorCard)
 
         self.expandLayout.setSpacing(28)
         self.expandLayout.setContentsMargins(60, 10, 60, 0)
@@ -80,3 +88,4 @@ class SettingInterface(ScrollArea):
     def __connectSignalToSlot(self):
         """ 连接信号与槽 """
         cfg.themeChanged.connect(self.__onThemeChanged)
+        self.themeColorCard.colorChanged.connect(setThemeColor)

@@ -1,4 +1,3 @@
-# coding:utf-8
 import os
 from enum import Enum
 
@@ -13,7 +12,7 @@ from qfluentwidgets import (
 
 
 class ThemeSerializer(ConfigSerializer):
-    """ 主题序列化器 """
+    """ 主题序列化 """
 
     def serialize(self, theme):
         return theme.value

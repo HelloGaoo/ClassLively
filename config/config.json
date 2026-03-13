@@ -2,7 +2,7 @@
     "MainWindow": {
         "DpiScale": "Auto",
         "Language": "Auto",
-        "ThemeColor": "#ff0099bc",
+        "ThemeColor": "#ff5f8ebc",
         "ThemeMode": "Auto"
     },
     "QFluentWidgets": {
