@@ -1,24 +1,8 @@
-# Python编译文件
-__pycache__/
+_pycache_/
 *.pyc
-
-# 日志文件
 logs/
-
-# 配置文件
-config/config.json
-
-# 字体文件
-font/
-
-# IDE相关文件
+config/
 .vscode/
 .idea/
-
-# 操作系统相关文件
-Thumbs.db
-.DS_Store
-
-# 虚拟环境
 venv/
 env/
