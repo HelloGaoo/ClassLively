@@ -1,6 +1,6 @@
 from PyQt5.QtWidgets import QApplication, QWidget
 from PyQt5.QtCore import QLocale, QTranslator
-from PyQt5.QtGui import QFontDatabase, QFont
+from PyQt5.QtGui import QFontDatabase, QFont, QIcon
 from qfluentwidgets import (
     setTheme, Theme, FluentWindow, FluentTranslator,
     FluentIcon as FIF, NavigationItemPosition
@@ -38,6 +38,12 @@ class MainWindow(FluentWindow):
     def __init__(self):
         super().__init__()
         setTheme(Theme.DARK)
+        
+        # 设置窗口图标
+        icon_path = get_resource_path(os.path.join("resource", "icons", "CY.png"))
+        if os.path.exists(icon_path):
+            self.setWindowIcon(QIcon(icon_path))
+        
         self.initMainNavigation()
         self.initSettingsNavigation()
         self.setWindowTitle(APP_NAME)
