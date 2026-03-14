@@ -1,0 +1,19 @@
+{
+    "Log": {
+        "DisableLog": true,
+        "LogLevel": "Info",
+        "MaxCount": 10,
+        "MaxDays": 152
+    },
+    "MainWindow": {
+        "DpiScale": "Auto",
+        "Language": "Auto",
+        "ThemeColor": "#ff30c361",
+        "ThemeMode": "Auto"
+    },
+    "QFluentWidgets": {
+        "FontFamilies": [
+            "HarmonyOS Sans SC"
+        ]
+    }
+}
