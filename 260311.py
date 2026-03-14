@@ -1,4 +1,4 @@
-from PyQt5.QtWidgets import QApplication, QWidget
+from PyQt5.QtWidgets import QApplication, QWidget, QSystemTrayIcon, QMenu, QAction
 from PyQt5.QtCore import QLocale, QTranslator
 from PyQt5.QtGui import QFontDatabase, QFont, QIcon
 from qfluentwidgets import (
@@ -49,6 +49,59 @@ class MainWindow(FluentWindow):
         self.setWindowTitle(APP_NAME)
         self.resize(1100, 700)
         self.moveToCenter()
+        
+        # 初始化系统托盘
+        self.initSystemTray()
+    
+    def initSystemTray(self):
+        """ 初始化系统托盘 """
+        icon_path = get_resource_path(os.path.join("resource", "icons", "CY.png"))
+        if os.path.exists(icon_path):
+            self.tray_icon = QSystemTrayIcon(QIcon(icon_path), self)
+        else:
+            self.tray_icon = QSystemTrayIcon(self)
+        
+        # 创建托盘菜单
+        self.tray_menu = QMenu(self)
+        
+        # 显示主窗口动作
+        show_action = QAction("显示主窗口", self)
+        show_action.triggered.connect(self.show)
+        self.tray_menu.addAction(show_action)
+        
+        # 退出动作
+        exit_action = QAction("退出", self)
+        exit_action.triggered.connect(QApplication.quit)
+        self.tray_menu.addAction(exit_action)
+        
+        # 设置托盘菜单
+        self.tray_icon.setContextMenu(self.tray_menu)
+        
+        # 双击托盘图标显示/隐藏主窗口
+        self.tray_icon.activated.connect(self.__onTrayIconActivated)
+        
+        # 显示托盘图标
+        self.tray_icon.show()
+    
+    def __onTrayIconActivated(self, reason):
+        """ 托盘图标激活槽函数 """
+        if reason == QSystemTrayIcon.DoubleClick:
+            if self.isVisible():
+                self.hide()
+            else:
+                self.show()
+    
+    def closeEvent(self, event):
+        """ 关闭事件处理 """
+        # 最小化到托盘而不是退出
+        event.ignore()
+        self.hide()
+        self.tray_icon.showMessage(
+            APP_NAME,
+            "应用已最小化到系统托盘",
+            QSystemTrayIcon.Information,
+            2000
+        )
 
     def initMainNavigation(self):
         """ 初始化主界面导航 """
@@ -160,11 +213,6 @@ if __name__ == "__main__":
     logger.info(f"读取日志时间上限配置: {cfg.logMaxDays.value}")
 
     app = QApplication(sys.argv)
-    
-    # 设置应用程序图标
-    icon_path = get_resource_path(os.path.join("resource", "icons", "CY.png"))
-    if os.path.exists(icon_path):
-        app.setWindowIcon(QIcon(icon_path))
 
     locale = QLocale(QLocale.Chinese, QLocale.China)
     fluentTranslator = FluentTranslator(locale)
