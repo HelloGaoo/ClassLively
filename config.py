@@ -106,6 +106,9 @@ class Config(QConfig):
     autoSyncToDesktop = ConfigItem(
         "Wallpaper", "AutoSyncToDesktop", True, BoolValidator()
     )
+    backgroundBlurRadius = RangeConfigItem(
+        "Appearance", "BackgroundBlurRadius", 0, RangeValidator(0, 30)
+    )
 
 
 cfg = Config()

@@ -1,7 +1,7 @@
-from PyQt5.QtWidgets import QApplication, QWidget, QSystemTrayIcon, QMenu, QAction, QLabel, QPushButton, QVBoxLayout, QHBoxLayout, QSpacerItem, QSizePolicy, QFileDialog
+from PyQt5.QtWidgets import QApplication, QWidget, QSystemTrayIcon, QMenu, QAction, QLabel, QPushButton, QVBoxLayout, QHBoxLayout, QSpacerItem, QSizePolicy, QFileDialog, QGraphicsBlurEffect
 from PyQt5.QtCore import QTimer
 from PyQt5.QtCore import QLocale, QTranslator, Qt, QUrl
-from PyQt5.QtGui import QFontDatabase, QFont, QIcon, QPixmap, QImage
+from PyQt5.QtGui import QFontDatabase, QFont, QIcon, QPixmap, QImage, QPainter, QColor
 from qfluentwidgets import (
     setTheme, Theme, FluentWindow, FluentTranslator,
     FluentIcon as FIF, NavigationItemPosition, RoundMenu, Action, MessageBox, ScrollArea, SmoothScrollArea, ExpandLayout, isDarkTheme,
@@ -98,6 +98,7 @@ class WallpaperInterface(ScrollArea):
         
         self.current_pixmap = None
         self.current_wallpaper_path = None
+        self.last_sync_path = None
         self.autoGetTimer = QTimer(self)
         self.autoGetTimer.timeout.connect(self.__getWallpaper)
         self.autoSyncCheckTimer = QTimer(self)
@@ -164,6 +165,7 @@ class WallpaperInterface(ScrollArea):
         # 连接配置变更信号
         cfg.autoGetInterval.valueChanged.connect(self.__updateAutoGetTimer)
         cfg.autoSyncToDesktop.valueChanged.connect(self.__updateAutoSyncCheckTimer)
+        cfg.backgroundBlurRadius.valueChanged.connect(self.__updateBackgroundBlur)
         
         # 初始更新定时器
         self.__updateAutoGetTimer()
@@ -207,7 +209,10 @@ class WallpaperInterface(ScrollArea):
     def __checkAutoSync(self):
         """ 检测自动同步至桌面是否启用 """
         if cfg.autoSyncToDesktop.value and self.current_wallpaper_path is not None:
-            self.__setWallpaper(show_notification=False)
+            # 壁纸路径发生变化时重新设置
+            if self.last_sync_path != self.current_wallpaper_path:
+                self.__setWallpaper(show_notification=False)
+                self.last_sync_path = self.current_wallpaper_path
     
     def __updateAutoSyncCheckTimer(self):
         """ 更新自动同步检测定时器 """
@@ -215,7 +220,13 @@ class WallpaperInterface(ScrollArea):
         self.autoSyncCheckTimer.stop()
         
         if cfg.autoSyncToDesktop.value:
-            self.autoSyncCheckTimer.start(5000)  # 5000毫秒 = 5秒
+            self.autoSyncCheckTimer.start(5000)  # 5 秒
+    
+    def __updateBackgroundBlur(self):
+        """ 更新背景模糊强度 """
+        if hasattr(self, 'mainWindow') and self.mainWindow and hasattr(self.mainWindow, 'homeBackgroundImage'):
+            if self.mainWindow.originalPixmap is not None and not self.mainWindow.originalPixmap.isNull():
+                self.mainWindow.resizeEvent(None)
 
     def resizeEvent(self, event):
         """ 窗口大小变化时调整滚动区域大小 """
@@ -282,6 +293,7 @@ class WallpaperInterface(ScrollArea):
                 # 如果启用了自动同步至桌面，则自动设置为桌面背景
                 if cfg.autoSyncToDesktop.value:
                     self.__setWallpaper(show_notification=True)
+                    self.last_sync_path = wallpaper_path
             else:
                 InfoBar.error(
                     "错误",
@@ -417,6 +429,9 @@ class WallpaperInterface(ScrollArea):
                 SPIF_UPDATEINIFILE | SPIF_SENDWININICHANGE
             )
             
+            # 更新同步记录
+            self.last_sync_path = self.current_wallpaper_path
+            
             if show_notification:
                 InfoBar.success(
                     "成功",
@@ -508,11 +523,12 @@ class MainWindow(FluentWindow):
         home = QWidget()
         home.setObjectName("home")
         
+        # 创建主界面的照片显示控件
         self.homeBackgroundImage = QLabel()
         self.homeBackgroundImage.setAlignment(Qt.AlignCenter)
         self.originalPixmap = None
         
-        # 主界面布局
+        # 创建主界面布局
         homeLayout = QVBoxLayout(home)
         homeLayout.setAlignment(Qt.AlignCenter)
         homeLayout.setContentsMargins(0, 0, 0, 0)
@@ -554,12 +570,23 @@ class MainWindow(FluentWindow):
         """ 窗口大小变化时调整图片大小 """
         super().resizeEvent(event)
         if hasattr(self, 'homeBackgroundImage') and self.originalPixmap is not None:
+            # 使用窗口的完整尺寸（减去侧边栏宽度）
             available_width = self.width() - 50
             available_height = self.height()
             
+            # 从原始图片重新缩放，避免重复缩放导致质量损失
             if not self.originalPixmap.isNull():
+                # 强制拉伸填满整个区域，不留黑边
                 scaled_pixmap = self.originalPixmap.scaled(available_width, available_height, Qt.IgnoreAspectRatio, Qt.SmoothTransformation)
+                
+                # 应用模糊效果
+                blur_effect = QGraphicsBlurEffect()
+                blur_radius = cfg.backgroundBlurRadius.value
+                blur_effect.setBlurRadius(blur_radius)
+                self.homeBackgroundImage.setGraphicsEffect(blur_effect)
+                
                 self.homeBackgroundImage.setPixmap(scaled_pixmap)
+                
                 # 强制刷新
                 QApplication.processEvents()
 

@@ -75,6 +75,15 @@ class SettingInterface(ScrollArea):
             parent=self.appearanceGroup
         )
         
+        # 添加背景模糊设置
+        self.backgroundBlurCard = RangeSettingCard(
+            cfg.backgroundBlurRadius,
+            FIF.PHOTO,
+            "主界面背景模糊",
+            "设置主界面背景图片的模糊强度（0-30）",
+            parent=self.appearanceGroup
+        )
+        
         # 壁纸设置
         self.wallpaperGroup = SettingCardGroup("壁纸", self.scrollWidget)
         self.wallpaperSaveLimitCard = RangeSettingCard(
@@ -151,6 +160,7 @@ class SettingInterface(ScrollArea):
 
         self.appearanceGroup.addSettingCard(self.themeCard)
         self.appearanceGroup.addSettingCard(self.themeColorCard)
+        self.appearanceGroup.addSettingCard(self.backgroundBlurCard)
         
         self.wallpaperGroup.addSettingCard(self.wallpaperSaveLimitCard)
         self.wallpaperGroup.addSettingCard(self.autoGetIntervalCard)
