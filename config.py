@@ -85,6 +85,9 @@ class Config(QConfig):
     logMaxDays = RangeConfigItem(
         "Log", "MaxDays", 7, RangeValidator(30, 365)
     )
+    closeAction = OptionsConfigItem(
+        "Other", "CloseAction", "minimize", OptionsValidator(["minimize", "close"])
+    )
 
 
 cfg = Config()

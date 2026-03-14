@@ -110,10 +110,22 @@ class SettingInterface(ScrollArea):
         self.logGroup.addSettingCard(self.logMaxCountCard)
         self.logGroup.addSettingCard(self.logMaxDaysCard)
 
+        self.otherGroup = SettingCardGroup("其他", self.scrollWidget)
+        self.closeActionCard = OptionsSettingCard(
+            cfg.closeAction,
+            FIF.SETTING,
+            "关闭事件行为",
+            "设置点击关闭按钮时的行为",
+            texts=["最小化到任务栏", "直接关闭"],
+            parent=self.otherGroup
+        )
+        self.otherGroup.addSettingCard(self.closeActionCard)
+
         self.expandLayout.setSpacing(28)
         self.expandLayout.setContentsMargins(60, 10, 60, 0)
         self.expandLayout.addWidget(self.appearanceGroup)
         self.expandLayout.addWidget(self.logGroup)
+        self.expandLayout.addWidget(self.otherGroup)
 
     def __setQss(self):
         """ 设置样式表 """

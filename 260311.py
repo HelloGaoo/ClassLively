@@ -61,26 +61,20 @@ class MainWindow(FluentWindow):
         else:
             self.tray_icon = QSystemTrayIcon(self)
         
-        # 创建PFW风格的托盘菜单
         self.tray_menu = RoundMenu(APP_NAME, self)
         
-        # 显示主窗口动作
         show_action = Action(FIF.HOME, "显示主窗口", self)
         show_action.triggered.connect(self.show)
         self.tray_menu.addAction(show_action)
         
-        # 退出动作
         exit_action = Action(FIF.CLOSE, "退出", self)
         exit_action.triggered.connect(QApplication.quit)
         self.tray_menu.addAction(exit_action)
         
-        # 设置托盘菜单
         self.tray_icon.setContextMenu(self.tray_menu)
         
-        # 双击托盘图标显示/隐藏主窗口
         self.tray_icon.activated.connect(self.__onTrayIconActivated)
         
-        # 显示托盘图标
         self.tray_icon.show()
     
     def __onTrayIconActivated(self, reason):
@@ -93,15 +87,22 @@ class MainWindow(FluentWindow):
     
     def closeEvent(self, event):
         """ 关闭事件处理 """
-        # 最小化到托盘而不是退出
-        event.ignore()
-        self.hide()
-        self.tray_icon.showMessage(
-            APP_NAME,
-            "应用已最小化到系统托盘",
-            QSystemTrayIcon.Information,
-            2000
-        )
+        from config import cfg
+        
+        # 根据配置决定关闭行为
+        if cfg.closeAction.value == "minimize":
+            # 最小化到托盘而不是退出
+            event.ignore()
+            self.hide()
+            self.tray_icon.showMessage(
+                APP_NAME,
+                "应用已最小化到系统托盘",
+                QSystemTrayIcon.Information,
+                2000
+            )
+        else:
+            # 直接退出应用
+            QApplication.quit()
 
     def initMainNavigation(self):
         """ 初始化主界面导航 """
