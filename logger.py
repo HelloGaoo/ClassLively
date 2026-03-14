@@ -56,6 +56,41 @@ class Logger:
         self.console_handler = None
         self.__setup_handlers()
     
+    def __clean_old_logs(self):
+        """ 清理旧日志文件 """
+        if not os.path.exists(log_dir):
+            return
+        
+        # 获取所有日志文件
+        log_files = []
+        for file in os.listdir(log_dir):
+            if file.startswith("app_") and file.endswith(".log"):
+                file_path = os.path.join(log_dir, file)
+                if os.path.isfile(file_path):
+                    # 获取文件修改时间
+                    mtime = os.path.getmtime(file_path)
+                    log_files.append((file_path, mtime))
+        
+        # 按修改时间排序（最新的在前）
+        log_files.sort(key=lambda x: x[1], reverse=True)
+        
+        # 按数量清理
+        if len(log_files) > self.max_count:
+            for file_path, _ in log_files[self.max_count:]:
+                try:
+                    os.remove(file_path)
+                except Exception:
+                    pass
+        
+        # 按天数清理
+        cutoff_time = datetime.now().timestamp() - (self.max_days * 24 * 3600)
+        for file_path, mtime in log_files:
+            if mtime < cutoff_time:
+                try:
+                    os.remove(file_path)
+                except Exception:
+                    pass
+    
     def __setup_handlers(self):
         """ 日志处理 """
         for handler in self.logger.handlers[:]:
@@ -93,6 +128,9 @@ class Logger:
         # 添加处理器
         self.logger.addHandler(self.file_handler)
         self.logger.addHandler(self.console_handler)
+        
+        # 清理旧日志
+        self.__clean_old_logs()
     
     def update_config(self, disable_log=False, log_level="INFO", max_count=50, max_days=7):
         """ 更新配置 """
