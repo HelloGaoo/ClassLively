@@ -5,9 +5,31 @@ from PyQt5.QtWidgets import QWidget, QLabel
 from qfluentwidgets import (
     SettingCardGroup, OptionsSettingCard, ScrollArea, ExpandLayout, 
     Theme, setTheme, isDarkTheme, FluentIcon as FIF, CustomColorSettingCard, setThemeColor,
-    SwitchSettingCard, RangeSettingCard, InfoBar
+    SwitchSettingCard, RangeSettingCard, InfoBar, LineEdit, SettingCard, qconfig, ComboBoxSettingCard
 )
 from config import cfg
+
+
+class LineEditSettingCard(SettingCard):
+    """ 带 QLineEdit 的设置卡片 """
+
+    def __init__(self, configItem, icon, title, content=None, parent=None):
+        super().__init__(icon, title, content, parent)
+        self.configItem = configItem
+        self.lineEdit = LineEdit(self)
+
+        self.hBoxLayout.addWidget(self.lineEdit, 0, Qt.AlignRight)
+        self.hBoxLayout.addSpacing(16)
+
+        self.lineEdit.setText(qconfig.get(configItem))
+        self.lineEdit.textChanged.connect(self.__onTextChanged)
+        configItem.valueChanged.connect(self.setValue)
+
+    def __onTextChanged(self, text):
+        qconfig.set(self.configItem, text)
+
+    def setValue(self, value):
+        self.lineEdit.setText(str(value))
 
 # 路径设置
 if getattr(sys, 'frozen', False):
@@ -37,7 +59,7 @@ class SettingInterface(ScrollArea):
         self.settingLabel = QLabel("设置", self)
 
         self.appearanceGroup = SettingCardGroup("外观", self.scrollWidget)
-        self.themeCard = OptionsSettingCard(
+        self.themeCard = ComboBoxSettingCard(
             cfg.themeMode,
             FIF.BRUSH,
             "应用颜色主题",
@@ -53,6 +75,31 @@ class SettingInterface(ScrollArea):
             parent=self.appearanceGroup
         )
         
+        # 壁纸设置
+        self.wallpaperGroup = SettingCardGroup("壁纸", self.scrollWidget)
+        self.wallpaperSaveLimitCard = RangeSettingCard(
+            cfg.wallpaperSaveLimit,
+            FIF.PHOTO,
+            "壁纸保存量",
+            "设置本地保存的壁纸数量，超过限制时会自动删除最旧的壁纸",
+            parent=self.wallpaperGroup
+        )
+        self.autoGetIntervalCard = ComboBoxSettingCard(
+            cfg.autoGetInterval,
+            FIF.ALBUM,
+            "自动获取间隔",
+            "设置自动获取新壁纸的时间间隔，选择'从不'则禁用自动获取",
+            texts=["从不", "10分钟", "30分钟", "1小时", "3小时", "6小时", "12小时", "1天", "3天", "5天", "7天"],
+            parent=self.wallpaperGroup
+        )
+        self.autoSyncToDesktopCard = SwitchSettingCard(
+            FIF.HOME,
+            "自动同步至桌面",
+            "当获取新壁纸时，自动将其设置为桌面背景",
+            configItem=cfg.autoSyncToDesktop,
+            parent=self.wallpaperGroup
+        )
+        
         self.logGroup = SettingCardGroup("日志", self.scrollWidget)
         self.disableLogCard = SwitchSettingCard(
             FIF.CLOSE, 
@@ -61,7 +108,7 @@ class SettingInterface(ScrollArea):
             configItem=cfg.disableLog,
             parent=self.logGroup
         )
-        self.logLevelCard = OptionsSettingCard(
+        self.logLevelCard = ComboBoxSettingCard(
             cfg.logLevel,
             FIF.INFO,
             "日志级别",
@@ -105,13 +152,17 @@ class SettingInterface(ScrollArea):
         self.appearanceGroup.addSettingCard(self.themeCard)
         self.appearanceGroup.addSettingCard(self.themeColorCard)
         
+        self.wallpaperGroup.addSettingCard(self.wallpaperSaveLimitCard)
+        self.wallpaperGroup.addSettingCard(self.autoGetIntervalCard)
+        self.wallpaperGroup.addSettingCard(self.autoSyncToDesktopCard)
+        
         self.logGroup.addSettingCard(self.disableLogCard)
         self.logGroup.addSettingCard(self.logLevelCard)
         self.logGroup.addSettingCard(self.logMaxCountCard)
         self.logGroup.addSettingCard(self.logMaxDaysCard)
 
         self.otherGroup = SettingCardGroup("其他", self.scrollWidget)
-        self.closeActionCard = OptionsSettingCard(
+        self.closeActionCard = ComboBoxSettingCard(
             cfg.closeAction,
             FIF.SETTING,
             "关闭事件行为",
@@ -133,6 +184,7 @@ class SettingInterface(ScrollArea):
         self.expandLayout.setSpacing(28)
         self.expandLayout.setContentsMargins(60, 10, 60, 0)
         self.expandLayout.addWidget(self.appearanceGroup)
+        self.expandLayout.addWidget(self.wallpaperGroup)
         self.expandLayout.addWidget(self.logGroup)
         self.expandLayout.addWidget(self.otherGroup)
 
@@ -159,6 +211,7 @@ class SettingInterface(ScrollArea):
         InfoBar.warning(
             '',
             "配置需要重启应用程序才能生效",
+            duration=5000,
             parent=self.window()
         )
 

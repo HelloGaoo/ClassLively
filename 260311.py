@@ -1,22 +1,25 @@
-from PyQt5.QtWidgets import QApplication, QWidget, QSystemTrayIcon, QMenu, QAction
-from PyQt5.QtCore import QLocale, QTranslator
-from PyQt5.QtGui import QFontDatabase, QFont, QIcon
+from PyQt5.QtWidgets import QApplication, QWidget, QSystemTrayIcon, QMenu, QAction, QLabel, QPushButton, QVBoxLayout, QHBoxLayout, QSpacerItem, QSizePolicy, QFileDialog
+from PyQt5.QtCore import QTimer
+from PyQt5.QtCore import QLocale, QTranslator, Qt, QUrl
+from PyQt5.QtGui import QFontDatabase, QFont, QIcon, QPixmap, QImage
 from qfluentwidgets import (
     setTheme, Theme, FluentWindow, FluentTranslator,
-    FluentIcon as FIF, NavigationItemPosition, RoundMenu, Action, MessageBox
+    FluentIcon as FIF, NavigationItemPosition, RoundMenu, Action, MessageBox, ScrollArea, SmoothScrollArea, ExpandLayout, isDarkTheme,
+    PushButton, CardWidget, ProgressBar, InfoBar, ImageLabel
 )
+import requests
 import sys
 import os
 import platform
 import ctypes
+import json
 from setting import SettingInterface
 import shutil
 from config import cfg
 from logger import logger
 from version import VERSION, BUILD_DATE
 from constants import APP_NAME
-import json
-
+import datetime
 def check_single_instance():
     """ 检查是否已经有实例 """
     config_path = 'config/config.json'
@@ -55,6 +58,361 @@ def get_resource_path(relative_path):
     if MEIPASS_DIR:
         return os.path.join(MEIPASS_DIR, relative_path)
     return os.path.join(BASE_DIR, relative_path)
+
+
+class WallpaperInterface(ScrollArea):
+    """ 壁纸界面 """
+
+    def __init__(self, parent=None):
+        super().__init__(parent=parent)
+        self.scrollWidget = QWidget()
+        self.mainLayout = QVBoxLayout(self.scrollWidget)
+
+        self.wallpaperLabel = QLabel("壁纸", self)
+        self.scrollArea = SmoothScrollArea()
+        self.imageLabel = ImageLabel()
+        self.imageLabel.setAlignment(Qt.AlignCenter)
+        self.scrollArea.setWidget(self.imageLabel)
+        # 滚动区域的属性
+        self.scrollArea.setWidgetResizable(False)
+        self.scrollArea.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        self.scrollArea.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        
+        self.getButton = PushButton(FIF.DOWNLOAD, "获取壁纸")
+        self.getButton.setFixedHeight(50)
+        self.getButton.setFixedWidth(200)
+        
+        # 添加新按钮
+        self.saveButton = PushButton(FIF.SAVE, "另存壁纸")
+        self.saveButton.setFixedHeight(50)
+        self.saveButton.setFixedWidth(200)
+        
+        self.selectButton = PushButton(FIF.FOLDER, "手动选择")
+        self.selectButton.setFixedHeight(50)
+        self.selectButton.setFixedWidth(200)
+        
+        self.setWallpaperButton = PushButton(FIF.HOME, "设为桌面")
+        self.setWallpaperButton.setFixedHeight(50)
+        self.setWallpaperButton.setFixedWidth(200)
+        
+        self.current_pixmap = None
+        self.current_wallpaper_path = None
+        self.autoGetTimer = QTimer(self)
+        self.autoGetTimer.timeout.connect(self.__getWallpaper)
+        self.autoSyncCheckTimer = QTimer(self)
+        self.autoSyncCheckTimer.timeout.connect(self.__checkAutoSync)
+
+        self.__initWidget()
+
+    def __initWidget(self):
+        """ 初始化界面 """
+        self.resize(1000, 800)
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.setViewportMargins(0, -40, 0, 20)  # 进一步减少顶部边距
+        self.setWidget(self.scrollWidget)
+        self.setWidgetResizable(True)
+
+        self.__setQss()
+        self.__initLayout()
+        self.__connectSignalToSlot()
+        
+        # 程序运行时自动获取壁纸
+        self.__getWallpaper()
+
+    def __initLayout(self):
+        """ 初始化布局 """
+        # 标题
+        self.wallpaperLabel.move(60, 63)
+
+        # 按钮水平布局
+        buttonLayout = QHBoxLayout()
+        buttonLayout.addWidget(self.getButton)
+        buttonLayout.addSpacing(10)
+        buttonLayout.addWidget(self.saveButton)
+        buttonLayout.addSpacing(10)
+        buttonLayout.addWidget(self.selectButton)
+        buttonLayout.addSpacing(10)
+        buttonLayout.addWidget(self.setWallpaperButton)
+        
+        # 主布局
+        self.mainLayout.setSpacing(20)
+        self.mainLayout.setContentsMargins(60, 160, 60, 0) 
+        self.mainLayout.addWidget(self.scrollArea)
+        self.mainLayout.addLayout(buttonLayout)
+
+    def __setQss(self):
+        """ 设置样式表 """
+        self.scrollWidget.setObjectName('scrollWidget')
+        self.wallpaperLabel.setObjectName('settingLabel')
+
+        theme = 'dark' if isDarkTheme() else 'light'
+        try:
+            qss_path = get_resource_path(os.path.join('resource', 'qss', theme, 'setting_interface.qss'))
+            with open(qss_path, encoding='utf-8') as f:
+                self.setStyleSheet(f.read())
+        except Exception:
+            pass
+
+    def __connectSignalToSlot(self):
+        """ 连接信号与槽 """
+        self.getButton.clicked.connect(self.__getWallpaper)
+        self.saveButton.clicked.connect(self.__saveWallpaper)
+        self.selectButton.clicked.connect(self.__selectWallpaper)
+        self.setWallpaperButton.clicked.connect(self.__setWallpaper)
+        
+        # 连接配置变更信号
+        cfg.autoGetInterval.valueChanged.connect(self.__updateAutoGetTimer)
+        cfg.autoSyncToDesktop.valueChanged.connect(self.__updateAutoSyncCheckTimer)
+        
+        # 初始更新定时器
+        self.__updateAutoGetTimer()
+        self.__updateAutoSyncCheckTimer()
+
+    def __updateAutoGetTimer(self):
+        """ 更新自动获取壁纸的定时器 """
+        # 停止当前定时器
+        self.autoGetTimer.stop()
+        
+        # 获取时间间隔
+        interval_str = cfg.autoGetInterval.value
+        
+        if interval_str != "从不":
+            if interval_str == "10分钟":
+                interval = 10 * 60 * 1000
+            elif interval_str == "30分钟":
+                interval = 30 * 60 * 1000
+            elif interval_str == "1小时":
+                interval = 60 * 60 * 1000
+            elif interval_str == "3小时":
+                interval = 3 * 60 * 60 * 1000
+            elif interval_str == "6小时":
+                interval = 6 * 60 * 60 * 1000
+            elif interval_str == "12小时":
+                interval = 12 * 60 * 60 * 1000
+            elif interval_str == "1天":
+                interval = 24 * 60 * 60 * 1000
+            elif interval_str == "3天":
+                interval = 3 * 24 * 60 * 60 * 1000
+            elif interval_str == "5天":
+                interval = 5 * 24 * 60 * 60 * 1000
+            elif interval_str == "7天":
+                interval = 7 * 24 * 60 * 60 * 1000
+            else:
+                interval = 30 * 60 * 1000
+            
+            # 启动定时器
+            self.autoGetTimer.start(interval)
+    
+    def __checkAutoSync(self):
+        """ 检测自动同步至桌面是否启用 """
+        if cfg.autoSyncToDesktop.value and self.current_wallpaper_path is not None:
+            self.__setWallpaper(show_notification=False)
+    
+    def __updateAutoSyncCheckTimer(self):
+        """ 更新自动同步检测定时器 """
+        # 停止当前定时器
+        self.autoSyncCheckTimer.stop()
+        
+        if cfg.autoSyncToDesktop.value:
+            self.autoSyncCheckTimer.start(5000)  # 5000毫秒 = 5秒
+
+    def resizeEvent(self, event):
+        """ 窗口大小变化时调整滚动区域大小 """
+        super().resizeEvent(event)
+        
+        # 计算滚动区域的尺寸
+        margin = 60
+        available_width = self.width() - margin * 2
+        available_height = self.height() - 240
+        
+        scroll_width = available_width
+        # 限制滚动区域的高度
+        scroll_height = min(int(scroll_width * 0.5), available_height)
+        
+        # 设置滚动区域的大小
+        self.scrollArea.setFixedSize(scroll_width, scroll_height)
+
+    def __getWallpaper(self):
+        """ 获取壁纸 """
+        try:
+            url = "https://wp.upx8.com/api.php?content=风景"
+            response = requests.get(url, stream=True)
+            
+            if response.status_code == 200:
+                # 保存文件
+                wallpaper_dir = os.path.join(BASE_DIR, 'wallpaper')
+                if not os.path.exists(wallpaper_dir):
+                    os.makedirs(wallpaper_dir)
+                
+                # 使用当前日期作为文件名
+                current_date = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+                wallpaper_path = os.path.join(wallpaper_dir, f'wallpaper_{current_date}.jpg')
+                
+                with open(wallpaper_path, 'wb') as f:
+                    f.write(response.content)
+                
+                # 管理壁纸保存量
+                save_limit = cfg.wallpaperSaveLimit.value
+                self.__manageWallpaperLimit(wallpaper_dir, save_limit)
+                
+                # 显示预览
+                self.current_pixmap = QPixmap(wallpaper_path)
+                self.current_wallpaper_path = wallpaper_path
+                if not self.current_pixmap.isNull():
+                    self.imageLabel.setPixmap(self.current_pixmap)
+                
+                # 显示成功消息
+                InfoBar.success(
+                    "成功",
+                    f"壁纸已下载到: {wallpaper_path}",
+                    duration=5000,
+                    parent=self
+                )
+                
+                # 如果启用了自动同步至桌面，则自动设置为桌面背景
+                if cfg.autoSyncToDesktop.value:
+                    self.__setWallpaper(show_notification=True)
+            else:
+                InfoBar.error(
+                    "错误",
+                    f"获取壁纸失败，状态码: {response.status_code}",
+                    duration=5000,
+                    parent=self
+                )
+        except Exception as e:
+            InfoBar.error(
+                "错误",
+                f"获取壁纸失败: {str(e)}",
+                duration=5000,
+                parent=self
+            )
+    
+    def __saveWallpaper(self):
+        """ 另存壁纸 """
+        if self.current_pixmap is None:
+            InfoBar.warning(
+                "提示",
+                "请先获取壁纸",
+                duration=5000,
+                parent=self
+            )
+            return
+        
+        file_path, _ = QFileDialog.getSaveFileName(
+            self, 
+            "另存壁纸", 
+            os.path.join(BASE_DIR, "wallpaper"), 
+            "JPEG图片 (*.jpg);;PNG图片 (*.png)"
+        )
+        
+        if file_path:
+            try:
+                self.current_pixmap.save(file_path)
+                InfoBar.success(
+                    "成功",
+                    f"壁纸已保存到: {file_path}",
+                    duration=5000,
+                    parent=self
+                )
+            except Exception as e:
+                InfoBar.error(
+                    "错误",
+                    f"保存壁纸失败: {str(e)}",
+                    duration=5000,
+                    parent=self
+                )
+    
+    def __selectWallpaper(self):
+        """ 手动选择壁纸 """
+        file_path, _ = QFileDialog.getOpenFileName(
+            self, 
+            "选择壁纸", 
+            os.path.join(BASE_DIR, "wallpaper"), 
+            "图片文件 (*.jpg *.jpeg *.png *.bmp *.gif)"
+        )
+        
+        if file_path:
+            try:
+                self.current_pixmap = QPixmap(file_path)
+                self.current_wallpaper_path = file_path
+                if not self.current_pixmap.isNull():
+                    self.imageLabel.setPixmap(self.current_pixmap)
+                
+                InfoBar.success(
+                    "成功",
+                    f"已选择壁纸: {file_path}",
+                    duration=5000,
+                    parent=self
+                )
+            except Exception as e:
+                InfoBar.error(
+                    "错误",
+                    f"选择壁纸失败: {str(e)}",
+                    duration=5000,
+                    parent=self
+                )
+    
+    def __manageWallpaperLimit(self, wallpaper_dir, save_limit):
+        """ 管理壁纸保存量，超过限制时删除最旧的壁纸 """
+        # 获取壁纸目录中的所有jpg文件
+        wallpapers = []
+        for file in os.listdir(wallpaper_dir):
+            if file.endswith('.jpg') and file.startswith('wallpaper_'):
+                file_path = os.path.join(wallpaper_dir, file)
+                # 获取文件的修改时间
+                mtime = os.path.getmtime(file_path)
+                wallpapers.append((mtime, file_path))
+        
+        wallpapers.sort(key=lambda x: x[0])
+        
+        # 删除超过限制的最旧壁纸
+        while len(wallpapers) > save_limit:
+            _, file_path = wallpapers.pop(0)
+            try:
+                os.remove(file_path)
+            except Exception:
+                pass
+    
+    def __setWallpaper(self, show_notification=True):
+        """ 设为桌面壁纸 """
+        if self.current_wallpaper_path is None:
+            if show_notification:
+                InfoBar.warning(
+                    "提示",
+                    "请先获取或选择壁纸",
+                    duration=5000,
+                    parent=self
+                )
+            return
+        
+        try:
+            # 使用ctypes设置桌面壁纸
+            SPI_SETDESKWALLPAPER = 20
+            SPIF_UPDATEINIFILE = 0x01
+            SPIF_SENDWININICHANGE = 0x02
+            
+            ctypes.windll.user32.SystemParametersInfoW(
+                SPI_SETDESKWALLPAPER, 
+                0, 
+                self.current_wallpaper_path, 
+                SPIF_UPDATEINIFILE | SPIF_SENDWININICHANGE
+            )
+            
+            if show_notification:
+                InfoBar.success(
+                    "成功",
+                    "壁纸已设置为桌面背景",
+                    duration=5000,
+                    parent=self
+                )
+        except Exception as e:
+            if show_notification:
+                InfoBar.error(
+                    "错误",
+                    f"设置壁纸失败: {str(e)}",
+                    duration=5000,
+                    parent=self
+                )
 
 class MainWindow(FluentWindow):
     """ 主窗口 """
@@ -130,12 +488,36 @@ class MainWindow(FluentWindow):
         home = QWidget()
         home.setObjectName("home")
         self.addSubInterface(home, FIF.HOME, "主界面")
+        
+        # 添加壁纸导航选项
+        wallpaper = WallpaperInterface()
+        wallpaper.setObjectName("wallpaper")
+        self.addSubInterface(wallpaper, FIF.PHOTO, "壁纸")
 
     def initSettingsNavigation(self):
         """ 初始化设置导航 """
         setting = SettingInterface()
         setting.setObjectName("setting")
         self.addSubInterface(setting, FIF.SETTING, "设置", NavigationItemPosition.BOTTOM)
+        
+        about = QWidget()
+        about.setObjectName("about")
+        aboutLayout = QVBoxLayout(about)
+        aboutLayout.setAlignment(Qt.AlignCenter)
+        
+        appNameLabel = QLabel(APP_NAME, about)
+        appNameLabel.setStyleSheet("font-size: 24px; font-weight: bold;")
+        
+        versionLabel = QLabel(f"版本: {VERSION}", about)
+        buildDateLabel = QLabel(f"构建日期: {BUILD_DATE}", about)
+        
+        aboutLayout.addWidget(appNameLabel)
+        aboutLayout.addSpacing(20)
+        aboutLayout.addWidget(versionLabel)
+        aboutLayout.addWidget(buildDateLabel)
+        aboutLayout.addSpacing(40)
+        
+        self.addSubInterface(about, FIF.INFO, "关于", NavigationItemPosition.BOTTOM)
 
     def moveToCenter(self):
         """ 移动窗口到屏幕中央 """
@@ -182,7 +564,6 @@ def install_fonts():
             pass
 
 if __name__ == "__main__":
-    from PyQt5.QtCore import Qt
     QApplication.setHighDpiScaleFactorRoundingPolicy(Qt.HighDpiScaleFactorRoundingPolicy.PassThrough)
     QApplication.setAttribute(Qt.AA_EnableHighDpiScaling)
     QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps)
