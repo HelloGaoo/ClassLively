@@ -11,6 +11,7 @@ from setting import SettingInterface
 import shutil
 import ctypes
 from config import cfg
+from logger import logger
 
 class MainWindow(FluentWindow):
     """ 主窗口 """
@@ -100,7 +101,7 @@ if __name__ == "__main__":
             "MainWindow": {
                 "DpiScale": "Auto",
                 "Language": "Auto",
-                "ThemeColor": "#30c361",
+                "ThemeColor": "#00C780",
                 "ThemeMode": "Auto"
             },
             "Log": {
@@ -115,6 +116,26 @@ if __name__ == "__main__":
         }
         with open(config_path, 'w', encoding='utf-8') as f:
             json.dump(default_config, f, ensure_ascii=False, indent=4)
+
+    # 使用配置中的日志设置更新日志系统
+    # 获取日志级别的字符串值
+    if hasattr(cfg.logLevel.value, 'value'):
+        log_level_str = cfg.logLevel.value.value
+    else:
+        log_level_str = str(cfg.logLevel.value)
+    
+    logger.update_config(
+        disable_log=cfg.disableLog.value,
+        log_level=log_level_str,
+        max_count=cfg.logMaxCount.value,
+        max_days=cfg.logMaxDays.value
+    )
+    
+    # 测试不同级别的日志
+    logger.debug("这是一条DEBUG级别的日志")
+    logger.info("这是一条INFO级别的日志")
+    logger.warning("这是一条WARNING级别的日志")
+    logger.error("这是一条ERROR级别的日志")
 
     app = QApplication(sys.argv)
 
@@ -138,7 +159,9 @@ if __name__ == "__main__":
             QFontDatabase.addApplicationFont(font_path)
 
     QApplication.setFont(QFont("HarmonyOS Sans SC", 10))
+    logger.info("字体已设置为: HarmonyOS Sans SC")
 
     window = MainWindow()
     window.show()
+    logger.info("应用程序启动成功")
     sys.exit(app.exec_())

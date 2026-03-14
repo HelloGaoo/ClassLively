@@ -2,8 +2,8 @@
     "Log": {
         "DisableLog": false,
         "LogLevel": "Error",
-        "MaxCount": 422,
-        "MaxDays": 152
+        "MaxCount": 149,
+        "MaxDays": 215
     },
     "MainWindow": {
         "DpiScale": "Auto",

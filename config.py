@@ -74,16 +74,16 @@ class Config(QConfig):
     )
 
     logLevel = OptionsConfigItem(
-        "Log", "LogLevel", LogLevel.INFO, OptionsValidator(LogLevel), LogLevelSerializer()
+        "Log", "LogLevel", LogLevel.INFO, OptionsValidator(LogLevel), LogLevelSerializer(), restart=True
     )
     disableLog = ConfigItem(
-        "Log", "DisableLog", False, BoolValidator()
+        "Log", "DisableLog", False, BoolValidator(), restart=True
     )
     logMaxCount = RangeConfigItem(
-        "Log", "MaxCount", 50, RangeValidator(10, 500)
+        "Log", "MaxCount", 50, RangeValidator(10, 500), restart=True
     )
     logMaxDays = RangeConfigItem(
-        "Log", "MaxDays", 7, RangeValidator(30, 365)
+        "Log", "MaxDays", 7, RangeValidator(30, 365), restart=True
     )
 
 

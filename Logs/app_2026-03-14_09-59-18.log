@@ -1,5 +1,0 @@
-2026-03-14 09:59:18|INFO|Main.init_logger|logger:189|日志系统初始化完成
-2026-03-14 09:59:18|INFO|Main.init_logger|logger:190|日志级别: OptionsConfigItem[options=[<LogLevel.DEBUG: 'Debug'>, <LogLevel.INFO: 'Info'>, <LogLevel.WARNING: 'Warning'>, <LogLevel.ERROR: 'Error'>], value=LogLevel.INFO]
-2026-03-14 09:59:18|INFO|Main.init_logger|logger:191|日志最大数量: 422
-2026-03-14 09:59:18|INFO|Main.init_logger|logger:197|日志保留天数: 152
-2026-03-14 09:59:18|INFO|Setting.__onLogSettingChanged|setting:169|设置已保存: 日志级别
