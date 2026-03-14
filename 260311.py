@@ -160,6 +160,11 @@ if __name__ == "__main__":
     logger.info(f"读取日志时间上限配置: {cfg.logMaxDays.value}")
 
     app = QApplication(sys.argv)
+    
+    # 设置应用程序图标
+    icon_path = get_resource_path(os.path.join("resource", "icons", "CY.png"))
+    if os.path.exists(icon_path):
+        app.setWindowIcon(QIcon(icon_path))
 
     locale = QLocale(QLocale.Chinese, QLocale.China)
     fluentTranslator = FluentTranslator(locale)
