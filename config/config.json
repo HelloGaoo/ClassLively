@@ -1,8 +1,8 @@
 {
     "Log": {
-        "DisableLog": true,
-        "LogLevel": "Info",
-        "MaxCount": 10,
+        "DisableLog": false,
+        "LogLevel": "Error",
+        "MaxCount": 422,
         "MaxDays": 152
     },
     "MainWindow": {

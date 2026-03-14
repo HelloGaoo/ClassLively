@@ -1,0 +1,33 @@
+2026-03-14 09:27:45|INFO|Main.init_logger|logger:157|日志系统初始化完成
+2026-03-14 09:27:45|INFO|Main.init_logger|logger:158|日志级别: OptionsConfigItem[options=[<LogLevel.DEBUG: 'Debug'>, <LogLevel.INFO: 'Info'>, <LogLevel.WARNING: 'Warning'>, <LogLevel.ERROR: 'Error'>], value=LogLevel.INFO]
+2026-03-14 09:27:45|INFO|Main.init_logger|logger:159|日志最大数量: 10
+2026-03-14 09:27:45|INFO|Main.init_logger|logger:160|日志保留天数: 152
+2026-03-14 09:27:45|INFO|Main.<module>|260311:138|程序启动
+2026-03-14 09:27:45|INFO|Main.<module>|260311:139|字体安装完成
+2026-03-14 09:27:45|INFO|Main.<module>|260311:140|配置文件处理完成
+2026-03-14 09:27:45|INFO|Main.<module>|260311:142|初始化应用程序
+2026-03-14 09:27:45|INFO|Main.<module>|260311:145|设置国际化
+2026-03-14 09:27:45|INFO|Main.<module>|260311:150|加载字体
+2026-03-14 09:27:45|INFO|Main.<module>|260311:166|设置全局字体为: HarmonyOS Sans SC
+2026-03-14 09:27:45|INFO|Main.<module>|260311:169|创建主窗口
+2026-03-14 09:27:45|INFO|Setting.__init__|setting:20|初始化设置界面
+2026-03-14 09:27:46|INFO|Setting.__init__|setting:76|设置界面初始化完成
+2026-03-14 09:27:46|INFO|Main.<module>|260311:171|显示主窗口
+2026-03-14 09:27:46|INFO|Main.<module>|260311:173|进入事件循环
+2026-03-14 09:27:51|INFO|Setting.__onSettingChanged|setting:156|设置已保存: 禁用日志
+2026-03-14 09:27:52|INFO|Setting.__onSettingChanged|setting:156|设置已保存: 禁用日志
+2026-03-14 09:27:52|INFO|Setting.__onSettingChanged|setting:156|设置已保存: 禁用日志
+2026-03-14 09:27:53|INFO|Setting.__onSettingChanged|setting:156|设置已保存: 禁用日志
+2026-03-14 09:27:53|INFO|Setting.__onSettingChanged|setting:156|设置已保存: 禁用日志
+2026-03-14 09:27:54|INFO|Setting.__onSettingChanged|setting:156|设置已保存: 禁用日志
+2026-03-14 09:27:54|INFO|Setting.__onSettingChanged|setting:156|设置已保存: 禁用日志
+2026-03-14 09:27:54|INFO|Setting.__onSettingChanged|setting:156|设置已保存: 禁用日志
+2026-03-14 09:27:55|INFO|Setting.__onSettingChanged|setting:156|设置已保存: 禁用日志
+2026-03-14 09:27:55|INFO|Setting.__onSettingChanged|setting:156|设置已保存: 禁用日志
+2026-03-14 09:27:55|INFO|Setting.__onSettingChanged|setting:156|设置已保存: 禁用日志
+2026-03-14 09:27:55|INFO|Setting.__onSettingChanged|setting:156|设置已保存: 禁用日志
+2026-03-14 09:27:56|INFO|Setting.__onSettingChanged|setting:156|设置已保存: 禁用日志
+2026-03-14 09:27:56|INFO|Setting.__onSettingChanged|setting:156|设置已保存: 禁用日志
+2026-03-14 09:27:56|INFO|Setting.__onSettingChanged|setting:156|设置已保存: 禁用日志
+2026-03-14 09:27:56|INFO|Setting.__onSettingChanged|setting:156|设置已保存: 禁用日志
+2026-03-14 09:27:57|INFO|Setting.__onSettingChanged|setting:156|设置已保存: 禁用日志

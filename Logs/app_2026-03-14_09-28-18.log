@@ -1,0 +1,93 @@
+2026-03-14 09:28:18|INFO|Main.cleanup_old_logs_by_count|logger:102|删除过期日志文件: e:\py\260311\Logs\app_2026-03-14_09-20-49.log
+2026-03-14 09:28:18|INFO|Main.cleanup_old_logs_by_count|logger:102|删除过期日志文件: e:\py\260311\Logs\app_2026-03-14_09-19-36.log
+2026-03-14 09:28:18|INFO|Main.cleanup_old_logs_by_count|logger:102|删除过期日志文件: e:\py\260311\Logs\app_2026-03-14_09-19-01.log
+2026-03-14 09:28:18|INFO|Main.cleanup_old_logs_by_count|logger:102|删除过期日志文件: e:\py\260311\Logs\app_2026-03-13_23-01-07.log
+2026-03-14 09:28:18|INFO|Main.cleanup_old_logs_by_count|logger:102|删除过期日志文件: e:\py\260311\Logs\app_2026-03-13_22-59-49.log
+2026-03-14 09:28:18|INFO|Main.cleanup_old_logs_by_count|logger:102|删除过期日志文件: e:\py\260311\Logs\app_2026-03-13_22-59-13.log
+2026-03-14 09:28:18|INFO|Main.cleanup_old_logs_by_count|logger:102|删除过期日志文件: e:\py\260311\Logs\app_2026-03-13_22-54-40.log
+2026-03-14 09:28:18|INFO|Main.cleanup_old_logs_by_count|logger:102|删除过期日志文件: e:\py\260311\Logs\app_2026-03-13_22-54-07.log
+2026-03-14 09:28:18|INFO|Main.cleanup_old_logs_by_count|logger:110|清理日志完成: 共 11 个文件，保留 3 个，删除 8 个，失败 0 个
+2026-03-14 09:28:18|INFO|Main.init_logger|logger:157|日志系统初始化完成
+2026-03-14 09:28:18|INFO|Main.init_logger|logger:158|日志级别: OptionsConfigItem[options=[<LogLevel.DEBUG: 'Debug'>, <LogLevel.INFO: 'Info'>, <LogLevel.WARNING: 'Warning'>, <LogLevel.ERROR: 'Error'>], value=LogLevel.INFO]
+2026-03-14 09:28:18|INFO|Main.init_logger|logger:159|日志最大数量: 10
+2026-03-14 09:28:18|INFO|Main.init_logger|logger:160|日志保留天数: 152
+2026-03-14 09:28:18|INFO|Main.<module>|260311:138|程序启动
+2026-03-14 09:28:18|INFO|Main.<module>|260311:139|字体安装完成
+2026-03-14 09:28:18|INFO|Main.<module>|260311:140|配置文件处理完成
+2026-03-14 09:28:18|INFO|Main.<module>|260311:142|初始化应用程序
+2026-03-14 09:28:18|INFO|Main.<module>|260311:145|设置国际化
+2026-03-14 09:28:18|INFO|Main.<module>|260311:150|加载字体
+2026-03-14 09:28:18|INFO|Main.<module>|260311:166|设置全局字体为: HarmonyOS Sans SC
+2026-03-14 09:28:18|INFO|Main.<module>|260311:169|创建主窗口
+2026-03-14 09:28:18|INFO|Setting.__init__|setting:20|初始化设置界面
+2026-03-14 09:28:19|INFO|Setting.__init__|setting:76|设置界面初始化完成
+2026-03-14 09:28:19|INFO|Main.<module>|260311:171|显示主窗口
+2026-03-14 09:28:19|INFO|Main.<module>|260311:173|进入事件循环
+2026-03-14 09:28:23|INFO|Setting.__onSettingChanged|setting:155|设置变更已保存: 禁用日志
+2026-03-14 09:28:23|INFO|Setting.__onSettingChanged|setting:155|设置变更已保存: 禁用日志
+2026-03-14 09:28:24|INFO|Setting.__onSettingChanged|setting:155|设置变更已保存: 禁用日志
+2026-03-14 09:28:25|INFO|Setting.__onSettingChanged|setting:155|设置变更已保存: 禁用日志
+2026-03-14 09:28:26|INFO|Setting.__onSettingChanged|setting:155|设置变更已保存: 禁用日志
+2026-03-14 09:28:28|INFO|Setting.__onSettingChanged|setting:155|设置变更已保存: 禁用日志
+2026-03-14 09:28:33|INFO|Setting.__onSettingChanged|setting:155|设置变更已保存: 日志数量上限
+2026-03-14 09:28:35|INFO|Setting.__onSettingChanged|setting:155|设置变更已保存: 日志数量上限
+2026-03-14 09:28:36|INFO|Setting.__onSettingChanged|setting:155|设置变更已保存: 禁用日志
+2026-03-14 09:28:36|INFO|Setting.__onSettingChanged|setting:155|设置变更已保存: 禁用日志
+2026-03-14 09:28:36|INFO|Setting.__onSettingChanged|setting:155|设置变更已保存: 禁用日志
+2026-03-14 09:28:36|INFO|Setting.__onSettingChanged|setting:155|设置变更已保存: 禁用日志
+2026-03-14 09:28:37|INFO|Setting.__onSettingChanged|setting:155|设置变更已保存: 禁用日志
+2026-03-14 09:28:37|INFO|Setting.__onSettingChanged|setting:155|设置变更已保存: 禁用日志
+2026-03-14 09:28:37|INFO|Setting.__onSettingChanged|setting:155|设置变更已保存: 禁用日志
+2026-03-14 09:28:37|INFO|Setting.__onSettingChanged|setting:155|设置变更已保存: 禁用日志
+2026-03-14 09:28:37|INFO|Setting.__onSettingChanged|setting:155|设置变更已保存: 禁用日志
+2026-03-14 09:28:37|INFO|Setting.__onSettingChanged|setting:155|设置变更已保存: 禁用日志
+2026-03-14 09:28:37|INFO|Setting.__onSettingChanged|setting:155|设置变更已保存: 禁用日志
+2026-03-14 09:28:38|INFO|Setting.__onSettingChanged|setting:155|设置变更已保存: 禁用日志
+2026-03-14 09:28:38|INFO|Setting.__onSettingChanged|setting:155|设置变更已保存: 禁用日志
+2026-03-14 09:28:38|INFO|Setting.__onSettingChanged|setting:155|设置变更已保存: 禁用日志
+2026-03-14 09:28:38|INFO|Setting.__onSettingChanged|setting:155|设置变更已保存: 禁用日志
+2026-03-14 09:28:38|INFO|Setting.__onSettingChanged|setting:155|设置变更已保存: 禁用日志
+2026-03-14 09:28:39|INFO|Setting.__onSettingChanged|setting:155|设置变更已保存: 禁用日志
+2026-03-14 09:28:39|INFO|Setting.__onSettingChanged|setting:155|设置变更已保存: 禁用日志
+2026-03-14 09:28:39|INFO|Setting.__onSettingChanged|setting:155|设置变更已保存: 禁用日志
+2026-03-14 09:28:39|INFO|Setting.__onSettingChanged|setting:155|设置变更已保存: 禁用日志
+2026-03-14 09:28:39|INFO|Setting.__onSettingChanged|setting:155|设置变更已保存: 禁用日志
+2026-03-14 09:28:39|INFO|Setting.__onSettingChanged|setting:155|设置变更已保存: 禁用日志
+2026-03-14 09:28:39|INFO|Setting.__onSettingChanged|setting:155|设置变更已保存: 禁用日志
+2026-03-14 09:28:40|INFO|Setting.__onSettingChanged|setting:155|设置变更已保存: 禁用日志
+2026-03-14 09:28:40|INFO|Setting.__onSettingChanged|setting:155|设置变更已保存: 禁用日志
+2026-03-14 09:28:40|INFO|Setting.__onSettingChanged|setting:155|设置变更已保存: 禁用日志
+2026-03-14 09:28:40|INFO|Setting.__onSettingChanged|setting:155|设置变更已保存: 禁用日志
+2026-03-14 09:28:40|INFO|Setting.__onSettingChanged|setting:155|设置变更已保存: 禁用日志
+2026-03-14 09:28:40|INFO|Setting.__onSettingChanged|setting:155|设置变更已保存: 禁用日志
+2026-03-14 09:28:41|INFO|Setting.__onSettingChanged|setting:155|设置变更已保存: 禁用日志
+2026-03-14 09:28:41|INFO|Setting.__onSettingChanged|setting:155|设置变更已保存: 禁用日志
+2026-03-14 09:28:41|INFO|Setting.__onSettingChanged|setting:155|设置变更已保存: 禁用日志
+2026-03-14 09:28:41|INFO|Setting.__onSettingChanged|setting:155|设置变更已保存: 禁用日志
+2026-03-14 09:28:41|INFO|Setting.__onSettingChanged|setting:155|设置变更已保存: 禁用日志
+2026-03-14 09:28:41|INFO|Setting.__onSettingChanged|setting:155|设置变更已保存: 禁用日志
+2026-03-14 09:28:41|INFO|Setting.__onSettingChanged|setting:155|设置变更已保存: 禁用日志
+2026-03-14 09:28:42|INFO|Setting.__onSettingChanged|setting:155|设置变更已保存: 禁用日志
+2026-03-14 09:28:42|INFO|Setting.__onSettingChanged|setting:155|设置变更已保存: 禁用日志
+2026-03-14 09:28:42|INFO|Setting.__onSettingChanged|setting:155|设置变更已保存: 禁用日志
+2026-03-14 09:28:42|INFO|Setting.__onSettingChanged|setting:155|设置变更已保存: 禁用日志
+2026-03-14 09:28:42|INFO|Setting.__onSettingChanged|setting:155|设置变更已保存: 禁用日志
+2026-03-14 09:28:42|INFO|Setting.__onSettingChanged|setting:155|设置变更已保存: 禁用日志
+2026-03-14 09:28:43|INFO|Setting.__onSettingChanged|setting:155|设置变更已保存: 禁用日志
+2026-03-14 09:28:43|INFO|Setting.__onSettingChanged|setting:155|设置变更已保存: 禁用日志
+2026-03-14 09:28:43|INFO|Setting.__onSettingChanged|setting:155|设置变更已保存: 禁用日志
+2026-03-14 09:28:43|INFO|Setting.__onSettingChanged|setting:155|设置变更已保存: 禁用日志
+2026-03-14 09:28:43|INFO|Setting.__onSettingChanged|setting:155|设置变更已保存: 禁用日志
+2026-03-14 09:28:44|INFO|Setting.__onSettingChanged|setting:155|设置变更已保存: 禁用日志
+2026-03-14 09:28:44|INFO|Setting.__onSettingChanged|setting:155|设置变更已保存: 禁用日志
+2026-03-14 09:28:44|INFO|Setting.__onSettingChanged|setting:155|设置变更已保存: 禁用日志
+2026-03-14 09:28:44|INFO|Setting.__onSettingChanged|setting:155|设置变更已保存: 禁用日志
+2026-03-14 09:28:44|INFO|Setting.__onSettingChanged|setting:155|设置变更已保存: 禁用日志
+2026-03-14 09:28:44|INFO|Setting.__onSettingChanged|setting:155|设置变更已保存: 禁用日志
+2026-03-14 09:28:45|INFO|Setting.__onSettingChanged|setting:155|设置变更已保存: 禁用日志
+2026-03-14 09:28:45|INFO|Setting.__onSettingChanged|setting:155|设置变更已保存: 禁用日志
+2026-03-14 09:28:45|INFO|Setting.__onSettingChanged|setting:155|设置变更已保存: 禁用日志
+2026-03-14 09:28:45|INFO|Setting.__onSettingChanged|setting:155|设置变更已保存: 禁用日志
+2026-03-14 09:28:45|INFO|Setting.__onSettingChanged|setting:155|设置变更已保存: 禁用日志
+2026-03-14 09:28:45|INFO|Setting.__onSettingChanged|setting:155|设置变更已保存: 禁用日志
+2026-03-14 09:28:45|INFO|Setting.__onSettingChanged|setting:155|设置变更已保存: 禁用日志

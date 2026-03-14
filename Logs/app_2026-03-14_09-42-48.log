@@ -1,0 +1,19 @@
+2026-03-14 09:42:48|INFO|Main.info|logger:64|日志系统初始化完成
+2026-03-14 09:42:48|INFO|Main.info|logger:64|日志级别: LogLevel.ERROR
+2026-03-14 09:42:48|INFO|Main.info|logger:64|日志最大数量: 422
+2026-03-14 09:42:48|INFO|Main.info|logger:64|日志保留天数: 152
+2026-03-14 09:42:48|INFO|Main.info|logger:64|程序启动
+2026-03-14 09:42:48|INFO|Main.info|logger:64|字体安装完成
+2026-03-14 09:42:48|INFO|Main.info|logger:64|配置文件处理完成
+2026-03-14 09:42:48|INFO|Main.info|logger:64|初始化应用程序
+2026-03-14 09:42:48|INFO|Main.info|logger:64|设置国际化
+2026-03-14 09:42:48|INFO|Main.info|logger:64|加载字体
+2026-03-14 09:42:48|INFO|Main.info|logger:64|设置全局字体为: HarmonyOS Sans SC
+2026-03-14 09:42:48|INFO|Main.info|logger:64|创建主窗口
+2026-03-14 09:42:48|INFO|Setting.info|logger:64|初始化设置界面
+2026-03-14 09:42:48|INFO|Setting.info|logger:64|设置界面初始化完成
+2026-03-14 09:42:48|INFO|Main.info|logger:64|显示主窗口
+2026-03-14 09:42:48|INFO|Main.info|logger:64|进入事件循环
+2026-03-14 09:44:46|INFO|Setting.info|logger:64|设置变更已保存: 日志级别
+2026-03-14 09:44:47|INFO|Setting.info|logger:64|设置变更已保存: 日志级别
+2026-03-14 09:44:48|INFO|Setting.info|logger:64|设置变更已保存: 日志级别

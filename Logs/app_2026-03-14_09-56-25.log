@@ -1,0 +1,21 @@
+2026-03-14 09:56:25|INFO|Main.init_logger|logger:189|日志系统初始化完成
+2026-03-14 09:56:25|INFO|Main.init_logger|logger:190|日志级别: OptionsConfigItem[options=[<LogLevel.DEBUG: 'Debug'>, <LogLevel.INFO: 'Info'>, <LogLevel.WARNING: 'Warning'>, <LogLevel.ERROR: 'Error'>], value=LogLevel.INFO]
+2026-03-14 09:56:25|INFO|Main.init_logger|logger:191|日志最大数量: 422
+2026-03-14 09:56:25|INFO|Main.init_logger|logger:197|日志保留天数: 152
+2026-03-14 09:56:25|INFO|Main.<module>|260311:135|程序启动
+2026-03-14 09:56:25|INFO|Main.<module>|260311:138|开始安装字体
+2026-03-14 09:56:25|INFO|Main.<module>|260311:140|字体安装完成
+2026-03-14 09:56:25|INFO|Main.<module>|260311:141|配置文件处理完成
+2026-03-14 09:56:25|INFO|Main.<module>|260311:143|初始化应用程序
+2026-03-14 09:56:25|INFO|Main.<module>|260311:146|设置国际化
+2026-03-14 09:56:25|INFO|Main.<module>|260311:151|加载字体
+2026-03-14 09:56:25|INFO|Main.<module>|260311:167|设置全局字体为: HarmonyOS Sans SC
+2026-03-14 09:56:25|INFO|Main.<module>|260311:170|创建主窗口
+2026-03-14 09:56:25|INFO|Setting.__init__|setting:20|初始化设置界面
+2026-03-14 09:56:25|INFO|Setting.__init__|setting:76|设置界面初始化完成
+2026-03-14 09:56:25|INFO|Main.<module>|260311:172|显示主窗口
+2026-03-14 09:56:25|INFO|Main.<module>|260311:174|进入事件循环
+2026-03-14 09:56:30|INFO|Setting.__onSettingChanged|setting:159|设置已保存: 日志级别
+2026-03-14 09:56:31|INFO|Setting.__onSettingChanged|setting:159|设置已保存: 日志级别
+2026-03-14 09:56:32|INFO|Setting.__onSettingChanged|setting:159|设置已保存: 日志级别
+2026-03-14 09:56:33|INFO|Setting.__onSettingChanged|setting:159|设置已保存: 日志级别

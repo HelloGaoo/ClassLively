@@ -8,17 +8,12 @@ from qfluentwidgets import (
 )
 from config import cfg
 
-from logger import get_logger
-
 
 class SettingInterface(ScrollArea):
     """ 设置界面 """
 
     def __init__(self, parent=None):
         super().__init__(parent=parent)
-        self.logger = get_logger("Setting")
-        self.logger.info("初始化设置界面")
-        
         self.scrollWidget = QWidget()
         self.expandLayout = ExpandLayout(self.scrollWidget)
 
@@ -73,7 +68,6 @@ class SettingInterface(ScrollArea):
         )
 
         self.__initWidget()
-        self.logger.info("设置界面初始化完成")
 
     def __initWidget(self):
         """ 初始化界面 """
@@ -119,10 +113,8 @@ class SettingInterface(ScrollArea):
 
     def __onThemeChanged(self, theme: Theme):
         """ 主题变更槽函数 """
-        self.logger.info(f"主题变更为: {theme.value}")
         setTheme(theme)
         self.__setQss()
-        self.logger.info("主题变更完成")
 
     def __showRestartTooltip(self):
         """ 显示重启提示 """
@@ -137,19 +129,3 @@ class SettingInterface(ScrollArea):
         cfg.themeChanged.connect(self.__onThemeChanged)
         self.themeColorCard.colorChanged.connect(setThemeColor)
         cfg.appRestartSig.connect(self.__showRestartTooltip)
-        self.themeCard.optionChanged.connect(lambda: self.__onSettingChanged("主题"))
-        self.themeColorCard.colorChanged.connect(lambda: self.__onSettingChanged("主题颜色"))
-        self.logLevelCard.optionChanged.connect(lambda: self.__onSettingChanged("日志级别"))
-        self.disableLogCard.checkedChanged.connect(lambda: self.__onSettingChanged("禁用日志"))
-        self.logMaxCountCard.valueChanged.connect(lambda: self.__onSettingChanged("日志数量上限"))
-        self.logMaxDaysCard.valueChanged.connect(lambda: self.__onSettingChanged("日志时间上限"))
-    
-    def __onSettingChanged(self, setting_name):
-        """ 设置变更槽函数，显示保存提示 """
-        from qfluentwidgets import InfoBar
-        InfoBar.success(
-            '',
-            "设置变更已保存",
-            parent=self.window()
-        )
-        self.logger.info(f"设置变更已保存: {setting_name}")
