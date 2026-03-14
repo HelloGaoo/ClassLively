@@ -63,8 +63,9 @@ def get_resource_path(relative_path):
 class WallpaperInterface(ScrollArea):
     """ 壁纸界面 """
 
-    def __init__(self, parent=None):
+    def __init__(self, mainWindow=None, parent=None):
         super().__init__(parent=parent)
+        self.mainWindow = mainWindow
         self.scrollWidget = QWidget()
         self.mainLayout = QVBoxLayout(self.scrollWidget)
 
@@ -260,6 +261,15 @@ class WallpaperInterface(ScrollArea):
                 self.current_wallpaper_path = wallpaper_path
                 if not self.current_pixmap.isNull():
                     self.imageLabel.setPixmap(self.current_pixmap)
+                    # 更新主界面的背景照片
+                    if self.mainWindow and hasattr(self.mainWindow, 'homeBackgroundImage'):
+                        self.mainWindow.originalPixmap = self.current_pixmap
+                        available_width = self.mainWindow.width() - 50
+                        available_height = self.mainWindow.height()
+                        scaled_pixmap = self.current_pixmap.scaled(available_width, available_height, Qt.IgnoreAspectRatio, Qt.SmoothTransformation)
+                        self.mainWindow.homeBackgroundImage.setPixmap(scaled_pixmap)
+                        # 强制刷新
+                        QApplication.processEvents()
                 
                 # 显示成功消息
                 InfoBar.success(
@@ -337,10 +347,19 @@ class WallpaperInterface(ScrollArea):
                 self.current_wallpaper_path = file_path
                 if not self.current_pixmap.isNull():
                     self.imageLabel.setPixmap(self.current_pixmap)
+                    # 更新主界面的背景照片
+                    if self.mainWindow and hasattr(self.mainWindow, 'homeBackgroundImage'):
+                        self.mainWindow.originalPixmap = self.current_pixmap
+                        available_width = self.mainWindow.width() - 50
+                        available_height = self.mainWindow.height()
+                        scaled_pixmap = self.current_pixmap.scaled(available_width, available_height, Qt.IgnoreAspectRatio, Qt.SmoothTransformation)
+                        self.mainWindow.homeBackgroundImage.setPixmap(scaled_pixmap)
+                        # 强制刷新
+                        QApplication.processEvents()
                 
                 InfoBar.success(
                     "成功",
-                    f"已选择壁纸: {file_path}",
+                    f"已选择壁纸：{file_path}",
                     duration=5000,
                     parent=self
                 )
@@ -430,6 +449,7 @@ class MainWindow(FluentWindow):
         self.initSettingsNavigation()
         self.setWindowTitle(APP_NAME)
         self.resize(1100, 700)
+        self.setMinimumSize(400, 300)  # 最小窗口尺寸
         self.moveToCenter()
         
         # 初始化系统托盘
@@ -487,12 +507,23 @@ class MainWindow(FluentWindow):
         """ 初始化主界面导航 """
         home = QWidget()
         home.setObjectName("home")
+        
+        self.homeBackgroundImage = QLabel()
+        self.homeBackgroundImage.setAlignment(Qt.AlignCenter)
+        self.originalPixmap = None
+        
+        # 主界面布局
+        homeLayout = QVBoxLayout(home)
+        homeLayout.setAlignment(Qt.AlignCenter)
+        homeLayout.setContentsMargins(0, 0, 0, 0)
+        homeLayout.addWidget(self.homeBackgroundImage)
+        
         self.addSubInterface(home, FIF.HOME, "主界面")
         
         # 添加壁纸导航选项
-        wallpaper = WallpaperInterface()
-        wallpaper.setObjectName("wallpaper")
-        self.addSubInterface(wallpaper, FIF.PHOTO, "壁纸")
+        self.wallpaper = WallpaperInterface(mainWindow=self)
+        self.wallpaper.setObjectName("wallpaper")
+        self.addSubInterface(self.wallpaper, FIF.PHOTO, "壁纸")
 
     def initSettingsNavigation(self):
         """ 初始化设置导航 """
@@ -518,6 +549,19 @@ class MainWindow(FluentWindow):
         aboutLayout.addSpacing(40)
         
         self.addSubInterface(about, FIF.INFO, "关于", NavigationItemPosition.BOTTOM)
+
+    def resizeEvent(self, event):
+        """ 窗口大小变化时调整图片大小 """
+        super().resizeEvent(event)
+        if hasattr(self, 'homeBackgroundImage') and self.originalPixmap is not None:
+            available_width = self.width() - 50
+            available_height = self.height()
+            
+            if not self.originalPixmap.isNull():
+                scaled_pixmap = self.originalPixmap.scaled(available_width, available_height, Qt.IgnoreAspectRatio, Qt.SmoothTransformation)
+                self.homeBackgroundImage.setPixmap(scaled_pixmap)
+                # 强制刷新
+                QApplication.processEvents()
 
     def moveToCenter(self):
         """ 移动窗口到屏幕中央 """

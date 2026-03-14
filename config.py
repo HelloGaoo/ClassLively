@@ -101,10 +101,10 @@ class Config(QConfig):
         "Wallpaper", "SaveLimit", 50, RangeValidator(10, 100)
     )
     autoGetInterval = OptionsConfigItem(
-        "Wallpaper", "AutoGetInterval", "从不", OptionsValidator(["从不", "10分钟", "30分钟", "1小时", "3小时", "6小时", "12小时", "1天", "3天", "5天", "7天"])
+        "Wallpaper", "AutoGetInterval", "30分钟", OptionsValidator(["从不", "10分钟", "30分钟", "1小时", "3小时", "6小时", "12小时", "1天", "3天", "5天", "7天"])
     )
     autoSyncToDesktop = ConfigItem(
-        "Wallpaper", "AutoSyncToDesktop", False, BoolValidator()
+        "Wallpaper", "AutoSyncToDesktop", True, BoolValidator()
     )
 
 
