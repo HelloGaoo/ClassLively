@@ -85,8 +85,15 @@ class Config(QConfig):
     logMaxDays = RangeConfigItem(
         "Log", "MaxDays", 7, RangeValidator(30, 365)
     )
+    
+    # 关闭事件行为
     closeAction = OptionsConfigItem(
         "Other", "CloseAction", "minimize", OptionsValidator(["minimize", "close"])
+    )
+    
+    # 重复启动开关
+    allowMultipleInstances = ConfigItem(
+        "Other", "AllowMultipleInstances", False, BoolValidator()
     )
 
 

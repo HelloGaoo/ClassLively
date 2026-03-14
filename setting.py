@@ -120,6 +120,15 @@ class SettingInterface(ScrollArea):
             parent=self.otherGroup
         )
         self.otherGroup.addSettingCard(self.closeActionCard)
+        
+        self.allowMultipleInstancesCard = SwitchSettingCard(
+            FIF.SYNC,
+            "允许重复启动",
+            "允许同时运行多个应用实例",
+            configItem=cfg.allowMultipleInstances,
+            parent=self.otherGroup
+        )
+        self.otherGroup.addSettingCard(self.allowMultipleInstancesCard)
 
         self.expandLayout.setSpacing(28)
         self.expandLayout.setContentsMargins(60, 10, 60, 0)

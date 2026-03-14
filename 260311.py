@@ -3,19 +3,43 @@ from PyQt5.QtCore import QLocale, QTranslator
 from PyQt5.QtGui import QFontDatabase, QFont, QIcon
 from qfluentwidgets import (
     setTheme, Theme, FluentWindow, FluentTranslator,
-    FluentIcon as FIF, NavigationItemPosition, RoundMenu, Action
+    FluentIcon as FIF, NavigationItemPosition, RoundMenu, Action, MessageBox
 )
 import sys
 import os
 import platform
+import ctypes
 from setting import SettingInterface
 import shutil
-import ctypes
 from config import cfg
 from logger import logger
 from version import VERSION, BUILD_DATE
 from constants import APP_NAME
 import json
+
+def check_single_instance():
+    """ 检查是否已经有实例 """
+    config_path = 'config/config.json'
+    allow_multiple = False
+    
+    if os.path.exists(config_path):
+        try:
+            with open(config_path, 'r', encoding='utf-8') as f:
+                config = json.load(f)
+            if 'Other' in config and 'AllowMultipleInstances' in config['Other']:
+                allow_multiple = config['Other']['AllowMultipleInstances']
+        except Exception:
+            pass
+    
+    if not allow_multiple:
+        # 创建互斥体
+        mutex_name = f"Global\\{APP_NAME}_Mutex"
+        mutex = ctypes.windll.kernel32.CreateMutexW(None, False, mutex_name)
+        if ctypes.windll.kernel32.GetLastError() == 183:  # ERROR_ALREADY_EXISTS
+            # 已经有实例在运行
+            return False
+    return True
+
 # 路径设置
 if getattr(sys, 'frozen', False):
     # 打包为exe时
@@ -87,11 +111,8 @@ class MainWindow(FluentWindow):
     
     def closeEvent(self, event):
         """ 关闭事件处理 """
-        from config import cfg
-        
-        # 根据配置决定关闭行为
         if cfg.closeAction.value == "minimize":
-            # 最小化到托盘而不是退出
+            # 最小化到托盘
             event.ignore()
             self.hide()
             self.tray_icon.showMessage(
@@ -101,7 +122,7 @@ class MainWindow(FluentWindow):
                 2000
             )
         else:
-            # 直接退出应用
+            # 退出应用
             QApplication.quit()
 
     def initMainNavigation(self):
@@ -161,6 +182,40 @@ def install_fonts():
             pass
 
 if __name__ == "__main__":
+    from PyQt5.QtCore import Qt
+    QApplication.setHighDpiScaleFactorRoundingPolicy(Qt.HighDpiScaleFactorRoundingPolicy.PassThrough)
+    QApplication.setAttribute(Qt.AA_EnableHighDpiScaling)
+    QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps)
+    
+    # 创建QApplication
+    app = QApplication(sys.argv)
+    
+    # 检查是否已经有实例在运行
+    if not check_single_instance():
+        # 加载翻译
+        locale = QLocale(QLocale.Chinese, QLocale.China)
+        fluentTranslator = FluentTranslator(locale)
+        app.installTranslator(fluentTranslator)
+        
+        # 创建一个全屏临时窗口作为父窗口
+        temp_widget = QWidget()
+        temp_widget.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
+        temp_widget.setAttribute(Qt.WA_TranslucentBackground)
+        
+        # 获取屏幕尺寸并设置临时窗口为全屏
+        desktop = QApplication.desktop()
+        screen_rect = desktop.availableGeometry()
+        temp_widget.setGeometry(screen_rect)
+        temp_widget.show()
+        
+        title = f"{APP_NAME} 已有实例运行"
+        content = f"检测到{APP_NAME} 已有一个实例在运行中，请勿重复启动。\n\n(您可在“设置”中启用“允许重复启动”，可能会有不可言喻的问题。)"
+        w = MessageBox(title, content, temp_widget)
+        w.yesButton.setText('取消')
+        w.hideCancelButton()
+        w.exec()
+        sys.exit(0)
+    
     install_fonts()
 
     config_path = 'config/config.json'
@@ -207,13 +262,13 @@ if __name__ == "__main__":
         max_days=cfg.logMaxDays.value
     )
     logger.info(f"读取日志禁用配置: {cfg.disableLog.value}")
+    logger.info(f"读取重复启动开关配置: {cfg.allowMultipleInstances.value}")
     logger.info(f"读取主题配置设置: {cfg.themeMode.value}")
     logger.info(f"读取颜色配置设置: {cfg.themeColor.value.name() if hasattr(cfg.themeColor.value, 'name') else cfg.themeColor.value}")
     logger.info(f"读取日志级别配置: {cfg.logLevel.value}")
     logger.info(f"读取日志数量上限配置: {cfg.logMaxCount.value}")
     logger.info(f"读取日志时间上限配置: {cfg.logMaxDays.value}")
-
-    app = QApplication(sys.argv)
+    logger.info(f"读取关闭事件行为配置: {cfg.closeAction.value}")
 
     locale = QLocale(QLocale.Chinese, QLocale.China)
     fluentTranslator = FluentTranslator(locale)
