@@ -1,8 +1,11 @@
-_pycache_/
+__pycache__/
 *.pyc
 logs/
+Logs/
 config/
 .vscode/
 .idea/
 venv/
 env/
+Thumbs.db
+.DS_Store

@@ -1,7 +1,7 @@
 {
     "Log": {
         "DisableLog": false,
-        "LogLevel": "Error",
+        "LogLevel": "Debug",
         "MaxCount": 149,
         "MaxDays": 215
     },
