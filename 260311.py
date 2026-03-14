@@ -7,13 +7,15 @@ from qfluentwidgets import (
 )
 import sys
 import os
+import platform
 from setting import SettingInterface
 import shutil
 import ctypes
 from config import cfg
 from logger import logger
 from version import VERSION, BUILD_DATE
-
+from constants import APP_NAME
+import json
 # 路径设置
 if getattr(sys, 'frozen', False):
     # 打包为exe时
@@ -38,7 +40,7 @@ class MainWindow(FluentWindow):
         setTheme(Theme.DARK)
         self.initMainNavigation()
         self.initSettingsNavigation()
-        self.setWindowTitle("260311")
+        self.setWindowTitle(APP_NAME)
         self.resize(1100, 700)
         self.moveToCenter()
 
@@ -101,7 +103,6 @@ def install_fonts():
 if __name__ == "__main__":
     install_fonts()
 
-    import json
     config_path = 'config/config.json'
 
     if not os.path.exists('config'):
@@ -145,11 +146,10 @@ if __name__ == "__main__":
         max_count=cfg.logMaxCount.value,
         max_days=cfg.logMaxDays.value
     )
-
+    logger.info(f"读取日志禁用配置: {cfg.disableLog.value}")
     logger.info(f"读取主题配置设置: {cfg.themeMode.value}")
     logger.info(f"读取颜色配置设置: {cfg.themeColor.value.name() if hasattr(cfg.themeColor.value, 'name') else cfg.themeColor.value}")
     logger.info(f"读取日志级别配置: {cfg.logLevel.value}")
-    logger.info(f"读取日志禁用配置: {cfg.disableLog.value}")
     logger.info(f"读取日志数量上限配置: {cfg.logMaxCount.value}")
     logger.info(f"读取日志时间上限配置: {cfg.logMaxDays.value}")
 
@@ -179,5 +179,10 @@ if __name__ == "__main__":
 
     window = MainWindow()
     window.show()
-    logger.info(f"应用程序启动成功，版本: {VERSION}，构建日期: {BUILD_DATE}")
+    logger.info(f"{APP_NAME}版本信息：")
+    logger.info(f"版本号：{VERSION} 构建日期：{BUILD_DATE}")
+    logger.info(f"{APP_NAME}环境信息：")
+    logger.info(f"系统版本：Windows {platform.version()} Python版本：{platform.python_version()}")
+    logger.info(f"软件运行路径：{BASE_DIR}")
+    
     sys.exit(app.exec_())

@@ -4,6 +4,7 @@ import logging.handlers
 import inspect
 import sys
 from datetime import datetime, timedelta
+from constants import APP_NAME
 
 # 路径设置
 if getattr(sys, 'frozen', False):
@@ -37,12 +38,12 @@ class CustomLogger(logging.Logger):
         
         # 构建调用路径
         if class_name:
-            caller_info = f"260311.{class_name}.{function_name}"
+            caller_info = f"{APP_NAME}.{class_name}.{function_name}"
         else:
             if function_name == '<module>':
-                caller_info = f"260311.Main.<module>"
+                caller_info = f"{APP_NAME}.Main.<module>"
             else:
-                caller_info = f"260311.{function_name}"
+                caller_info = f"{APP_NAME}.{function_name}"
         
         if extra is None:
             extra = {}
@@ -56,7 +57,7 @@ class Logger:
     """ 日志管理类 """
     
     def __init__(self, disable_log=False, log_level="INFO", max_count=50, max_days=7):
-        self.logger = logging.getLogger("260311")
+        self.logger = logging.getLogger(APP_NAME)
         self.disable_log = disable_log
         self.log_level = log_level
         self.max_count = max_count
@@ -128,7 +129,7 @@ class Logger:
         
         # 日志格式
         formatter = logging.Formatter(
-            '%(asctime)s|%(levelname)s|%(caller_info)s|260311:%(process)d|%(message)s',
+            '%(asctime)s|%(levelname)s|%(caller_info)s|{APP_NAME}:%(process)d|%(message)s'.format(APP_NAME=APP_NAME),
             datefmt='%Y-%m-%d %H:%M:%S'
         )
         self.file_handler.setFormatter(formatter)
