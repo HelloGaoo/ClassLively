@@ -3,7 +3,7 @@ from PyQt5.QtCore import QLocale, QTranslator
 from PyQt5.QtGui import QFontDatabase, QFont, QIcon
 from qfluentwidgets import (
     setTheme, Theme, FluentWindow, FluentTranslator,
-    FluentIcon as FIF, NavigationItemPosition
+    FluentIcon as FIF, NavigationItemPosition, RoundMenu, Action
 )
 import sys
 import os
@@ -61,16 +61,16 @@ class MainWindow(FluentWindow):
         else:
             self.tray_icon = QSystemTrayIcon(self)
         
-        # 创建托盘菜单
-        self.tray_menu = QMenu(self)
+        # 创建PFW风格的托盘菜单
+        self.tray_menu = RoundMenu(APP_NAME, self)
         
         # 显示主窗口动作
-        show_action = QAction("显示主窗口", self)
+        show_action = Action(FIF.HOME, "显示主窗口", self)
         show_action.triggered.connect(self.show)
         self.tray_menu.addAction(show_action)
         
         # 退出动作
-        exit_action = QAction("退出", self)
+        exit_action = Action(FIF.CLOSE, "退出", self)
         exit_action.triggered.connect(QApplication.quit)
         self.tray_menu.addAction(exit_action)
         
