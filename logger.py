@@ -2,9 +2,18 @@ import os
 import logging
 import logging.handlers
 import inspect
+import sys
 from datetime import datetime, timedelta
 
-log_dir = os.path.join(os.getcwd(), "logs")
+# 路径设置
+if getattr(sys, 'frozen', False):
+    # 打包为exe时
+    BASE_DIR = os.path.dirname(os.path.abspath(sys.executable))
+else:
+    # 脚本运行时
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+log_dir = os.path.join(BASE_DIR, "logs")
 if not os.path.exists(log_dir):
     os.makedirs(log_dir)
 

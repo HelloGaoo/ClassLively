@@ -1,4 +1,5 @@
 import os
+import sys
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QWidget, QLabel
 from qfluentwidgets import (
@@ -7,6 +8,22 @@ from qfluentwidgets import (
     SwitchSettingCard, RangeSettingCard, InfoBar
 )
 from config import cfg
+
+# 路径设置
+if getattr(sys, 'frozen', False):
+    # 打包为exe时
+    BASE_DIR = os.path.dirname(os.path.abspath(sys.executable))
+    MEIPASS_DIR = sys._MEIPASS
+else:
+    # 脚本运行时
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+    MEIPASS_DIR = None
+
+def get_resource_path(relative_path):
+    """获取绝对路径"""
+    if MEIPASS_DIR:
+        return os.path.join(MEIPASS_DIR, relative_path)
+    return os.path.join(BASE_DIR, relative_path)
 
 
 class SettingInterface(ScrollArea):
@@ -105,7 +122,7 @@ class SettingInterface(ScrollArea):
 
         theme = 'dark' if isDarkTheme() else 'light'
         try:
-            qss_path = os.path.join(os.path.dirname(__file__), 'resource', 'qss', theme, 'setting_interface.qss')
+            qss_path = get_resource_path(os.path.join('resource', 'qss', theme, 'setting_interface.qss'))
             with open(qss_path, encoding='utf-8') as f:
                 self.setStyleSheet(f.read())
         except Exception:

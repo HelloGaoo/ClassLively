@@ -13,6 +13,22 @@ import ctypes
 from config import cfg
 from logger import logger
 
+# 路径设置
+if getattr(sys, 'frozen', False):
+    # 打包为exe时
+    BASE_DIR = os.path.dirname(os.path.abspath(sys.executable))
+    MEIPASS_DIR = sys._MEIPASS
+else:
+    # 脚本运行时
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+    MEIPASS_DIR = None
+
+def get_resource_path(relative_path):
+    """获取绝对路径"""
+    if MEIPASS_DIR:
+        return os.path.join(MEIPASS_DIR, relative_path)
+    return os.path.join(BASE_DIR, relative_path)
+
 class MainWindow(FluentWindow):
     """ 主窗口 """
 
@@ -46,7 +62,7 @@ class MainWindow(FluentWindow):
 def install_fonts():
     """ 检查并安装鸿蒙字体到系统 """
     system_font_dir = os.path.join(os.environ['WINDIR'], 'Fonts')
-    local_font_dir = os.path.join(os.getcwd(), "font", "HarmonyOS_Sans")
+    local_font_dir = get_resource_path(os.path.join("font", "HarmonyOS_Sans"))
     font_files = [
         "HarmonyOS_Sans_Thin.ttf",
         "HarmonyOS_Sans_Light.ttf",
@@ -142,7 +158,7 @@ if __name__ == "__main__":
     fluentTranslator = FluentTranslator(locale)
     app.installTranslator(fluentTranslator)
 
-    font_dir = os.path.join(os.getcwd(), "font", "HarmonyOS_Sans")
+    font_dir = get_resource_path(os.path.join("font", "HarmonyOS_Sans"))
     font_files = [
         "HarmonyOS_Sans_Thin.ttf",
         "HarmonyOS_Sans_Light.ttf",
