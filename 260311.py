@@ -12,6 +12,7 @@ import shutil
 import ctypes
 from config import cfg
 from logger import logger
+from version import VERSION, BUILD_DATE
 
 # 路径设置
 if getattr(sys, 'frozen', False):
@@ -178,5 +179,5 @@ if __name__ == "__main__":
 
     window = MainWindow()
     window.show()
-    logger.info("应用程序启动成功")
+    logger.info(f"应用程序启动成功，版本: {VERSION}，构建日期: {BUILD_DATE}")
     sys.exit(app.exec_())
