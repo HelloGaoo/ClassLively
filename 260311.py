@@ -117,8 +117,6 @@ if __name__ == "__main__":
         with open(config_path, 'w', encoding='utf-8') as f:
             json.dump(default_config, f, ensure_ascii=False, indent=4)
 
-    # 使用配置中的日志设置更新日志系统
-    # 获取日志级别的字符串值
     if hasattr(cfg.logLevel.value, 'value'):
         log_level_str = cfg.logLevel.value.value
     else:
@@ -130,12 +128,6 @@ if __name__ == "__main__":
         max_count=cfg.logMaxCount.value,
         max_days=cfg.logMaxDays.value
     )
-    
-    # 测试不同级别的日志
-    logger.debug("这是一条DEBUG级别的日志")
-    logger.info("这是一条INFO级别的日志")
-    logger.warning("这是一条WARNING级别的日志")
-    logger.error("这是一条ERROR级别的日志")
 
     app = QApplication(sys.argv)
 

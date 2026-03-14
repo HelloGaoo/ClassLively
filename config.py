@@ -80,10 +80,10 @@ class Config(QConfig):
         "Log", "DisableLog", False, BoolValidator(), restart=True
     )
     logMaxCount = RangeConfigItem(
-        "Log", "MaxCount", 50, RangeValidator(10, 500), restart=True
+        "Log", "MaxCount", 50, RangeValidator(10, 500)
     )
     logMaxDays = RangeConfigItem(
-        "Log", "MaxDays", 7, RangeValidator(30, 365), restart=True
+        "Log", "MaxDays", 7, RangeValidator(30, 365)
     )
 
 

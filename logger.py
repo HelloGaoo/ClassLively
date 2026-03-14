@@ -1,12 +1,47 @@
 import os
 import logging
 import logging.handlers
+import inspect
 from datetime import datetime, timedelta
 
-# 确保日志目录存在
 log_dir = os.path.join(os.getcwd(), "logs")
 if not os.path.exists(log_dir):
     os.makedirs(log_dir)
+
+class CustomLogger(logging.Logger):
+
+    def _log(self, level, msg, args, exc_info=None, extra=None, stack_info=False, stacklevel=3):
+        caller_frame = inspect.stack()[stacklevel]
+        module_name = caller_frame[1].split(os.sep)[-1].replace('.py', '')
+        function_name = caller_frame[3]
+        
+        # 获取类名
+        class_name = ''
+        frame = caller_frame[0]
+        try:
+            if 'self' in frame.f_locals:
+                class_name = frame.f_locals['self'].__class__.__name__
+            elif 'cls' in frame.f_locals:
+                class_name = frame.f_locals['cls'].__name__
+        except Exception:
+            pass
+        
+        # 构建调用路径
+        if class_name:
+            caller_info = f"260311.{class_name}.{function_name}"
+        else:
+            if function_name == '<module>':
+                caller_info = f"260311.Main.<module>"
+            else:
+                caller_info = f"260311.{function_name}"
+        
+        if extra is None:
+            extra = {}
+        extra['caller_info'] = caller_info
+        
+        super()._log(level, msg, args, exc_info, extra, stack_info, stacklevel)
+
+logging.setLoggerClass(CustomLogger)
 
 class Logger:
     """ 日志管理类 """
@@ -22,26 +57,21 @@ class Logger:
         self.__setup_handlers()
     
     def __setup_handlers(self):
-        """ 设置日志处理器 """
-        # 清除现有处理器
+        """ 日志处理 """
         for handler in self.logger.handlers[:]:
             self.logger.removeHandler(handler)
         
         if self.disable_log:
             return
         
-        # 根据配置设置日志级别
         log_level_name = self.log_level.upper()
         log_level = getattr(logging, log_level_name, logging.INFO)
         
-        # 确保logger的级别设置正确
         self.logger.setLevel(log_level)
         
-        # 生成基于时间戳的日志文件名
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         log_filename = f"app_{timestamp}.log"
         
-        # 文件处理器
         self.file_handler = logging.FileHandler(
             os.path.join(log_dir, log_filename),
             encoding="utf-8"
@@ -54,7 +84,8 @@ class Logger:
         
         # 日志格式
         formatter = logging.Formatter(
-            '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+            '%(asctime)s|%(levelname)s|%(caller_info)s|260311:%(process)d|%(message)s',
+            datefmt='%Y-%m-%d %H:%M:%S'
         )
         self.file_handler.setFormatter(formatter)
         self.console_handler.setFormatter(formatter)
@@ -91,5 +122,4 @@ class Logger:
         """ 异常日志 """
         self.logger.exception(message)
 
-# 创建全局日志实例
 logger = Logger()
