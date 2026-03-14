@@ -37,19 +37,19 @@ class SettingInterface(ScrollArea):
         )
         
         self.logGroup = SettingCardGroup("日志", self.scrollWidget)
+        self.disableLogCard = SwitchSettingCard(
+            FIF.CLOSE, 
+            "禁用日志",
+            "完全禁用日志输出",
+            configItem=cfg.disableLog,
+            parent=self.logGroup
+        )
         self.logLevelCard = OptionsSettingCard(
             cfg.logLevel,
             FIF.INFO,
             "日志级别",
             "设置日志的输出级别",
             texts=["Debug", "Info", "Warning", "Error"],
-            parent=self.logGroup
-        )
-        self.disableLogCard = SwitchSettingCard(
-            FIF.CLOSE, 
-            "禁用日志",
-            "完全禁用日志输出",
-            configItem=cfg.disableLog,
             parent=self.logGroup
         )
         self.logMaxCountCard = RangeSettingCard(
@@ -88,8 +88,8 @@ class SettingInterface(ScrollArea):
         self.appearanceGroup.addSettingCard(self.themeCard)
         self.appearanceGroup.addSettingCard(self.themeColorCard)
         
-        self.logGroup.addSettingCard(self.logLevelCard)
         self.logGroup.addSettingCard(self.disableLogCard)
+        self.logGroup.addSettingCard(self.logLevelCard)
         self.logGroup.addSettingCard(self.logMaxCountCard)
         self.logGroup.addSettingCard(self.logMaxDaysCard)
 
@@ -124,8 +124,21 @@ class SettingInterface(ScrollArea):
             parent=self.window()
         )
 
+    def __onDisableLogChanged(self, disabled):
+        """ 日志禁用状态变更槽函数 """
+        # 当禁用日志时，禁用其他日志相关设置
+        self.logLevelCard.setEnabled(not disabled)
+        self.logMaxCountCard.setEnabled(not disabled)
+        self.logMaxDaysCard.setEnabled(not disabled)
+    
     def __connectSignalToSlot(self):
         """ 连接信号与槽 """
         cfg.themeChanged.connect(self.__onThemeChanged)
         self.themeColorCard.colorChanged.connect(setThemeColor)
         cfg.appRestartSig.connect(self.__showRestartTooltip)
+        
+        # 连接日志禁用信号
+        self.disableLogCard.checkedChanged.connect(self.__onDisableLogChanged)
+        
+        # 初始状态设置
+        self.__onDisableLogChanged(cfg.disableLog.value)

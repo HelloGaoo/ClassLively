@@ -129,6 +129,13 @@ if __name__ == "__main__":
         max_days=cfg.logMaxDays.value
     )
 
+    logger.info(f"读取主题配置设置: {cfg.themeMode.value}")
+    logger.info(f"读取颜色配置设置: {cfg.themeColor.value.name() if hasattr(cfg.themeColor.value, 'name') else cfg.themeColor.value}")
+    logger.info(f"读取日志级别配置: {cfg.logLevel.value}")
+    logger.info(f"读取日志禁用配置: {cfg.disableLog.value}")
+    logger.info(f"读取日志数量上限配置: {cfg.logMaxCount.value}")
+    logger.info(f"读取日志时间上限配置: {cfg.logMaxDays.value}")
+
     app = QApplication(sys.argv)
 
     locale = QLocale(QLocale.Chinese, QLocale.China)
