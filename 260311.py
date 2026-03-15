@@ -60,55 +60,6 @@ def get_resource_path(relative_path):
     return os.path.join(BASE_DIR, relative_path)
 
 
-class TitleInterface(ScrollArea):
-    """ 标题界面 """
-
-    def __init__(self, parent=None):
-        super().__init__(parent=parent)
-        self.scrollWidget = QWidget()
-        self.mainLayout = QVBoxLayout(self.scrollWidget)
-
-        self.titleLabel = QLabel("标题", self)
-        self.contentLabel = QLabel("这是一个标题页面，用于展示标题相关内容。", self)
-        self.contentLabel.setAlignment(Qt.AlignCenter)
-        self.contentLabel.setWordWrap(True)
-
-        self.__initWidget()
-
-    def __initWidget(self):
-        """ 初始化界面 """
-        self.resize(1000, 800)
-        self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        self.setViewportMargins(0, -40, 0, 20)
-        self.setWidget(self.scrollWidget)
-        self.setWidgetResizable(True)
-
-        self.__setQss()
-        self.__initLayout()
-
-    def __initLayout(self):
-        """ 初始化布局 """
-        # 标题
-        self.titleLabel.move(60, 63)
-
-        # 主布局
-        self.mainLayout.setSpacing(20)
-        self.mainLayout.setContentsMargins(60, 160, 60, 0)
-        self.mainLayout.addWidget(self.contentLabel)
-
-    def __setQss(self):
-        """ 设置样式表 """
-        self.scrollWidget.setObjectName('scrollWidget')
-        self.titleLabel.setObjectName('settingLabel')
-
-        theme = 'dark' if isDarkTheme() else 'light'
-        try:
-            qss_path = get_resource_path(os.path.join('resource', 'qss', theme, 'setting_interface.qss'))
-            with open(qss_path, encoding='utf-8') as f:
-                self.setStyleSheet(f.read())
-        except Exception:
-            pass
-
 class WallpaperInterface(ScrollArea):
     """ 壁纸界面 """
 
@@ -643,10 +594,6 @@ class MainWindow(FluentWindow):
         
         self.addSubInterface(home, FIF.HOME, "主界面")
         
-        self.title = TitleInterface()
-        self.title.setObjectName("title")
-        self.addSubInterface(self.title, FIF.INFO, "标题")
-        
         self.wallpaper = WallpaperInterface(mainWindow=self)
         self.wallpaper.setObjectName("wallpaper")
         self.addSubInterface(self.wallpaper, FIF.PHOTO, "壁纸")
@@ -657,8 +604,9 @@ class MainWindow(FluentWindow):
         setting.setObjectName("setting")
         self.addSubInterface(setting, FIF.SETTING, "设置", NavigationItemPosition.BOTTOM)
         
-        # 创建关于界面
+        # 关于界面
         about = ScrollArea()
+        about.setObjectName("about")
         about.scrollWidget = QWidget()
         about.mainLayout = QVBoxLayout(about.scrollWidget)
         aboutLabel = QLabel("关于", about)
