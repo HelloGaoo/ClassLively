@@ -548,10 +548,10 @@ class MainWindow(FluentWindow):
         self.dateLabel = QLabel("")
         self.dateLabel.setAlignment(Qt.AlignCenter)
         
-        # 天气标签
-        self.weatherLabel = QLabel("")
-        self.weatherLabel.setAlignment(Qt.AlignTop | Qt.AlignRight)
-        self.weatherLabel.setStyleSheet("""
+        # 天气温度标签
+        self.weatherTempLabel = QLabel("")
+        self.weatherTempLabel.setAlignment(Qt.AlignVCenter | Qt.AlignLeft)
+        self.weatherTempLabel.setStyleSheet("""
             color: #FFFFFF; 
             font-size: 14px; 
             font-weight: bold; 
@@ -591,11 +591,12 @@ class MainWindow(FluentWindow):
         
         # 天气容器
         weatherContainer = QWidget()
-        weatherLayout = QVBoxLayout(weatherContainer)
+        weatherLayout = QHBoxLayout(weatherContainer)
         weatherLayout.setAlignment(Qt.AlignTop | Qt.AlignRight)
         weatherLayout.setContentsMargins(0, 20, 20, 0)
+        weatherLayout.setSpacing(10)
+        weatherLayout.addWidget(self.weatherTempLabel)
         weatherLayout.addWidget(self.weatherIconLabel)
-        weatherLayout.addWidget(self.weatherLabel)
         weatherContainer.setStyleSheet("background-color: transparent;")
     
         # 诗词容器
@@ -763,7 +764,7 @@ class MainWindow(FluentWindow):
             background-color: transparent;
         """)
         
-        self.weatherLabel.setStyleSheet(f"""
+        self.weatherTempLabel.setStyleSheet(f"""
             color: {color_str}; 
             font-size: {weather_size}px; 
             font-weight: bold; 
@@ -992,8 +993,8 @@ class MainWindow(FluentWindow):
                     weather = weather_map.get(weather_code, "未知")
                     logger.info(f"天气信息：{weather}，当前温度：{current_temp}{temp_unit}，最高温度：{max_temp}{temp_unit}，最低温度：{min_temp}{temp_unit}，天气代码：{weather_code}")
                     
-                    weather_text = f"{weather} {current_temp}{temp_unit}"
-                    self.weatherLabel.setText(weather_text)
+                    weather_text = f"{current_temp}{temp_unit}"
+                    self.weatherTempLabel.setText(weather_text)
                     logger.info(f"已更新天气标签：{weather_text}")
                     
                     self.current_weather_code = weather_code

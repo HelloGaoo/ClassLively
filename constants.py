@@ -1,1 +1,1 @@
-APP_NAME = "260311"
+APP_NAME = "ClassLively"
