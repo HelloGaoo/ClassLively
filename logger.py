@@ -3,12 +3,13 @@ import logging
 import logging.handlers
 import inspect
 import sys
+import ctypes
 from datetime import datetime, timedelta
 from constants import APP_NAME
 
 # 路径设置
 if getattr(sys, 'frozen', False):
-    # 打包为exe时
+    # 打包为 exe 时
     BASE_DIR = os.path.dirname(os.path.abspath(sys.executable))
 else:
     # 脚本运行时
@@ -17,6 +18,12 @@ else:
 log_dir = os.path.join(BASE_DIR, "logs")
 if not os.path.exists(log_dir):
     os.makedirs(log_dir)
+
+# 日志配置常量
+DEFAULT_LOG_LEVEL = logging.INFO
+LOG_FORMAT = '%(asctime)s|%(levelname)s|%(caller_info)s|%(module)s:%(lineno)d|%(message)s'
+DATE_FORMAT = '%Y-%m-%d %H:%M:%S'
+LOG_MAX_BYTES = 1 * 1024 * 1024  # 1MB
 
 class CustomLogger(logging.Logger):
 
@@ -117,9 +124,12 @@ class Logger:
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         log_filename = f"app_{timestamp}.log"
         
-        self.file_handler = logging.FileHandler(
+        # 使用轮转文件处理器，限制单个文件大小
+        self.file_handler = logging.handlers.RotatingFileHandler(
             os.path.join(log_dir, log_filename),
-            encoding="utf-8"
+            encoding="utf-8",
+            maxBytes=LOG_MAX_BYTES,
+            backupCount=self.max_count
         )
         self.file_handler.setLevel(log_level)
         
@@ -129,7 +139,7 @@ class Logger:
         
         # 日志格式
         formatter = logging.Formatter(
-            '%(asctime)s|%(levelname)s|%(caller_info)s|{APP_NAME}:%(process)d|%(message)s'.format(APP_NAME=APP_NAME),
+            '%(asctime)s|%(levelname)s|%(caller_info)s|%(module)s:%(lineno)d|%(message)s',
             datefmt='%Y-%m-%d %H:%M:%S'
         )
         self.file_handler.setFormatter(formatter)
@@ -171,3 +181,19 @@ class Logger:
         self.logger.exception(message)
 
 logger = Logger()
+
+
+def setup_exception_hook():
+    """设置全局异常钩子"""
+    def custom_exception_hook(exctype, value, tb):
+        """自定义异常钩子，用于记录未处理的异常"""
+        if issubclass(exctype, KeyboardInterrupt):
+            sys.__excepthook__(exctype, value, tb)
+            return
+        
+        # 记录异常信息
+        logger.logger.critical(f"未处理的异常：{exctype.__name__}: {value}", exc_info=(exctype, value, tb))
+        sys.__excepthook__(exctype, value, tb)
+    
+    # 设置全局异常钩子
+    sys.excepthook = custom_exception_hook

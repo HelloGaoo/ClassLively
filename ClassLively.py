@@ -1203,14 +1203,19 @@ if __name__ == "__main__":
             QFontDatabase.addApplicationFont(font_path)
 
     QApplication.setFont(QFont("HarmonyOS Sans SC", 10))
-    logger.info("字体已设置为: HarmonyOS Sans SC")
+    logger.info("字体已设置为：HarmonyOS Sans SC")
+    
+    # 设置全局异常钩子
+    from logger import setup_exception_hook
+    setup_exception_hook()
+    logger.info("已设置全局异常钩子")
 
     window = MainWindow()
     window.show()
     logger.info(f"{APP_NAME}版本信息：")
     logger.info(f"版本号：{VERSION} 构建日期：{BUILD_DATE}")
     logger.info(f"{APP_NAME}环境信息：")
-    logger.info(f"系统版本：Windows {platform.version()} Python版本：{platform.python_version()}")
+    logger.info(f"系统版本：Windows {platform.version()} Python 版本：{platform.python_version()}")
     logger.info(f"软件运行路径：{BASE_DIR}")
     
     sys.exit(app.exec_())
