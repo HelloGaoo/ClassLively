@@ -85,18 +85,12 @@ class Config(QConfig):
     logMaxDays = RangeConfigItem(
         "Log", "MaxDays", 7, RangeValidator(30, 365)
     )
-    
-    # 关闭事件行为
     closeAction = OptionsConfigItem(
         "Other", "CloseAction", "minimize", OptionsValidator(["minimize", "close"])
     )
-    
-    # 重复启动开关
     allowMultipleInstances = ConfigItem(
         "Other", "AllowMultipleInstances", False, BoolValidator()
     )
-    
-    # 壁纸设置
     wallpaperSaveLimit = RangeConfigItem(
         "Wallpaper", "SaveLimit", 50, RangeValidator(10, 100)
     )
@@ -109,21 +103,19 @@ class Config(QConfig):
     backgroundBlurRadius = RangeConfigItem(
         "Appearance", "BackgroundBlurRadius", 0, RangeValidator(0, 30)
     )
-    
-    # 时间设置
     showClockSeconds = ConfigItem(
         "Time", "ShowClockSeconds", True, BoolValidator()
     )
-    
-    # 是否显示农历
     showLunarCalendar = ConfigItem(
         "Time", "ShowLunarCalendar", True, BoolValidator()
     )
-    
-    # 时钟颜色设置
     clockColor = ColorConfigItem("Time", "ClockColor", "#FFFFFF")
-    
-    # 诗词设置
+    clockSize = RangeConfigItem(
+        "Time", "ClockSize", 120, RangeValidator(80, 200)
+    )
+    dateSize = RangeConfigItem(
+        "Time", "DateSize", 20, RangeValidator(12, 50)
+    )
     showPoetry = ConfigItem(
         "Poetry", "ShowPoetry", True, BoolValidator()
     )
@@ -132,6 +124,30 @@ class Config(QConfig):
     )
     poetryUpdateInterval = OptionsConfigItem(
         "Poetry", "PoetryUpdateInterval", "1 小时", OptionsValidator(["从不", "10 分钟", "30 分钟", "1 小时", "3 小时", "6 小时", "12 小时", "1 天"])
+    )
+    poetrySize = RangeConfigItem(
+        "Poetry", "PoetrySize", 16, RangeValidator(12, 50)
+    )
+    weatherSize = RangeConfigItem(
+        "Weather", "WeatherSize", 14, RangeValidator(25, 50)
+    )
+    weatherIconSize = RangeConfigItem(
+        "Weather", "WeatherIconSize", 64, RangeValidator(32, 128)
+    )
+    weatherUpdateInterval = OptionsConfigItem(
+        "Weather", "UpdateInterval", "15 分钟", OptionsValidator(["从不", "15 分钟", "30 分钟", "1 小时", "3 小时", "6 小时", "12 小时", "24 小时"])
+    )
+    city = ConfigItem(
+        "Weather", "City", "北京"
+    )
+    latitude = ConfigItem(
+        "Weather", "Latitude", 39.9042
+    )
+    longitude = ConfigItem(
+        "Weather", "Longitude", 116.4074
+    )
+    developerMode = ConfigItem(
+        "Other", "DeveloperMode", False, BoolValidator()
     )
 
 

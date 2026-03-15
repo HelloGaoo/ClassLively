@@ -6,7 +6,7 @@ from qfluentwidgets import (
     SettingCardGroup, OptionsSettingCard, ScrollArea, ExpandLayout, 
     Theme, setTheme, isDarkTheme, FluentIcon as FIF, CustomColorSettingCard, setThemeColor,
     SwitchSettingCard, RangeSettingCard, InfoBar, LineEdit, SettingCard, qconfig, ComboBoxSettingCard,
-    SpinBox
+    SpinBox, PushButton
 )
 from config import cfg
 
@@ -22,12 +22,18 @@ class LineEditSettingCard(SettingCard):
         self.hBoxLayout.addWidget(self.lineEdit, 0, Qt.AlignRight)
         self.hBoxLayout.addSpacing(16)
 
-        self.lineEdit.setText(qconfig.get(configItem))
+        value = qconfig.get(configItem)
+        self.lineEdit.setText(str(value))
         self.lineEdit.textChanged.connect(self.__onTextChanged)
         configItem.valueChanged.connect(self.setValue)
 
     def __onTextChanged(self, text):
-        qconfig.set(self.configItem, text)
+        try:
+            # 将文本转换为浮点数
+            value = float(text)
+            qconfig.set(self.configItem, value)
+        except ValueError:
+            pass
 
     def setValue(self, value):
         self.lineEdit.setText(str(value))
@@ -52,6 +58,17 @@ class SpinBoxSettingCard(SettingCard):
 
     def setValue(self, value):
         self.spinBox.setValue(value)
+
+
+class ButtonSettingCard(SettingCard):
+    """ 带按钮的设置卡片 """
+
+    def __init__(self, icon, title, content=None, parent=None):
+        super().__init__(icon, title, content, parent)
+        self.button = PushButton(FIF.EDIT, "执行", self)
+
+        self.hBoxLayout.addWidget(self.button, 0, Qt.AlignRight)
+        self.hBoxLayout.addSpacing(16)
 
 # 路径设置
 if getattr(sys, 'frozen', False):
@@ -96,8 +113,6 @@ class SettingInterface(ScrollArea):
             "更改应用程序的主要颜色",
             parent=self.appearanceGroup
         )
-        
-        # 添加背景模糊设置
         self.backgroundBlurCard = SpinBoxSettingCard(
             cfg.backgroundBlurRadius,
             FIF.PHOTO,
@@ -107,8 +122,6 @@ class SettingInterface(ScrollArea):
             min_value=0,
             max_value=30
         )
-        
-        # 壁纸设置
         self.wallpaperGroup = SettingCardGroup("壁纸", self.scrollWidget)
         self.wallpaperSaveLimitCard = SpinBoxSettingCard(
             cfg.wallpaperSaveLimit,
@@ -156,6 +169,24 @@ class SettingInterface(ScrollArea):
             "设置主界面时钟和日期的文字颜色",
             parent=self.timeGroup
         )
+        self.clockSizeCard = SpinBoxSettingCard(
+            cfg.clockSize,
+            FIF.INFO,
+            "时钟大小",
+            "设置主界面时钟的文字大小",
+            parent=self.timeGroup,
+            min_value=80,
+            max_value=200
+        )
+        self.dateSizeCard = SpinBoxSettingCard(
+            cfg.dateSize,
+            FIF.INFO,
+            "日期大小",
+            "设置主界面日期的文字大小",
+            parent=self.timeGroup,
+            min_value=12,
+            max_value=30
+        )
         
         self.logGroup = SettingCardGroup("日志", self.scrollWidget)
         self.disableLogCard = SwitchSettingCard(
@@ -191,6 +222,14 @@ class SettingInterface(ScrollArea):
             min_value=30,
             max_value=365
         )
+        self.clearLogCard = ButtonSettingCard(
+            FIF.DELETE,
+            "清空日志",
+            "清空所有日志文件",
+            parent=self.logGroup
+        )
+        self.logGroup.addSettingCard(self.clearLogCard)
+        self.clearLogCard.button.setText("清空日志")
 
         self.__initWidget()
 
@@ -221,8 +260,8 @@ class SettingInterface(ScrollArea):
         self.timeGroup.addSettingCard(self.showClockSecondsCard)
         self.timeGroup.addSettingCard(self.showLunarCalendarCard)
         self.timeGroup.addSettingCard(self.clockColorCard)
-        
-        # 诗词设置
+        self.timeGroup.addSettingCard(self.clockSizeCard)
+        self.timeGroup.addSettingCard(self.dateSizeCard)
         self.poetryGroup = SettingCardGroup("诗词", self.scrollWidget)
         self.showPoetryCard = SwitchSettingCard(
             FIF.INFO,
@@ -246,10 +285,61 @@ class SettingInterface(ScrollArea):
             texts=["从不", "10 分钟", "30 分钟", "1 小时", "3 小时", "6 小时", "12 小时", "1 天"],
             parent=self.poetryGroup
         )
+        self.poetrySizeCard = SpinBoxSettingCard(
+            cfg.poetrySize,
+            FIF.INFO,
+            "诗词大小",
+            "设置主界面诗词的文字大小",
+            parent=self.poetryGroup,
+            min_value=12,
+            max_value=24
+        )
+        self.weatherGroup = SettingCardGroup("天气", self.scrollWidget)
+        self.weatherSizeCard = SpinBoxSettingCard(
+            cfg.weatherSize,
+            FIF.INFO,
+            "天气文字大小",
+            "设置主界面天气的文字大小",
+            parent=self.weatherGroup,
+            min_value=10,
+            max_value=20
+        )
+        self.weatherIconSizeCard = SpinBoxSettingCard(
+            cfg.weatherIconSize,
+            FIF.INFO,
+            "天气图标大小",
+            "设置主界面天气图标的大小",
+            parent=self.weatherGroup,
+            min_value=32,
+            max_value=128
+        )
+        self.weatherUpdateIntervalCard = ComboBoxSettingCard(
+            cfg.weatherUpdateInterval,
+            FIF.INFO,
+            "天气更新频率",
+            "设置天气数据的更新频率",
+            texts=["从不", "15 分钟", "30 分钟", "1 小时", "3 小时", "6 小时", "12 小时", "24 小时"],
+            parent=self.weatherGroup
+        )
+        self.cityCard = ButtonSettingCard(
+            FIF.GLOBE,
+            "城市",
+            "选择天气查询的城市",
+            parent=self.weatherGroup
+        )
+        self.cityCard.button.setText("选择一个城市")
+        self.cityCard.button.clicked.connect(self.__onCityButtonClicked)
+        
+        # 添加天气设置卡片
+        self.weatherGroup.addSettingCard(self.weatherSizeCard)
+        self.weatherGroup.addSettingCard(self.weatherIconSizeCard)
+        self.weatherGroup.addSettingCard(self.weatherUpdateIntervalCard)
+        self.weatherGroup.addSettingCard(self.cityCard)
         
         self.poetryGroup.addSettingCard(self.showPoetryCard)
         self.poetryGroup.addSettingCard(self.poetryApiUrlCard)
         self.poetryGroup.addSettingCard(self.poetryUpdateIntervalCard)
+        self.poetryGroup.addSettingCard(self.poetrySizeCard)
         
         self.logGroup.addSettingCard(self.disableLogCard)
         self.logGroup.addSettingCard(self.logLevelCard)
@@ -266,7 +356,6 @@ class SettingInterface(ScrollArea):
             parent=self.otherGroup
         )
         self.otherGroup.addSettingCard(self.closeActionCard)
-        
         self.allowMultipleInstancesCard = SwitchSettingCard(
             FIF.SYNC,
             "允许重复启动",
@@ -275,6 +364,22 @@ class SettingInterface(ScrollArea):
             parent=self.otherGroup
         )
         self.otherGroup.addSettingCard(self.allowMultipleInstancesCard)
+        self.resetDefaultCard = ButtonSettingCard(
+            FIF.SETTING,
+            "恢复默认设置",
+            "将所有设置恢复到默认值",
+            parent=self.otherGroup
+        )
+        self.otherGroup.addSettingCard(self.resetDefaultCard)
+        self.resetDefaultCard.button.setText("恢复默认")
+        self.developerModeCard = SwitchSettingCard(
+            FIF.CODE,
+            "开发者模式",
+            "启用开发者模式以进行测试和调试",
+            configItem=cfg.developerMode,
+            parent=self.otherGroup
+        )
+        self.otherGroup.addSettingCard(self.developerModeCard)
 
         self.expandLayout.setSpacing(28)
         self.expandLayout.setContentsMargins(60, 10, 60, 0)
@@ -282,6 +387,7 @@ class SettingInterface(ScrollArea):
         self.expandLayout.addWidget(self.wallpaperGroup)
         self.expandLayout.addWidget(self.timeGroup)
         self.expandLayout.addWidget(self.poetryGroup)
+        self.expandLayout.addWidget(self.weatherGroup)
         self.expandLayout.addWidget(self.logGroup)
         self.expandLayout.addWidget(self.otherGroup)
 
@@ -328,5 +434,193 @@ class SettingInterface(ScrollArea):
         # 连接日志禁用信号
         self.disableLogCard.checkedChanged.connect(self.__onDisableLogChanged)
         
+        # 连接恢复默认设置按钮
+        self.resetDefaultCard.button.clicked.connect(self.__resetDefaultSettings)
+        
+        # 连接清空日志按钮
+        self.clearLogCard.button.clicked.connect(self.__clearLog)
+    
         # 初始状态设置
         self.__onDisableLogChanged(cfg.disableLog.value)
+    
+    def __resetDefaultSettings(self):
+        """ 恢复默认设置 """
+        from qfluentwidgets import MessageBox
+        
+        msgBox = MessageBox(
+            "恢复默认设置",
+            "确定要将所有设置恢复到默认值吗？",
+            self.window()
+        )
+        msgBox.yesButton.setText("确定")
+        msgBox.cancelButton.setText("取消")
+        
+        if msgBox.exec() == 1: 
+            try:
+                config_path = 'config/config.json'
+                if os.path.exists(config_path):
+                    os.remove(config_path)
+                
+                if not os.path.exists('config'):
+                    os.makedirs('config')
+                
+                default_config = {
+                    "MainWindow": {
+                        "DpiScale": "Auto",
+                        "Language": "Auto",
+                        "ThemeColor": "#30c361",
+                        "ThemeMode": "Auto"
+                    },
+                    "Log": {
+                        "DisableLog": False,
+                        "LogLevel": "Info",
+                        "MaxCount": 50,
+                        "MaxDays": 7
+                    },
+                    "Other": {
+                        "CloseAction": "minimize",
+                        "AllowMultipleInstances": False,
+                        "DeveloperMode": False
+                    },
+                    "Wallpaper": {
+                        "SaveLimit": 50,
+                        "AutoGetInterval": "30分钟",
+                        "AutoSyncToDesktop": True
+                    },
+                    "Appearance": {
+                        "BackgroundBlurRadius": 0
+                    },
+                    "Time": {
+                        "ShowClockSeconds": True,
+                        "ShowLunarCalendar": True,
+                        "ClockColor": "#FFFFFF",
+                        "ClockSize": 120,
+                        "DateSize": 20
+                    },
+                    "Poetry": {
+                        "ShowPoetry": True,
+                        "PoetryApiUrl": "https://www.ffapi.cn/int/v1/shici",
+                        "PoetryUpdateInterval": "1 小时",
+                        "PoetrySize": 16
+                    },
+                    "Weather": {
+                        "WeatherSize": 14,
+                        "WeatherIconSize": 64,
+                        "UpdateInterval": "1 小时",
+                        "Latitude": 39.9042,
+                        "Longitude": 116.4074
+                    },
+                    "QFluentWidgets": {
+                        "FontFamilies": ["HarmonyOS Sans SC"]
+                    }
+                }
+                
+                with open(config_path, 'w', encoding='utf-8') as f:
+                    import json
+                    json.dump(default_config, f, ensure_ascii=False, indent=4)
+                
+                # 重新加载配置
+                qconfig.load(config_path, cfg)
+                
+                InfoBar.success(
+                    "成功",
+                    "所有设置已恢复到默认值",
+                    duration=5000,
+                    parent=self
+                )
+            except Exception as e:
+                InfoBar.error(
+                    "错误",
+                    f"恢复默认设置失败: {str(e)}",
+                    duration=5000,
+                    parent=self
+                )
+    
+    def __onCityButtonClicked(self):
+        """ 打开城市选择对话框 """
+        from city_selector import SelectCityDialog
+        from config import cfg
+        from qfluentwidgets import qconfig
+        
+        dialog = SelectCityDialog(self.window())
+        if dialog.exec():
+            selected_city = dialog.get_selected_city()
+            if selected_city:
+                # 更新配置
+                qconfig.set(cfg.city, selected_city)
+                InfoBar.success(
+                    "成功",
+                    f"已选择城市：{selected_city}",
+                    duration=3000,
+                    parent=self.window()
+                )
+                if hasattr(self.window(), 'weatherTimer') and hasattr(self.window(), '_MainWindow__updateWeather'):
+                    self.window()._MainWindow__updateWeather()
+    
+    def __clearLog(self):
+        """ 清空日志 """
+        msgBox = MessageBox(
+            "清空日志",
+            "确定要清空所有日志文件吗？",
+            self.window()
+        )
+        msgBox.yesButton.setText("确定")
+        msgBox.cancelButton.setText("取消")
+        
+        if msgBox.exec() == 1:
+            try:
+                # 清空日志文件
+                log_dir = os.path.join(BASE_DIR, 'logs')
+                if os.path.exists(log_dir):
+                    log_files = []
+                    for file in os.listdir(log_dir):
+                        if file.endswith('.log'):
+                            file_path = os.path.join(log_dir, file)
+                            mtime = os.path.getmtime(file_path)
+                            log_files.append((mtime, file))
+                    
+                    log_files.sort()
+                    
+                    # 排除当前日志
+                    current_log_file = None
+                    if log_files:
+                        current_log_file = log_files[-1][1]
+                    
+                    deleted_count = 0
+                    for file in os.listdir(log_dir):
+                        if file.endswith('.log') and file != current_log_file:
+                            try:
+                                os.remove(os.path.join(log_dir, file))
+                                deleted_count += 1
+                            except:
+                                pass
+                    if deleted_count > 0:
+                        InfoBar.success(
+                            "成功",
+                            f"已清空 {deleted_count} 个日志文件",
+                            duration=5000,
+                            parent=self
+                        )
+                    else:
+                        InfoBar.info(
+                            "提示",
+                            "没有可清空的日志文件",
+                            duration=5000,
+                            parent=self
+                        )
+                else:
+                    InfoBar.info(
+                        "提示",
+                        "日志目录不存在",
+                        duration=5000,
+                        parent=self
+                    )
+            except Exception as e:
+                InfoBar.error(
+                    "错误",
+                    f"清空日志失败: {str(e)}",
+                    duration=5000,
+                    parent=self
+                )
+    
+

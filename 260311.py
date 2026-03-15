@@ -118,7 +118,7 @@ class WallpaperInterface(ScrollArea):
         self.__initLayout()
         self.__connectSignalToSlot()
         
-        # 程序运行时自动获取壁纸
+        # 程序运行时获取壁纸
         self.__getWallpaper()
 
     def __initLayout(self):
@@ -162,12 +162,10 @@ class WallpaperInterface(ScrollArea):
         self.selectButton.clicked.connect(self.__selectWallpaper)
         self.setWallpaperButton.clicked.connect(self.__setWallpaper)
         
-        # 连接配置变更信号
         cfg.autoGetInterval.valueChanged.connect(self.__updateAutoGetTimer)
         cfg.autoSyncToDesktop.valueChanged.connect(self.__updateAutoSyncCheckTimer)
         cfg.backgroundBlurRadius.valueChanged.connect(self.__updateBackgroundBlur)
         
-        # 初始更新定时器
         self.__updateAutoGetTimer()
         self.__updateAutoSyncCheckTimer()
 
@@ -209,7 +207,6 @@ class WallpaperInterface(ScrollArea):
     def __checkAutoSync(self):
         """ 检测自动同步至桌面是否启用 """
         if cfg.autoSyncToDesktop.value and self.current_wallpaper_path is not None:
-            # 壁纸路径发生变化时重新设置
             if self.last_sync_path != self.current_wallpaper_path:
                 self.__setWallpaper(show_notification=False)
                 self.last_sync_path = self.current_wallpaper_path
@@ -220,7 +217,7 @@ class WallpaperInterface(ScrollArea):
         self.autoSyncCheckTimer.stop()
         
         if cfg.autoSyncToDesktop.value:
-            self.autoSyncCheckTimer.start(5000)  # 5 秒
+            self.autoSyncCheckTimer.start(5000)
     
     def __updateBackgroundBlur(self):
         """ 更新背景模糊强度 """
@@ -231,17 +228,11 @@ class WallpaperInterface(ScrollArea):
     def resizeEvent(self, event):
         """ 窗口大小变化时调整滚动区域大小 """
         super().resizeEvent(event)
-        
-        # 计算滚动区域的尺寸
         margin = 60
         available_width = self.width() - margin * 2
         available_height = self.height() - 240
-        
         scroll_width = available_width
-        # 限制滚动区域的高度
         scroll_height = min(int(scroll_width * 0.5), available_height)
-        
-        # 设置滚动区域的大小
         self.scrollArea.setFixedSize(scroll_width, scroll_height)
 
     def __getWallpaper(self):
@@ -469,6 +460,11 @@ class MainWindow(FluentWindow):
         cfg.showClockSeconds.valueChanged.connect(self.__updateClock)
         cfg.showLunarCalendar.valueChanged.connect(self.__updateClock)
         cfg.clockColor.valueChanged.connect(self.updateClockStyle)
+        cfg.clockSize.valueChanged.connect(self.updateClockStyle)
+        cfg.dateSize.valueChanged.connect(self.updateClockStyle)
+        cfg.poetrySize.valueChanged.connect(self.updateClockStyle)
+        cfg.weatherSize.valueChanged.connect(self.updateClockStyle)
+        cfg.weatherIconSize.valueChanged.connect(self.__updateWeatherIcon)
         self.__updateClock()
         
         # 诗词更新定时器
@@ -478,6 +474,14 @@ class MainWindow(FluentWindow):
         cfg.poetryApiUrl.valueChanged.connect(self.__updatePoetry)
         cfg.poetryUpdateInterval.valueChanged.connect(self.__updatePoetryInterval)
         self.__updatePoetryInterval()
+        
+        # 天气更新定时器
+        self.weatherTimer = QTimer(self)
+        self.weatherTimer.timeout.connect(self.__updateWeather)
+        cfg.weatherUpdateInterval.valueChanged.connect(self.__updateWeatherInterval)
+        
+        # 初始更新天气
+        self.__updateWeatherInterval()
     
     def initSystemTray(self):
         """ 初始化系统托盘 """
@@ -535,7 +539,7 @@ class MainWindow(FluentWindow):
         # 创建主界面的照片显示控件
         self.homeBackgroundImage = QLabel()
         self.homeBackgroundImage.setAlignment(Qt.AlignCenter)
-        self.originalPixmap = None  # 保存原始图片
+        self.originalPixmap = None
         
         # 时钟和日期标签
         self.clockLabel = QLabel("00:00:00")
@@ -543,6 +547,22 @@ class MainWindow(FluentWindow):
         
         self.dateLabel = QLabel("")
         self.dateLabel.setAlignment(Qt.AlignCenter)
+        
+        # 天气标签
+        self.weatherLabel = QLabel("")
+        self.weatherLabel.setAlignment(Qt.AlignTop | Qt.AlignRight)
+        self.weatherLabel.setStyleSheet("""
+            color: #FFFFFF; 
+            font-size: 14px; 
+            font-weight: bold; 
+            font-family: 'Microsoft YaHei';
+            background-color: transparent;
+        """)
+        
+        # 天气图标
+        self.weatherIconLabel = QLabel("")
+        self.weatherIconLabel.setAlignment(Qt.AlignTop | Qt.AlignRight)
+        self.weatherIconLabel.setStyleSheet("background-color: transparent;")
         
         # 诗词标签
         self.poetryLabel = QLabel("")
@@ -564,9 +584,19 @@ class MainWindow(FluentWindow):
         clockLayout.setAlignment(Qt.AlignTop)
         clockLayout.setContentsMargins(0, 100, 0, 0)
         clockLayout.setSpacing(0)  # 时钟和日期之间的间距
+        
         clockLayout.addWidget(self.clockLabel)
         clockLayout.addWidget(self.dateLabel)
         clockContainer.setStyleSheet("background-color: transparent;")
+        
+        # 天气容器
+        weatherContainer = QWidget()
+        weatherLayout = QVBoxLayout(weatherContainer)
+        weatherLayout.setAlignment(Qt.AlignTop | Qt.AlignRight)
+        weatherLayout.setContentsMargins(0, 20, 20, 0)
+        weatherLayout.addWidget(self.weatherIconLabel)
+        weatherLayout.addWidget(self.weatherLabel)
+        weatherContainer.setStyleSheet("background-color: transparent;")
     
         # 诗词容器
         poetryContainer = QWidget()
@@ -579,6 +609,7 @@ class MainWindow(FluentWindow):
         stackLayout = QStackedLayout()
         stackLayout.addWidget(self.homeBackgroundImage)  # 底层：背景图片
         stackLayout.addWidget(clockContainer)  # 上层：时钟
+        stackLayout.addWidget(weatherContainer)  # 上层：天气
         stackLayout.addWidget(poetryContainer)  # 上层：诗词
         
         stackLayout.setStackingMode(QStackedLayout.StackAll)
@@ -662,7 +693,6 @@ class MainWindow(FluentWindow):
     
     def __updateClock(self):
         """ 更新时钟显示 """
-        # 获取当前时间
         currentTime = QTime.currentTime()
         currentDate = QDate.currentDate()
         
@@ -695,7 +725,6 @@ class MainWindow(FluentWindow):
                 logging.error(f"农历显示错误：{e}")
                 dateString = solarString
         else:
-            # 不显示农历，只显示公历
             dateString = solarString
         
         self.dateLabel.setText(dateString)
@@ -705,9 +734,14 @@ class MainWindow(FluentWindow):
         clock_color = cfg.clockColor.value
         color_str = clock_color.name() if hasattr(clock_color, 'name') else str(clock_color)
         
+        clock_size = cfg.clockSize.value
+        date_size = cfg.dateSize.value
+        poetry_size = cfg.poetrySize.value
+        weather_size = cfg.weatherSize.value
+        
         self.clockLabel.setStyleSheet(f"""
             color: {color_str}; 
-            font-size: 120px; 
+            font-size: {clock_size}px; 
             font-weight: bold; 
             font-family: 'Segoe UI', 'Microsoft YaHei';
             background-color: transparent;
@@ -715,16 +749,23 @@ class MainWindow(FluentWindow):
         
         self.dateLabel.setStyleSheet(f"""
             color: {color_str}; 
-            font-size: 20px; 
+            font-size: {date_size}px; 
             font-weight: bold; 
             font-family: 'Microsoft YaHei';
             background-color: transparent;
         """)
         
-        # 诗词标签也使用相同的颜色
         self.poetryLabel.setStyleSheet(f"""
             color: {color_str}; 
-            font-size: 16px; 
+            font-size: {poetry_size}px; 
+            font-weight: bold; 
+            font-family: 'Microsoft YaHei';
+            background-color: transparent;
+        """)
+        
+        self.weatherLabel.setStyleSheet(f"""
+            color: {color_str}; 
+            font-size: {weather_size}px; 
             font-weight: bold; 
             font-family: 'Microsoft YaHei';
             background-color: transparent;
@@ -736,6 +777,7 @@ class MainWindow(FluentWindow):
         
         interval_str = cfg.poetryUpdateInterval.value
         if interval_str == "从不":
+            self.__updatePoetry()
             return
         elif interval_str == "10 分钟":
             interval = 10 * 60 * 1000
@@ -757,6 +799,36 @@ class MainWindow(FluentWindow):
         self.poetryTimer.start(interval)
         self.__updatePoetry()
     
+    def __updateWeatherInterval(self):
+        """ 更新天气更新间隔定时器 """
+        self.weatherTimer.stop()
+        
+        interval_str = cfg.weatherUpdateInterval.value
+        if interval_str == "从不":
+            self.__updateWeather()
+            return
+        elif interval_str == "15 分钟":
+            interval = 15 * 60 * 1000
+        elif interval_str == "30 分钟":
+            interval = 30 * 60 * 1000
+        elif interval_str == "1 小时":
+            interval = 60 * 60 * 1000
+        elif interval_str == "3 小时":
+            interval = 3 * 60 * 60 * 1000
+        elif interval_str == "6 小时":
+            interval = 6 * 60 * 60 * 1000
+        elif interval_str == "12 小时":
+            interval = 12 * 60 * 60 * 1000
+        elif interval_str == "24 小时":
+            interval = 24 * 60 * 60 * 1000
+        else:
+            interval = 60 * 60 * 1000
+        
+        self.weatherTimer.start(interval)
+        self.__updateWeather()
+    
+
+    
     def __updatePoetry(self):
         """ 更新诗词显示 """
         if not cfg.showPoetry.value:
@@ -764,7 +836,6 @@ class MainWindow(FluentWindow):
             self.poetryLabel.hide()
             return
         
-        # 显示标签（如果有内容）
         self.poetryLabel.show()
         
         try:
@@ -780,8 +851,7 @@ class MainWindow(FluentWindow):
                         content = poetry_data.get('content', '')
                         author = poetry_data.get('author', '')
                         origin = poetry_data.get('origin', '')
-                        
-                        # 格式化诗词内容
+    
                         poetry_text = f"「{content}」"
                         if author or origin:
                             poetry_text += f"\n——{author if author else ''}《{origin}》" if origin else f"\n——{author if author else ''}"
@@ -791,7 +861,6 @@ class MainWindow(FluentWindow):
                         logger.error(f"诗词 API 返回数据格式错误：{data}")
                         self.poetryLabel.setText("")
                 except:
-                    # 如果不是 JSON，直接显示返回的文本
                     poetry_text = response.text.strip()
                     self.poetryLabel.setText(poetry_text)
             else:
@@ -800,6 +869,193 @@ class MainWindow(FluentWindow):
         except Exception as e:
             logger.error(f"诗词更新失败：{e}")
             self.poetryLabel.setText("")
+    
+    def __updateWeather(self):
+        """ 更新天气显示 """
+        try:
+            from city_selector import CityDatabase
+            
+            city = cfg.city.value
+            logger.info(f"正在更新天气，使用城市：{city}")
+            
+            # 查询 locationKey
+            city_db = CityDatabase()
+            city_code = city_db.search_code_by_name(city)
+            
+            if city_code:
+                location_key = f"weathercn:{city_code}"
+            else:
+                location_key = "weathercn:101010100" 
+                logger.warning(f"未找到城市 {city} 的代码，使用默认值")
+            
+            logger.info(f"城市 {city} 对应的 locationKey: {location_key}")
+            
+            api_url = f"https://weatherapi.market.xiaomi.com/wtr-v3/weather/all?locationKey={location_key}&latitude=39.9042&longitude=116.4074&appKey=weather20151024&sign=zUFJoAR2ZVrDy1vF3D07&isGlobal=false&locale=zh_cn"
+            logger.info(f"天气 API 请求 URL: {api_url}")
+            response = requests.get(api_url, timeout=10)
+            
+            if response.status_code == 200:
+                data = response.json()
+                logger.info(f"天气API响应: {data}")
+                if 'current' in data:
+                    current = data['current']
+                    
+                    # 解析温度数据
+                    temperature = current.get('temperature', {})
+                    current_temp = temperature.get('value', 0)
+                    temp_unit = temperature.get('unit', '°C')
+                    
+                    # 解析天气代码
+                    weather_code = current.get('weather', 0)
+                    # 转换为整数类型
+                    try:
+                        weather_code = int(weather_code)
+                    except (ValueError, TypeError):
+                        weather_code = 0
+                    
+                    # 解析预报数据
+                    max_temp = 0
+                    min_temp = 0
+                    if 'forecastDaily' in data and data['forecastDaily']:
+                        temperature_data = data['forecastDaily'].get('temperature', {})
+                        if temperature_data.get('status') == 0 and 'value' in temperature_data:
+                            temp_values = temperature_data['value']
+                            if temp_values:
+                                first_day = temp_values[0]
+                                max_temp = first_day.get('from', 0)
+                                min_temp = first_day.get('to', 0)
+                    
+                    # 代码映射
+                    weather_map = {
+                        0: "晴天",
+                        1: "多云",
+                        2: "阴天",
+                        3: "阴天",
+                        4: "小雨",
+                        5: "中雨",
+                        6: "大雨",
+                        7: "暴雨",
+                        8: "雷阵雨",
+                        9: "冰雹",
+                        10: "小雪",
+                        11: "中雪",
+                        12: "大雪",
+                        13: "雾",
+                        14: "霾",
+                        15: "沙尘",
+                        16: "大风",
+                        17: "台风",
+                        18: "暴雨",
+                        19: "暴雪",
+                        20: "雨夹雪",
+                        21: "冻雨",
+                        22: "雾凇",
+                        23: "霜冻",
+                        24: "沙尘暴",
+                        25: "扬沙",
+                        26: "浮尘",
+                        27: "强沙尘暴"
+                    }
+                    
+                    # 天气代码到图标文件的映射
+                    icon_map = {
+                        0: "0.svg",      # 晴
+                        1: "1.svg",      # 多云
+                        2: "2.svg",      # 阴
+                        3: "2.svg",      # 阴
+                        4: "7.svg",      # 小雨
+                        5: "8.svg",      # 中雨
+                        6: "9.svg",      # 大雨
+                        7: "10.svg",     # 暴雨
+                        8: "4.svg",      # 雷阵雨
+                        9: "5.svg",      # 冰雹
+                        10: "14.svg",     # 小雪
+                        11: "15.svg",     # 中雪
+                        12: "16.svg",     # 大雪
+                        13: "18.svg",     # 雾
+                        14: "18.svg",     # 霾
+                        15: "18.svg",     # 沙尘
+                        16: "3.svg",      # 大风
+                        17: "3.svg",      # 台风
+                        18: "11.svg",     # 暴雨
+                        19: "17.svg",     # 暴雪
+                        20: "19.svg",     # 雨夹雪
+                        21: "19.svg",     # 冻雨
+                        22: "18.svg",     # 雾凇
+                        23: "18.svg",     # 霜冻
+                        24: "18.svg",     # 沙尘暴
+                        25: "18.svg",     # 扬沙
+                        26: "18.svg",     # 浮尘
+                        27: "18.svg"      # 强沙尘暴
+                    }
+                    
+                    weather = weather_map.get(weather_code, "未知")
+                    logger.info(f"天气信息：{weather}，当前温度：{current_temp}{temp_unit}，最高温度：{max_temp}{temp_unit}，最低温度：{min_temp}{temp_unit}，天气代码：{weather_code}")
+                    
+                    weather_text = f"{weather} {current_temp}{temp_unit}"
+                    self.weatherLabel.setText(weather_text)
+                    logger.info(f"已更新天气标签：{weather_text}")
+                    
+                    self.current_weather_code = weather_code
+                    
+                    self.__updateWeatherIcon()
+                    logger.info("已更新天气图标")
+            else:
+                logger.error(f"天气 API 请求失败，状态码：{response.status_code}，响应内容：{response.text}")
+        except Exception as e:
+            logger.error(f"天气更新失败：{e}")
+    
+    def __updateWeatherIcon(self):
+        """ 更新天气图标大小 """
+        try:
+            if not hasattr(self, 'current_weather_code'):
+                return
+            
+            # 代码到图标文件的映射
+            icon_map = {
+                0: "0.svg",      # 晴
+                1: "1.svg",      # 多云
+                2: "2.svg",      # 阴
+                3: "2.svg",      # 阴
+                4: "7.svg",      # 小雨
+                5: "8.svg",      # 中雨
+                6: "9.svg",      # 大雨
+                7: "10.svg",     # 暴雨
+                8: "4.svg",      # 雷阵雨
+                9: "5.svg",      # 冰雹
+                10: "14.svg",     # 小雪
+                11: "15.svg",     # 中雪
+                12: "16.svg",     # 大雪
+                13: "18.svg",     # 雾
+                14: "18.svg",     # 霾
+                15: "18.svg",     # 沙尘
+                16: "3.svg",      # 大风
+                17: "3.svg",      # 台风
+                18: "11.svg",     # 暴雨
+                19: "17.svg",     # 暴雪
+                20: "19.svg",     # 雨夹雪
+                21: "19.svg",     # 冻雨
+                22: "18.svg",     # 雾凇
+                23: "18.svg",     # 霜冻
+                24: "18.svg",     # 沙尘暴
+                25: "18.svg",     # 扬沙
+                26: "18.svg",     # 浮尘
+                27: "18.svg"      # 强沙尘暴
+            }
+            
+            icon_file = icon_map.get(self.current_weather_code, "0.svg")
+            icon_path = get_resource_path(os.path.join("resource", "icons", "weather", icon_file))
+            if os.path.exists(icon_path):
+                # 使用QIcon加载SVG
+                icon = QIcon(icon_path)
+                icon_size = cfg.weatherIconSize.value
+                # 创建一个pixmap
+                pixmap = icon.pixmap(icon_size, icon_size)
+                self.weatherIconLabel.setPixmap(pixmap)
+            else:
+                self.weatherIconLabel.setText("")
+        except Exception as e:
+            logger.error(f"天气图标更新失败：{e}")
 
 def install_fonts():
     """ 检查并安装鸿蒙字体到系统 """
