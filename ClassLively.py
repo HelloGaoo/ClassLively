@@ -237,29 +237,36 @@ class WallpaperInterface(ScrollArea):
 
     def __getWallpaper(self):
         """ 获取壁纸 """
+        logger.info("开始获取壁纸")
         try:
             url = "https://wp.upx8.com/api.php?content=风景"
+            logger.info(f"请求壁纸URL: {url}")
             response = requests.get(url, stream=True)
             
             if response.status_code == 200:
+                logger.info(f"壁纸请求成功，状态码: {response.status_code}")
                 # 保存文件
                 wallpaper_dir = os.path.join(BASE_DIR, 'wallpaper')
                 if not os.path.exists(wallpaper_dir):
                     os.makedirs(wallpaper_dir)
+                    logger.info(f"创建壁纸目录: {wallpaper_dir}")
                 
                 current_date = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
                 wallpaper_path = os.path.join(wallpaper_dir, f'wallpaper_{current_date}.jpg')
                 
                 with open(wallpaper_path, 'wb') as f:
                     f.write(response.content)
+                logger.info(f"壁纸已保存到: {wallpaper_path}")
                 
                 # 管理壁纸保存量
                 save_limit = cfg.wallpaperSaveLimit.value
+                logger.info(f"管理壁纸保存量，限制: {save_limit}")
                 self.__manageWallpaperLimit(wallpaper_dir, save_limit)
                 
                 self.current_pixmap = QPixmap(wallpaper_path)
                 self.current_wallpaper_path = wallpaper_path
                 if not self.current_pixmap.isNull():
+                    logger.info("壁纸加载成功，更新界面显示")
                     self.imageLabel.setPixmap(self.current_pixmap)
                     # 更新主界面的背景照片
                     if self.mainWindow and hasattr(self.mainWindow, 'homeBackgroundImage'):
@@ -269,6 +276,7 @@ class WallpaperInterface(ScrollArea):
                         scaled_pixmap = self.current_pixmap.scaled(available_width, available_height, Qt.IgnoreAspectRatio, Qt.SmoothTransformation)
                         self.mainWindow.homeBackgroundImage.setPixmap(scaled_pixmap)
                         QApplication.processEvents()
+                        logger.info("主界面背景已更新")
                 
                 InfoBar.success(
                     "成功",
@@ -278,9 +286,11 @@ class WallpaperInterface(ScrollArea):
                 )
                 
                 if cfg.autoSyncToDesktop.value:
+                    logger.info("自动同步到桌面已启用")
                     self.__setWallpaper(show_notification=True)
                     self.last_sync_path = wallpaper_path
             else:
+                logger.error(f"获取壁纸失败，状态码: {response.status_code}")
                 InfoBar.error(
                     "错误",
                     f"获取壁纸失败，状态码: {response.status_code}",
@@ -288,6 +298,7 @@ class WallpaperInterface(ScrollArea):
                     parent=self
                 )
         except Exception as e:
+            logger.error(f"获取壁纸失败: {str(e)}")
             InfoBar.error(
                 "错误",
                 f"获取壁纸失败: {str(e)}",
@@ -297,7 +308,9 @@ class WallpaperInterface(ScrollArea):
     
     def __saveWallpaper(self):
         """ 另存壁纸 """
+        logger.info("开始另存壁纸")
         if self.current_pixmap is None:
+            logger.warning("没有可保存的壁纸")
             InfoBar.warning(
                 "提示",
                 "请先获取壁纸",
@@ -314,8 +327,10 @@ class WallpaperInterface(ScrollArea):
         )
         
         if file_path:
+            logger.info(f"用户选择保存路径: {file_path}")
             try:
                 self.current_pixmap.save(file_path)
+                logger.info(f"壁纸已成功保存到: {file_path}")
                 InfoBar.success(
                     "成功",
                     f"壁纸已保存到: {file_path}",
@@ -323,6 +338,7 @@ class WallpaperInterface(ScrollArea):
                     parent=self
                 )
             except Exception as e:
+                logger.error(f"保存壁纸失败: {str(e)}")
                 InfoBar.error(
                     "错误",
                     f"保存壁纸失败: {str(e)}",
@@ -332,6 +348,7 @@ class WallpaperInterface(ScrollArea):
     
     def __selectWallpaper(self):
         """ 手动选择壁纸 """
+        logger.info("开始手动选择壁纸")
         file_path, _ = QFileDialog.getOpenFileName(
             self, 
             "选择壁纸", 
@@ -340,10 +357,12 @@ class WallpaperInterface(ScrollArea):
         )
         
         if file_path:
+            logger.info(f"用户选择壁纸路径: {file_path}")
             try:
                 self.current_pixmap = QPixmap(file_path)
                 self.current_wallpaper_path = file_path
                 if not self.current_pixmap.isNull():
+                    logger.info("壁纸加载成功，更新界面显示")
                     self.imageLabel.setPixmap(self.current_pixmap)
                     # 更新主界面的背景照片
                     if self.mainWindow and hasattr(self.mainWindow, 'homeBackgroundImage'):
@@ -353,6 +372,7 @@ class WallpaperInterface(ScrollArea):
                         scaled_pixmap = self.current_pixmap.scaled(available_width, available_height, Qt.IgnoreAspectRatio, Qt.SmoothTransformation)
                         self.mainWindow.homeBackgroundImage.setPixmap(scaled_pixmap)
                         QApplication.processEvents()
+                        logger.info("主界面背景已更新")
                 
                 InfoBar.success(
                     "成功",
@@ -361,6 +381,7 @@ class WallpaperInterface(ScrollArea):
                     parent=self
                 )
             except Exception as e:
+                logger.error(f"选择壁纸失败: {str(e)}")
                 InfoBar.error(
                     "错误",
                     f"选择壁纸失败: {str(e)}",
@@ -389,7 +410,9 @@ class WallpaperInterface(ScrollArea):
     
     def __setWallpaper(self, show_notification=True):
         """ 设为桌面壁纸 """
+        logger.info("开始设置桌面壁纸")
         if self.current_wallpaper_path is None:
+            logger.warning("没有可设置的壁纸")
             if show_notification:
                 InfoBar.warning(
                     "提示",
@@ -399,6 +422,7 @@ class WallpaperInterface(ScrollArea):
                 )
             return
         
+        logger.info(f"设置壁纸路径: {self.current_wallpaper_path}")
         try:
             # 使用ctypes设置桌面壁纸
             SPI_SETDESKWALLPAPER = 20
@@ -412,8 +436,8 @@ class WallpaperInterface(ScrollArea):
                 SPIF_UPDATEINIFILE | SPIF_SENDWININICHANGE
             )
             
-
             self.last_sync_path = self.current_wallpaper_path
+            logger.info("壁纸已成功设置为桌面背景")
             
             if show_notification:
                 InfoBar.success(
@@ -423,6 +447,7 @@ class WallpaperInterface(ScrollArea):
                     parent=self
                 )
         except Exception as e:
+            logger.error(f"设置壁纸失败: {str(e)}")
             if show_notification:
                 InfoBar.error(
                     "错误",
@@ -435,25 +460,44 @@ class MainWindow(FluentWindow):
     """ 主窗口 """
 
     def __init__(self):
+        logger.info("开始初始化主窗口")
         super().__init__()
+        logger.info("父类构造函数调用完成")
+        
         setTheme(Theme.DARK)
+        logger.info("主题已设置为深色模式")
         
         # 设置窗口图标
         icon_path = get_resource_path(os.path.join("resource", "icons", "CY.png"))
         if os.path.exists(icon_path):
             self.setWindowIcon(QIcon(icon_path))
+            logger.info(f"窗口图标已设置: {icon_path}")
+        else:
+            logger.warning("窗口图标文件不存在")
         
+        logger.info("开始初始化主界面导航")
         self.initMainNavigation()
+        logger.info("主界面导航初始化完成")
+        
+        logger.info("开始初始化设置导航")
         self.initSettingsNavigation()
+        logger.info("设置导航初始化完成")
+        
         self.setWindowTitle(APP_NAME)
+        logger.info(f"窗口标题已设置为: {APP_NAME}")
+        
         self.resize(1100, 700)
         self.setMinimumSize(400, 300)
         self.moveToCenter()
+        logger.info(f"窗口大小已设置: 1100x700，最小大小: 400x300")
         
         # 初始化系统托盘
+        logger.info("开始初始化系统托盘")
         self.initSystemTray()
+        logger.info("系统托盘初始化完成")
         
         # 时钟更新定时器
+        logger.info("开始初始化时钟更新定时器")
         self.clockTimer = QTimer(self)
         self.clockTimer.timeout.connect(self.__updateClock)
         self.clockTimer.start(1000)
@@ -466,22 +510,29 @@ class MainWindow(FluentWindow):
         cfg.weatherSize.valueChanged.connect(self.updateClockStyle)
         cfg.weatherIconSize.valueChanged.connect(self.__updateWeatherIcon)
         self.__updateClock()
+        logger.info("时钟更新定时器初始化完成")
         
         # 诗词更新定时器
+        logger.info("开始初始化诗词更新定时器")
         self.poetryTimer = QTimer(self)
         self.poetryTimer.timeout.connect(self.__updatePoetry)
         cfg.showPoetry.valueChanged.connect(self.__updatePoetry)
         cfg.poetryApiUrl.valueChanged.connect(self.__updatePoetry)
         cfg.poetryUpdateInterval.valueChanged.connect(self.__updatePoetryInterval)
         self.__updatePoetryInterval()
+        logger.info("诗词更新定时器初始化完成")
         
         # 天气更新定时器
+        logger.info("开始初始化天气更新定时器")
         self.weatherTimer = QTimer(self)
         self.weatherTimer.timeout.connect(self.__updateWeather)
         cfg.weatherUpdateInterval.valueChanged.connect(self.__updateWeatherInterval)
         
         # 初始更新天气
         self.__updateWeatherInterval()
+        logger.info("天气更新定时器初始化完成")
+
+        logger.info("主窗口初始化完成!")
     
     def initSystemTray(self):
         """ 初始化系统托盘 """
@@ -511,14 +562,28 @@ class MainWindow(FluentWindow):
         """ 托盘图标激活槽函数 """
         if reason == QSystemTrayIcon.DoubleClick:
             if self.isVisible():
+                logger.info("双击托盘图标，隐藏主窗口")
                 self.hide()
             else:
+                logger.info("双击托盘图标，显示主窗口")
                 self.show()
+    
+    def show(self):
+        """ 显示窗口 """
+        logger.info("显示主窗口")
+        super().show()
+    
+    def hide(self):
+        """ 隐藏窗口 """
+        logger.info("隐藏主窗口")
+        super().hide()
     
     def closeEvent(self, event):
         """ 关闭事件处理 """
+        logger.info("关闭事件触发")
         if cfg.closeAction.value == "minimize":
             # 最小化到托盘
+            logger.info("关闭行为: 最小化到托盘")
             event.ignore()
             self.hide()
             self.tray_icon.showMessage(
@@ -529,19 +594,31 @@ class MainWindow(FluentWindow):
             )
         else:
             # 退出应用
+            logger.info("关闭行为: 退出应用")
             QApplication.quit()
+    
+    def onCurrentInterfaceChanged(self, index):
+        """ 当前界面切换事件 """
+        if hasattr(self, '_subInterfaces'):
+            if 0 <= index < len(self._subInterfaces):
+                interface = self._subInterfaces[index]
+                logger.info(f"切换到界面: {interface.text()}")
 
     def initMainNavigation(self):
         """ 初始化主界面导航 """
+        logger.info("开始初始化主界面导航")
         home = QWidget()
         home.setObjectName("home")
+        logger.info("创建主界面对象")
         
         # 创建主界面的照片显示控件
+        logger.info("创建背景图片控件")
         self.homeBackgroundImage = QLabel()
         self.homeBackgroundImage.setAlignment(Qt.AlignCenter)
         self.originalPixmap = None
         
         # 时钟和日期标签
+        logger.info("创建时钟和日期标签")
         self.clockLabel = QLabel("00:00:00")
         self.clockLabel.setAlignment(Qt.AlignCenter)
         
@@ -549,8 +626,9 @@ class MainWindow(FluentWindow):
         self.dateLabel.setAlignment(Qt.AlignCenter)
         
         # 天气温度标签
+        logger.info("创建天气温度标签")
         self.weatherTempLabel = QLabel("")
-        self.weatherTempLabel.setAlignment(Qt.AlignVCenter | Qt.AlignLeft)
+        self.weatherTempLabel.setAlignment(Qt.AlignVCenter | Qt.AlignRight)
         self.weatherTempLabel.setStyleSheet("""
             color: #FFFFFF; 
             font-size: 14px; 
@@ -560,11 +638,13 @@ class MainWindow(FluentWindow):
         """)
         
         # 天气图标
+        logger.info("创建天气图标")
         self.weatherIconLabel = QLabel("")
         self.weatherIconLabel.setAlignment(Qt.AlignTop | Qt.AlignRight)
         self.weatherIconLabel.setStyleSheet("background-color: transparent;")
         
         # 诗词标签
+        logger.info("创建诗词标签")
         self.poetryLabel = QLabel("")
         self.poetryLabel.setAlignment(Qt.AlignBottom | Qt.AlignHCenter)
         self.poetryLabel.setStyleSheet("""
@@ -576,9 +656,11 @@ class MainWindow(FluentWindow):
         """)
         self.poetryLabel.setWordWrap(False)
         
+        logger.info("更新时钟样式")
         self.updateClockStyle()
         
         # 时钟容器
+        logger.info("创建时钟容器")
         clockContainer = QWidget()
         clockLayout = QVBoxLayout(clockContainer)
         clockLayout.setAlignment(Qt.AlignTop)
@@ -590,16 +672,22 @@ class MainWindow(FluentWindow):
         clockContainer.setStyleSheet("background-color: transparent;")
         
         # 天气容器
+        logger.info("创建天气容器")
         weatherContainer = QWidget()
         weatherLayout = QHBoxLayout(weatherContainer)
         weatherLayout.setAlignment(Qt.AlignTop | Qt.AlignRight)
         weatherLayout.setContentsMargins(0, 20, 20, 0)
         weatherLayout.setSpacing(10)
+        self.weatherTempLabel.setAlignment(Qt.AlignCenter)
+        self.weatherIconLabel.setAlignment(Qt.AlignCenter)
+
+        
         weatherLayout.addWidget(self.weatherTempLabel)
         weatherLayout.addWidget(self.weatherIconLabel)
         weatherContainer.setStyleSheet("background-color: transparent;")
     
         # 诗词容器
+        logger.info("创建诗词容器")
         poetryContainer = QWidget()
         poetryLayout = QVBoxLayout(poetryContainer)
         poetryLayout.setAlignment(Qt.AlignBottom)
@@ -607,6 +695,7 @@ class MainWindow(FluentWindow):
         poetryLayout.addWidget(self.poetryLabel)
         poetryContainer.setStyleSheet("background-color: transparent;")
     
+        logger.info("创建网格布局")
         gridLayout = QGridLayout()
         gridLayout.setContentsMargins(0, 0, 0, 0)
         gridLayout.addWidget(self.homeBackgroundImage, 0, 0, 1, 1)
@@ -618,24 +707,34 @@ class MainWindow(FluentWindow):
         gridWidget.setLayout(gridLayout)
         
         # 主界面布局
+        logger.info("设置主界面布局")
         homeLayout = QVBoxLayout(home)
         homeLayout.setAlignment(Qt.AlignCenter)
         homeLayout.setContentsMargins(0, 0, 0, 0)
         homeLayout.addWidget(gridWidget)
         
+        logger.info("添加主界面到导航")
         self.addSubInterface(home, FIF.HOME, "主界面")
         
+        logger.info("创建壁纸界面")
         self.wallpaper = WallpaperInterface(mainWindow=self)
         self.wallpaper.setObjectName("wallpaper")
+        logger.info("添加壁纸界面到导航")
         self.addSubInterface(self.wallpaper, FIF.PHOTO, "壁纸")
+        logger.info("主界面导航初始化完成")
 
     def initSettingsNavigation(self):
         """ 初始化设置导航 """
+        logger.info("开始初始化设置导航")
+        
+        logger.info("创建设置界面")
         setting = SettingInterface()
         setting.setObjectName("setting")
+        logger.info("添加设置界面到导航")
         self.addSubInterface(setting, FIF.SETTING, "设置", NavigationItemPosition.BOTTOM)
         
         # 关于界面
+        logger.info("创建关于界面")
         about = ScrollArea()
         about.setObjectName("about")
         about.scrollWidget = QWidget()
@@ -659,10 +758,13 @@ class MainWindow(FluentWindow):
             qss_path = get_resource_path(os.path.join('resource', 'qss', theme, 'setting_interface.qss'))
             with open(qss_path, encoding='utf-8') as f:
                 about.setStyleSheet(f.read())
-        except Exception:
-            pass
+            logger.info(f"设置关于界面样式: {qss_path}")
+        except Exception as e:
+            logger.warning(f"设置关于界面样式失败: {e}")
         
+        logger.info("添加关于界面到导航")
         self.addSubInterface(about, FIF.INFO, "关于", NavigationItemPosition.BOTTOM)
+        logger.info("设置导航初始化完成")
 
     def resizeEvent(self, event):
         """ 窗口大小变化时调整图片大小 """
@@ -831,7 +933,9 @@ class MainWindow(FluentWindow):
     
     def __updatePoetry(self):
         """ 更新诗词显示 """
+        logger.debug("开始更新诗词")
         if not cfg.showPoetry.value:
+            logger.debug("诗词显示已禁用")
             self.poetryLabel.setText("")
             self.poetryLabel.hide()
             return
@@ -840,29 +944,35 @@ class MainWindow(FluentWindow):
         
         try:
             api_url = cfg.poetryApiUrl.value
+            logger.debug(f"诗词 API URL: {api_url}")
             response = requests.get(api_url, timeout=10)
             
             if response.status_code == 200:
+                logger.debug(f"诗词 API 请求成功，状态码: {response.status_code}")
                 # 尝试解析为 JSON
                 try:
                     data = response.json()
+                    logger.debug(f"诗词 API 返回数据: {data}")
                     if data.get('success') and 'data' in data:
                         poetry_data = data['data']
                         content = poetry_data.get('content', '')
                         author = poetry_data.get('author', '')
                         origin = poetry_data.get('origin', '')
-    
+
                         poetry_text = f"「{content}」"
                         if author or origin:
                             poetry_text += f"\n——{author if author else ''}《{origin}》" if origin else f"\n——{author if author else ''}"
                         
                         self.poetryLabel.setText(poetry_text)
+                        logger.info(f"已更新诗词: {content}")
                     else:
                         logger.error(f"诗词 API 返回数据格式错误：{data}")
                         self.poetryLabel.setText("")
-                except:
+                except Exception as json_error:
+                    logger.debug(f"JSON解析失败，使用文本模式: {json_error}")
                     poetry_text = response.text.strip()
                     self.poetryLabel.setText(poetry_text)
+                    logger.info(f"已更新诗词 (文本模式): {poetry_text[:50]}...")
             else:
                 logger.error(f"诗词 API 请求失败，状态码：{response.status_code}")
                 self.poetryLabel.setText("")
@@ -872,11 +982,12 @@ class MainWindow(FluentWindow):
     
     def __updateWeather(self):
         """ 更新天气显示 """
+        logger.info("获取天气数据")
         try:
             from city_selector import CityDatabase
             
             city = cfg.city.value
-            logger.info(f"正在更新天气，使用城市：{city}")
+            logger.debug(f"正在更新天气，使用城市：{city}")
             
             # 查询 locationKey
             city_db = CityDatabase()
@@ -888,15 +999,15 @@ class MainWindow(FluentWindow):
                 location_key = "weathercn:101010100" 
                 logger.warning(f"未找到城市 {city} 的代码，使用默认值")
             
-            logger.info(f"城市 {city} 对应的 locationKey: {location_key}")
+            logger.debug(f"城市 {city} 对应的 locationKey: {location_key}")
             
             api_url = f"https://weatherapi.market.xiaomi.com/wtr-v3/weather/all?locationKey={location_key}&latitude=39.9042&longitude=116.4074&appKey=weather20151024&sign=zUFJoAR2ZVrDy1vF3D07&isGlobal=false&locale=zh_cn"
-            logger.info(f"天气 API 请求 URL: {api_url}")
+            logger.debug(f"天气 API 请求 URL: {api_url}")
             response = requests.get(api_url, timeout=10)
             
             if response.status_code == 200:
                 data = response.json()
-                logger.info(f"天气API响应: {data}")
+                logger.debug(f"天气API响应: {data}")
                 if 'current' in data:
                     current = data['current']
                     
@@ -912,6 +1023,7 @@ class MainWindow(FluentWindow):
                         weather_code = int(weather_code)
                     except (ValueError, TypeError):
                         weather_code = 0
+                        logger.warning(f"天气代码为空或无效: {weather_code}")
                     
                     # 解析预报数据
                     max_temp = 0
@@ -957,49 +1069,18 @@ class MainWindow(FluentWindow):
                         27: "强沙尘暴"
                     }
                     
-                    # 天气代码到图标文件的映射
-                    icon_map = {
-                        0: "0.svg",      # 晴
-                        1: "1.svg",      # 多云
-                        2: "2.svg",      # 阴
-                        3: "2.svg",      # 阴
-                        4: "7.svg",      # 小雨
-                        5: "8.svg",      # 中雨
-                        6: "9.svg",      # 大雨
-                        7: "10.svg",     # 暴雨
-                        8: "4.svg",      # 雷阵雨
-                        9: "5.svg",      # 冰雹
-                        10: "14.svg",     # 小雪
-                        11: "15.svg",     # 中雪
-                        12: "16.svg",     # 大雪
-                        13: "18.svg",     # 雾
-                        14: "18.svg",     # 霾
-                        15: "18.svg",     # 沙尘
-                        16: "3.svg",      # 大风
-                        17: "3.svg",      # 台风
-                        18: "11.svg",     # 暴雨
-                        19: "17.svg",     # 暴雪
-                        20: "19.svg",     # 雨夹雪
-                        21: "19.svg",     # 冻雨
-                        22: "18.svg",     # 雾凇
-                        23: "18.svg",     # 霜冻
-                        24: "18.svg",     # 沙尘暴
-                        25: "18.svg",     # 扬沙
-                        26: "18.svg",     # 浮尘
-                        27: "18.svg"      # 强沙尘暴
-                    }
-                    
                     weather = weather_map.get(weather_code, "未知")
                     logger.info(f"天气信息：{weather}，当前温度：{current_temp}{temp_unit}，最高温度：{max_temp}{temp_unit}，最低温度：{min_temp}{temp_unit}，天气代码：{weather_code}")
                     
                     weather_text = f"{current_temp}{temp_unit}"
                     self.weatherTempLabel.setText(weather_text)
-                    logger.info(f"已更新天气标签：{weather_text}")
+                    logger.debug(f"已更新天气标签：{weather_text}")
                     
                     self.current_weather_code = weather_code
                     
                     self.__updateWeatherIcon()
-                    logger.info("已更新天气图标")
+                    logger.debug("已更新天气图标")
+                logger.info("已获取天气数据")
             else:
                 logger.error(f"天气 API 请求失败，状态码：{response.status_code}，响应内容：{response.text}")
         except Exception as e:

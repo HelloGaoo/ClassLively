@@ -114,7 +114,7 @@ class Config(QConfig):
         "Time", "ClockSize", 120, RangeValidator(80, 200)
     )
     dateSize = RangeConfigItem(
-        "Time", "DateSize", 20, RangeValidator(12, 50)
+        "Time", "DateSize", 100, RangeValidator(12, 50)
     )
     showPoetry = ConfigItem(
         "Poetry", "ShowPoetry", True, BoolValidator()
@@ -129,10 +129,10 @@ class Config(QConfig):
         "Poetry", "PoetrySize", 16, RangeValidator(12, 50)
     )
     weatherSize = RangeConfigItem(
-        "Weather", "WeatherSize", 14, RangeValidator(25, 50)
+        "Weather", "WeatherSize", 24, RangeValidator(5, 50)
     )
     weatherIconSize = RangeConfigItem(
-        "Weather", "WeatherIconSize", 64, RangeValidator(32, 128)
+        "Weather", "WeatherIconSize", 64, RangeValidator(32, 200)
     )
     weatherUpdateInterval = OptionsConfigItem(
         "Weather", "UpdateInterval", "15 分钟", OptionsValidator(["从不", "15 分钟", "30 分钟", "1 小时", "3 小时", "6 小时", "12 小时", "24 小时"])

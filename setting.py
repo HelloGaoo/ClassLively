@@ -301,8 +301,8 @@ class SettingInterface(ScrollArea):
             "天气文字大小",
             "设置主界面天气的文字大小",
             parent=self.weatherGroup,
-            min_value=10,
-            max_value=20
+            min_value=5,
+            max_value=50
         )
         self.weatherIconSizeCard = SpinBoxSettingCard(
             cfg.weatherIconSize,
@@ -311,7 +311,7 @@ class SettingInterface(ScrollArea):
             "设置主界面天气图标的大小",
             parent=self.weatherGroup,
             min_value=32,
-            max_value=128
+            max_value=200
         )
         self.weatherUpdateIntervalCard = ComboBoxSettingCard(
             cfg.weatherUpdateInterval,
@@ -504,7 +504,7 @@ class SettingInterface(ScrollArea):
                         "PoetrySize": 16
                     },
                     "Weather": {
-                        "WeatherSize": 14,
+                        "WeatherSize": 24,
                         "WeatherIconSize": 64,
                         "UpdateInterval": "1 小时",
                         "Latitude": 39.9042,
