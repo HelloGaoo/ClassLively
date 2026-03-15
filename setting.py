@@ -5,7 +5,8 @@ from PyQt5.QtWidgets import QWidget, QLabel
 from qfluentwidgets import (
     SettingCardGroup, OptionsSettingCard, ScrollArea, ExpandLayout, 
     Theme, setTheme, isDarkTheme, FluentIcon as FIF, CustomColorSettingCard, setThemeColor,
-    SwitchSettingCard, RangeSettingCard, InfoBar, LineEdit, SettingCard, qconfig, ComboBoxSettingCard
+    SwitchSettingCard, RangeSettingCard, InfoBar, LineEdit, SettingCard, qconfig, ComboBoxSettingCard,
+    SpinBox
 )
 from config import cfg
 
@@ -30,6 +31,27 @@ class LineEditSettingCard(SettingCard):
 
     def setValue(self, value):
         self.lineEdit.setText(str(value))
+
+
+class SpinBoxSettingCard(SettingCard):
+    def __init__(self, configItem, icon, title, content=None, parent=None, min_value=1, max_value=100):
+        super().__init__(icon, title, content, parent)
+        self.configItem = configItem
+        self.spinBox = SpinBox(self)
+        self.spinBox.setRange(min_value, max_value)
+        self.spinBox.setValue(qconfig.get(configItem))
+
+        self.hBoxLayout.addWidget(self.spinBox, 0, Qt.AlignRight)
+        self.hBoxLayout.addSpacing(16)
+
+        self.spinBox.valueChanged.connect(self.__onValueChanged)
+        configItem.valueChanged.connect(self.setValue)
+
+    def __onValueChanged(self, value):
+        qconfig.set(self.configItem, value)
+
+    def setValue(self, value):
+        self.spinBox.setValue(value)
 
 # 路径设置
 if getattr(sys, 'frozen', False):
@@ -76,22 +98,26 @@ class SettingInterface(ScrollArea):
         )
         
         # 添加背景模糊设置
-        self.backgroundBlurCard = RangeSettingCard(
+        self.backgroundBlurCard = SpinBoxSettingCard(
             cfg.backgroundBlurRadius,
             FIF.PHOTO,
             "主界面背景模糊",
             "设置主界面背景图片的模糊强度（0-30）",
-            parent=self.appearanceGroup
+            parent=self.appearanceGroup,
+            min_value=0,
+            max_value=30
         )
         
         # 壁纸设置
         self.wallpaperGroup = SettingCardGroup("壁纸", self.scrollWidget)
-        self.wallpaperSaveLimitCard = RangeSettingCard(
+        self.wallpaperSaveLimitCard = SpinBoxSettingCard(
             cfg.wallpaperSaveLimit,
             FIF.PHOTO,
             "壁纸保存量",
             "设置本地保存的壁纸数量，超过限制时会自动删除最旧的壁纸",
-            parent=self.wallpaperGroup
+            parent=self.wallpaperGroup,
+            min_value=10,
+            max_value=100
         )
         self.autoGetIntervalCard = ComboBoxSettingCard(
             cfg.autoGetInterval,
@@ -107,6 +133,28 @@ class SettingInterface(ScrollArea):
             "当获取新壁纸时，自动将其设置为桌面背景",
             configItem=cfg.autoSyncToDesktop,
             parent=self.wallpaperGroup
+        )
+        self.timeGroup = SettingCardGroup("时间", self.scrollWidget)
+        self.showClockSecondsCard = SwitchSettingCard(
+            FIF.INFO,
+            "显示秒针",
+            "在主界面时钟中显示秒数",
+            configItem=cfg.showClockSeconds,
+            parent=self.timeGroup
+        )
+        self.showLunarCalendarCard = SwitchSettingCard(
+            FIF.INFO,
+            "显示农历",
+            "在主界面日期中显示农历信息",
+            configItem=cfg.showLunarCalendar,
+            parent=self.timeGroup
+        )
+        self.clockColorCard = CustomColorSettingCard(
+            cfg.clockColor,
+            FIF.PALETTE,
+            "时钟颜色",
+            "设置主界面时钟和日期的文字颜色",
+            parent=self.timeGroup
         )
         
         self.logGroup = SettingCardGroup("日志", self.scrollWidget)
@@ -125,19 +173,23 @@ class SettingInterface(ScrollArea):
             texts=["Debug", "Info", "Warning", "Error"],
             parent=self.logGroup
         )
-        self.logMaxCountCard = RangeSettingCard(
+        self.logMaxCountCard = SpinBoxSettingCard(
             cfg.logMaxCount,
             FIF.INFO,
             "日志数量上限",
             "设置日志文件的最大条目数",
-            parent=self.logGroup
+            parent=self.logGroup,
+            min_value=10,
+            max_value=500
         )
-        self.logMaxDaysCard = RangeSettingCard(
+        self.logMaxDaysCard = SpinBoxSettingCard(
             cfg.logMaxDays,
             FIF.INFO,
             "日志时间上限",
             "设置日志文件的最大保存天数",
-            parent=self.logGroup
+            parent=self.logGroup,
+            min_value=30,
+            max_value=365
         )
 
         self.__initWidget()
@@ -165,6 +217,39 @@ class SettingInterface(ScrollArea):
         self.wallpaperGroup.addSettingCard(self.wallpaperSaveLimitCard)
         self.wallpaperGroup.addSettingCard(self.autoGetIntervalCard)
         self.wallpaperGroup.addSettingCard(self.autoSyncToDesktopCard)
+        
+        self.timeGroup.addSettingCard(self.showClockSecondsCard)
+        self.timeGroup.addSettingCard(self.showLunarCalendarCard)
+        self.timeGroup.addSettingCard(self.clockColorCard)
+        
+        # 诗词设置
+        self.poetryGroup = SettingCardGroup("诗词", self.scrollWidget)
+        self.showPoetryCard = SwitchSettingCard(
+            FIF.INFO,
+            "显示诗词",
+            "在主界面显示每日一言诗词",
+            configItem=cfg.showPoetry,
+            parent=self.poetryGroup
+        )
+        self.poetryApiUrlCard = LineEditSettingCard(
+            cfg.poetryApiUrl,
+            FIF.LINK,
+            "诗词 API 地址",
+            "设置诗词一言的 API 请求地址",
+            parent=self.poetryGroup
+        )
+        self.poetryUpdateIntervalCard = ComboBoxSettingCard(
+            cfg.poetryUpdateInterval,
+            FIF.HISTORY,
+            "诗词更新间隔",
+            "设置诗词内容的更新频率，选择'从不'则禁用自动更新",
+            texts=["从不", "10 分钟", "30 分钟", "1 小时", "3 小时", "6 小时", "12 小时", "1 天"],
+            parent=self.poetryGroup
+        )
+        
+        self.poetryGroup.addSettingCard(self.showPoetryCard)
+        self.poetryGroup.addSettingCard(self.poetryApiUrlCard)
+        self.poetryGroup.addSettingCard(self.poetryUpdateIntervalCard)
         
         self.logGroup.addSettingCard(self.disableLogCard)
         self.logGroup.addSettingCard(self.logLevelCard)
@@ -195,6 +280,8 @@ class SettingInterface(ScrollArea):
         self.expandLayout.setContentsMargins(60, 10, 60, 0)
         self.expandLayout.addWidget(self.appearanceGroup)
         self.expandLayout.addWidget(self.wallpaperGroup)
+        self.expandLayout.addWidget(self.timeGroup)
+        self.expandLayout.addWidget(self.poetryGroup)
         self.expandLayout.addWidget(self.logGroup)
         self.expandLayout.addWidget(self.otherGroup)
 

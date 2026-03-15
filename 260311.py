@@ -1,6 +1,6 @@
-from PyQt5.QtWidgets import QApplication, QWidget, QSystemTrayIcon, QMenu, QAction, QLabel, QPushButton, QVBoxLayout, QHBoxLayout, QSpacerItem, QSizePolicy, QFileDialog, QGraphicsBlurEffect
-from PyQt5.QtCore import QTimer
-from PyQt5.QtCore import QLocale, QTranslator, Qt, QUrl
+from PyQt5.QtWidgets import QApplication, QWidget, QSystemTrayIcon, QMenu, QAction, QLabel, QPushButton, QVBoxLayout, QHBoxLayout, QSpacerItem, QSizePolicy, QFileDialog, QGraphicsBlurEffect,QStackedLayout
+from PyQt5.QtCore import QTimer, Qt, QTime, QDate
+from PyQt5.QtCore import QLocale, QTranslator, QUrl
 from PyQt5.QtGui import QFontDatabase, QFont, QIcon, QPixmap, QImage, QPainter, QColor
 from qfluentwidgets import (
     setTheme, Theme, FluentWindow, FluentTranslator,
@@ -20,6 +20,7 @@ from logger import logger
 from version import VERSION, BUILD_DATE
 from constants import APP_NAME
 import datetime
+import cnlunar
 def check_single_instance():
     """ 检查是否已经有实例 """
     config_path = 'config/config.json'
@@ -38,8 +39,7 @@ def check_single_instance():
         # 创建互斥体
         mutex_name = f"Global\\{APP_NAME}_Mutex"
         mutex = ctypes.windll.kernel32.CreateMutexW(None, False, mutex_name)
-        if ctypes.windll.kernel32.GetLastError() == 183:  # ERROR_ALREADY_EXISTS
-            # 已经有实例在运行
+        if ctypes.windll.kernel32.GetLastError() == 183:
             return False
     return True
 
@@ -59,6 +59,55 @@ def get_resource_path(relative_path):
         return os.path.join(MEIPASS_DIR, relative_path)
     return os.path.join(BASE_DIR, relative_path)
 
+
+class TitleInterface(ScrollArea):
+    """ 标题界面 """
+
+    def __init__(self, parent=None):
+        super().__init__(parent=parent)
+        self.scrollWidget = QWidget()
+        self.mainLayout = QVBoxLayout(self.scrollWidget)
+
+        self.titleLabel = QLabel("标题", self)
+        self.contentLabel = QLabel("这是一个标题页面，用于展示标题相关内容。", self)
+        self.contentLabel.setAlignment(Qt.AlignCenter)
+        self.contentLabel.setWordWrap(True)
+
+        self.__initWidget()
+
+    def __initWidget(self):
+        """ 初始化界面 """
+        self.resize(1000, 800)
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.setViewportMargins(0, -40, 0, 20)
+        self.setWidget(self.scrollWidget)
+        self.setWidgetResizable(True)
+
+        self.__setQss()
+        self.__initLayout()
+
+    def __initLayout(self):
+        """ 初始化布局 """
+        # 标题
+        self.titleLabel.move(60, 63)
+
+        # 主布局
+        self.mainLayout.setSpacing(20)
+        self.mainLayout.setContentsMargins(60, 160, 60, 0)
+        self.mainLayout.addWidget(self.contentLabel)
+
+    def __setQss(self):
+        """ 设置样式表 """
+        self.scrollWidget.setObjectName('scrollWidget')
+        self.titleLabel.setObjectName('settingLabel')
+
+        theme = 'dark' if isDarkTheme() else 'light'
+        try:
+            qss_path = get_resource_path(os.path.join('resource', 'qss', theme, 'setting_interface.qss'))
+            with open(qss_path, encoding='utf-8') as f:
+                self.setStyleSheet(f.read())
+        except Exception:
+            pass
 
 class WallpaperInterface(ScrollArea):
     """ 壁纸界面 """
@@ -83,7 +132,7 @@ class WallpaperInterface(ScrollArea):
         self.getButton.setFixedHeight(50)
         self.getButton.setFixedWidth(200)
         
-        # 添加新按钮
+        # 按钮
         self.saveButton = PushButton(FIF.SAVE, "另存壁纸")
         self.saveButton.setFixedHeight(50)
         self.saveButton.setFixedWidth(200)
@@ -110,7 +159,7 @@ class WallpaperInterface(ScrollArea):
         """ 初始化界面 """
         self.resize(1000, 800)
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        self.setViewportMargins(0, -40, 0, 20)  # 进一步减少顶部边距
+        self.setViewportMargins(0, -40, 0, 20)
         self.setWidget(self.scrollWidget)
         self.setWidgetResizable(True)
 
@@ -256,7 +305,6 @@ class WallpaperInterface(ScrollArea):
                 if not os.path.exists(wallpaper_dir):
                     os.makedirs(wallpaper_dir)
                 
-                # 使用当前日期作为文件名
                 current_date = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
                 wallpaper_path = os.path.join(wallpaper_dir, f'wallpaper_{current_date}.jpg')
                 
@@ -267,7 +315,6 @@ class WallpaperInterface(ScrollArea):
                 save_limit = cfg.wallpaperSaveLimit.value
                 self.__manageWallpaperLimit(wallpaper_dir, save_limit)
                 
-                # 显示预览
                 self.current_pixmap = QPixmap(wallpaper_path)
                 self.current_wallpaper_path = wallpaper_path
                 if not self.current_pixmap.isNull():
@@ -279,10 +326,8 @@ class WallpaperInterface(ScrollArea):
                         available_height = self.mainWindow.height()
                         scaled_pixmap = self.current_pixmap.scaled(available_width, available_height, Qt.IgnoreAspectRatio, Qt.SmoothTransformation)
                         self.mainWindow.homeBackgroundImage.setPixmap(scaled_pixmap)
-                        # 强制刷新
                         QApplication.processEvents()
                 
-                # 显示成功消息
                 InfoBar.success(
                     "成功",
                     f"壁纸已下载到: {wallpaper_path}",
@@ -290,7 +335,6 @@ class WallpaperInterface(ScrollArea):
                     parent=self
                 )
                 
-                # 如果启用了自动同步至桌面，则自动设置为桌面背景
                 if cfg.autoSyncToDesktop.value:
                     self.__setWallpaper(show_notification=True)
                     self.last_sync_path = wallpaper_path
@@ -366,7 +410,6 @@ class WallpaperInterface(ScrollArea):
                         available_height = self.mainWindow.height()
                         scaled_pixmap = self.current_pixmap.scaled(available_width, available_height, Qt.IgnoreAspectRatio, Qt.SmoothTransformation)
                         self.mainWindow.homeBackgroundImage.setPixmap(scaled_pixmap)
-                        # 强制刷新
                         QApplication.processEvents()
                 
                 InfoBar.success(
@@ -385,12 +428,10 @@ class WallpaperInterface(ScrollArea):
     
     def __manageWallpaperLimit(self, wallpaper_dir, save_limit):
         """ 管理壁纸保存量，超过限制时删除最旧的壁纸 """
-        # 获取壁纸目录中的所有jpg文件
         wallpapers = []
         for file in os.listdir(wallpaper_dir):
             if file.endswith('.jpg') and file.startswith('wallpaper_'):
                 file_path = os.path.join(wallpaper_dir, file)
-                # 获取文件的修改时间
                 mtime = os.path.getmtime(file_path)
                 wallpapers.append((mtime, file_path))
         
@@ -429,7 +470,7 @@ class WallpaperInterface(ScrollArea):
                 SPIF_UPDATEINIFILE | SPIF_SENDWININICHANGE
             )
             
-            # 更新同步记录
+
             self.last_sync_path = self.current_wallpaper_path
             
             if show_notification:
@@ -464,11 +505,28 @@ class MainWindow(FluentWindow):
         self.initSettingsNavigation()
         self.setWindowTitle(APP_NAME)
         self.resize(1100, 700)
-        self.setMinimumSize(400, 300)  # 最小窗口尺寸
+        self.setMinimumSize(400, 300)
         self.moveToCenter()
         
         # 初始化系统托盘
         self.initSystemTray()
+        
+        # 时钟更新定时器
+        self.clockTimer = QTimer(self)
+        self.clockTimer.timeout.connect(self.__updateClock)
+        self.clockTimer.start(1000)
+        cfg.showClockSeconds.valueChanged.connect(self.__updateClock)
+        cfg.showLunarCalendar.valueChanged.connect(self.__updateClock)
+        cfg.clockColor.valueChanged.connect(self.updateClockStyle)
+        self.__updateClock()
+        
+        # 诗词更新定时器
+        self.poetryTimer = QTimer(self)
+        self.poetryTimer.timeout.connect(self.__updatePoetry)
+        cfg.showPoetry.valueChanged.connect(self.__updatePoetry)
+        cfg.poetryApiUrl.valueChanged.connect(self.__updatePoetry)
+        cfg.poetryUpdateInterval.valueChanged.connect(self.__updatePoetryInterval)
+        self.__updatePoetryInterval()
     
     def initSystemTray(self):
         """ 初始化系统托盘 """
@@ -526,17 +584,69 @@ class MainWindow(FluentWindow):
         # 创建主界面的照片显示控件
         self.homeBackgroundImage = QLabel()
         self.homeBackgroundImage.setAlignment(Qt.AlignCenter)
-        self.originalPixmap = None
+        self.originalPixmap = None  # 保存原始图片
         
-        # 创建主界面布局
+        # 时钟和日期标签
+        self.clockLabel = QLabel("00:00:00")
+        self.clockLabel.setAlignment(Qt.AlignCenter)
+        
+        self.dateLabel = QLabel("")
+        self.dateLabel.setAlignment(Qt.AlignCenter)
+        
+        # 诗词标签
+        self.poetryLabel = QLabel("")
+        self.poetryLabel.setAlignment(Qt.AlignBottom | Qt.AlignHCenter)
+        self.poetryLabel.setStyleSheet("""
+            color: #FFFFFF; 
+            font-size: 16px; 
+            font-weight: bold; 
+            font-family: 'Microsoft YaHei';
+            background-color: transparent;
+        """)
+        self.poetryLabel.setWordWrap(False)
+        
+        self.updateClockStyle()
+        
+        # 时钟容器
+        clockContainer = QWidget()
+        clockLayout = QVBoxLayout(clockContainer)
+        clockLayout.setAlignment(Qt.AlignTop)
+        clockLayout.setContentsMargins(0, 100, 0, 0)
+        clockLayout.setSpacing(0)  # 时钟和日期之间的间距
+        clockLayout.addWidget(self.clockLabel)
+        clockLayout.addWidget(self.dateLabel)
+        clockContainer.setStyleSheet("background-color: transparent;")
+    
+        # 诗词容器
+        poetryContainer = QWidget()
+        poetryLayout = QVBoxLayout(poetryContainer)
+        poetryLayout.setAlignment(Qt.AlignBottom)
+        poetryLayout.setContentsMargins(0, 0, 0, 20)# 最后一个为底部向上预留
+        poetryLayout.addWidget(self.poetryLabel)
+        poetryContainer.setStyleSheet("background-color: transparent;")
+    
+        stackLayout = QStackedLayout()
+        stackLayout.addWidget(self.homeBackgroundImage)  # 底层：背景图片
+        stackLayout.addWidget(clockContainer)  # 上层：时钟
+        stackLayout.addWidget(poetryContainer)  # 上层：诗词
+        
+        stackLayout.setStackingMode(QStackedLayout.StackAll)
+        
+        stackWidget = QWidget()
+        stackWidget.setLayout(stackLayout)
+        
+        # 主界面布局
         homeLayout = QVBoxLayout(home)
         homeLayout.setAlignment(Qt.AlignCenter)
         homeLayout.setContentsMargins(0, 0, 0, 0)
-        homeLayout.addWidget(self.homeBackgroundImage)
+        homeLayout.addWidget(stackWidget)
         
         self.addSubInterface(home, FIF.HOME, "主界面")
         
-        # 添加壁纸导航选项
+        self.title = TitleInterface()
+        self.title.setObjectName("title")
+        self.addSubInterface(self.title, FIF.INFO, "标题")
+        
         self.wallpaper = WallpaperInterface(mainWindow=self)
         self.wallpaper.setObjectName("wallpaper")
         self.addSubInterface(self.wallpaper, FIF.PHOTO, "壁纸")
@@ -547,22 +657,31 @@ class MainWindow(FluentWindow):
         setting.setObjectName("setting")
         self.addSubInterface(setting, FIF.SETTING, "设置", NavigationItemPosition.BOTTOM)
         
-        about = QWidget()
-        about.setObjectName("about")
-        aboutLayout = QVBoxLayout(about)
-        aboutLayout.setAlignment(Qt.AlignCenter)
+        # 创建关于界面
+        about = ScrollArea()
+        about.scrollWidget = QWidget()
+        about.mainLayout = QVBoxLayout(about.scrollWidget)
+        aboutLabel = QLabel("关于", about)
         
-        appNameLabel = QLabel(APP_NAME, about)
-        appNameLabel.setStyleSheet("font-size: 24px; font-weight: bold;")
+        # 初始化界面
+        about.resize(1000, 800)
+        about.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        about.setViewportMargins(0, 120, 0, 20)
+        about.setWidget(about.scrollWidget)
+        about.setWidgetResizable(True)
         
-        versionLabel = QLabel(f"版本: {VERSION}", about)
-        buildDateLabel = QLabel(f"构建日期: {BUILD_DATE}", about)
+        # 设置样式
+        aboutLabel.setObjectName('settingLabel')
+        about.scrollWidget.setObjectName('scrollWidget')
+        aboutLabel.move(60, 63)
         
-        aboutLayout.addWidget(appNameLabel)
-        aboutLayout.addSpacing(20)
-        aboutLayout.addWidget(versionLabel)
-        aboutLayout.addWidget(buildDateLabel)
-        aboutLayout.addSpacing(40)
+        theme = 'dark' if isDarkTheme() else 'light'
+        try:
+            qss_path = get_resource_path(os.path.join('resource', 'qss', theme, 'setting_interface.qss'))
+            with open(qss_path, encoding='utf-8') as f:
+                about.setStyleSheet(f.read())
+        except Exception:
+            pass
         
         self.addSubInterface(about, FIF.INFO, "关于", NavigationItemPosition.BOTTOM)
 
@@ -570,13 +689,11 @@ class MainWindow(FluentWindow):
         """ 窗口大小变化时调整图片大小 """
         super().resizeEvent(event)
         if hasattr(self, 'homeBackgroundImage') and self.originalPixmap is not None:
-            # 使用窗口的完整尺寸（减去侧边栏宽度）
             available_width = self.width() - 50
             available_height = self.height()
             
-            # 从原始图片重新缩放，避免重复缩放导致质量损失
+            # 从原始图片重新缩放
             if not self.originalPixmap.isNull():
-                # 强制拉伸填满整个区域，不留黑边
                 scaled_pixmap = self.originalPixmap.scaled(available_width, available_height, Qt.IgnoreAspectRatio, Qt.SmoothTransformation)
                 
                 # 应用模糊效果
@@ -587,7 +704,6 @@ class MainWindow(FluentWindow):
                 
                 self.homeBackgroundImage.setPixmap(scaled_pixmap)
                 
-                # 强制刷新
                 QApplication.processEvents()
 
     def moveToCenter(self):
@@ -595,6 +711,147 @@ class MainWindow(FluentWindow):
         desktop = QApplication.desktop().availableGeometry()
         w, h = desktop.width(), desktop.height()
         self.move(w//2 - self.width()//2, h//2 - self.height()//2)
+    
+    def __updateClock(self):
+        """ 更新时钟显示 """
+        # 获取当前时间
+        currentTime = QTime.currentTime()
+        currentDate = QDate.currentDate()
+        
+        if cfg.showClockSeconds.value:
+            timeString = currentTime.toString("HH:mm:ss")
+        else:
+            timeString = currentTime.toString("HH:mm")
+        self.clockLabel.setText(timeString)
+        
+        # 公历日期
+        solarString = currentDate.toString("yyyy 年 M 月 d 日 dddd")
+        
+        # 根据配置决定是否显示农历
+        if cfg.showLunarCalendar.value:
+            # 农历日期
+            try:
+                from cnlunar import Lunar
+                import datetime
+                # 将 QDate 转换为 datetime.datetime 对象
+                py_datetime = datetime.datetime(currentDate.year(), currentDate.month(), currentDate.day(), 0, 0, 0)
+                lunar = Lunar(py_datetime)
+                lunarMonthCn = lunar.lunarMonthCn
+                lunarDayCn = lunar.lunarDayCn
+                # 去掉月份中的"大"、"小"字
+                lunarMonthCn = lunarMonthCn.replace("大", "").replace("小", "")
+                lunarString = f"{lunarMonthCn}{lunarDayCn}"
+                dateString = f"{solarString} {lunarString}"
+            except Exception as e:
+                import logging
+                logging.error(f"农历显示错误：{e}")
+                dateString = solarString
+        else:
+            # 不显示农历，只显示公历
+            dateString = solarString
+        
+        self.dateLabel.setText(dateString)
+    
+    def updateClockStyle(self):
+        """ 更新时钟样式 """
+        clock_color = cfg.clockColor.value
+        color_str = clock_color.name() if hasattr(clock_color, 'name') else str(clock_color)
+        
+        self.clockLabel.setStyleSheet(f"""
+            color: {color_str}; 
+            font-size: 120px; 
+            font-weight: bold; 
+            font-family: 'Segoe UI', 'Microsoft YaHei';
+            background-color: transparent;
+        """)
+        
+        self.dateLabel.setStyleSheet(f"""
+            color: {color_str}; 
+            font-size: 20px; 
+            font-weight: bold; 
+            font-family: 'Microsoft YaHei';
+            background-color: transparent;
+        """)
+        
+        # 诗词标签也使用相同的颜色
+        self.poetryLabel.setStyleSheet(f"""
+            color: {color_str}; 
+            font-size: 16px; 
+            font-weight: bold; 
+            font-family: 'Microsoft YaHei';
+            background-color: transparent;
+        """)
+    
+    def __updatePoetryInterval(self):
+        """ 更新诗词更新间隔定时器 """
+        self.poetryTimer.stop()
+        
+        interval_str = cfg.poetryUpdateInterval.value
+        if interval_str == "从不":
+            return
+        elif interval_str == "10 分钟":
+            interval = 10 * 60 * 1000
+        elif interval_str == "30 分钟":
+            interval = 30 * 60 * 1000
+        elif interval_str == "1 小时":
+            interval = 60 * 60 * 1000
+        elif interval_str == "3 小时":
+            interval = 3 * 60 * 60 * 1000
+        elif interval_str == "6 小时":
+            interval = 6 * 60 * 60 * 1000
+        elif interval_str == "12 小时":
+            interval = 12 * 60 * 60 * 1000
+        elif interval_str == "1 天":
+            interval = 24 * 60 * 60 * 1000
+        else:
+            interval = 60 * 60 * 1000
+        
+        self.poetryTimer.start(interval)
+        self.__updatePoetry()
+    
+    def __updatePoetry(self):
+        """ 更新诗词显示 """
+        if not cfg.showPoetry.value:
+            self.poetryLabel.setText("")
+            self.poetryLabel.hide()
+            return
+        
+        # 显示标签（如果有内容）
+        self.poetryLabel.show()
+        
+        try:
+            api_url = cfg.poetryApiUrl.value
+            response = requests.get(api_url, timeout=10)
+            
+            if response.status_code == 200:
+                # 尝试解析为 JSON
+                try:
+                    data = response.json()
+                    if data.get('success') and 'data' in data:
+                        poetry_data = data['data']
+                        content = poetry_data.get('content', '')
+                        author = poetry_data.get('author', '')
+                        origin = poetry_data.get('origin', '')
+                        
+                        # 格式化诗词内容
+                        poetry_text = f"「{content}」"
+                        if author or origin:
+                            poetry_text += f"\n——{author if author else ''}《{origin}》" if origin else f"\n——{author if author else ''}"
+                        
+                        self.poetryLabel.setText(poetry_text)
+                    else:
+                        logger.error(f"诗词 API 返回数据格式错误：{data}")
+                        self.poetryLabel.setText("")
+                except:
+                    # 如果不是 JSON，直接显示返回的文本
+                    poetry_text = response.text.strip()
+                    self.poetryLabel.setText(poetry_text)
+            else:
+                logger.error(f"诗词 API 请求失败，状态码：{response.status_code}")
+                self.poetryLabel.setText("")
+        except Exception as e:
+            logger.error(f"诗词更新失败：{e}")
+            self.poetryLabel.setText("")
 
 def install_fonts():
     """ 检查并安装鸿蒙字体到系统 """
@@ -654,7 +911,6 @@ if __name__ == "__main__":
         temp_widget.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
         temp_widget.setAttribute(Qt.WA_TranslucentBackground)
         
-        # 获取屏幕尺寸并设置临时窗口为全屏
         desktop = QApplication.desktop()
         screen_rect = desktop.availableGeometry()
         temp_widget.setGeometry(screen_rect)

@@ -109,6 +109,30 @@ class Config(QConfig):
     backgroundBlurRadius = RangeConfigItem(
         "Appearance", "BackgroundBlurRadius", 0, RangeValidator(0, 30)
     )
+    
+    # 时间设置
+    showClockSeconds = ConfigItem(
+        "Time", "ShowClockSeconds", True, BoolValidator()
+    )
+    
+    # 是否显示农历
+    showLunarCalendar = ConfigItem(
+        "Time", "ShowLunarCalendar", True, BoolValidator()
+    )
+    
+    # 时钟颜色设置
+    clockColor = ColorConfigItem("Time", "ClockColor", "#FFFFFF")
+    
+    # 诗词设置
+    showPoetry = ConfigItem(
+        "Poetry", "ShowPoetry", True, BoolValidator()
+    )
+    poetryApiUrl = ConfigItem(
+        "Poetry", "PoetryApiUrl", "https://www.ffapi.cn/int/v1/shici"
+    )
+    poetryUpdateInterval = OptionsConfigItem(
+        "Poetry", "PoetryUpdateInterval", "1 小时", OptionsValidator(["从不", "10 分钟", "30 分钟", "1 小时", "3 小时", "6 小时", "12 小时", "1 天"])
+    )
 
 
 cfg = Config()
