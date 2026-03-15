@@ -1,4 +1,4 @@
-from PyQt5.QtWidgets import QApplication, QWidget, QSystemTrayIcon, QMenu, QAction, QLabel, QPushButton, QVBoxLayout, QHBoxLayout, QSpacerItem, QSizePolicy, QFileDialog, QGraphicsBlurEffect,QStackedLayout
+from PyQt5.QtWidgets import QApplication, QWidget, QSystemTrayIcon, QMenu, QAction, QLabel, QPushButton, QVBoxLayout, QHBoxLayout, QGridLayout, QSpacerItem, QSizePolicy, QFileDialog, QGraphicsBlurEffect,QStackedLayout
 from PyQt5.QtCore import QTimer, Qt, QTime, QDate
 from PyQt5.QtCore import QLocale, QTranslator, QUrl
 from PyQt5.QtGui import QFontDatabase, QFont, QIcon, QPixmap, QImage, QPainter, QColor
@@ -607,22 +607,21 @@ class MainWindow(FluentWindow):
         poetryLayout.addWidget(self.poetryLabel)
         poetryContainer.setStyleSheet("background-color: transparent;")
     
-        stackLayout = QStackedLayout()
-        stackLayout.addWidget(self.homeBackgroundImage)  # 底层：背景图片
-        stackLayout.addWidget(clockContainer)  # 上层：时钟
-        stackLayout.addWidget(weatherContainer)  # 上层：天气
-        stackLayout.addWidget(poetryContainer)  # 上层：诗词
+        gridLayout = QGridLayout()
+        gridLayout.setContentsMargins(0, 0, 0, 0)
+        gridLayout.addWidget(self.homeBackgroundImage, 0, 0, 1, 1)
+        gridLayout.addWidget(clockContainer, 0, 0, 1, 1)
+        gridLayout.addWidget(weatherContainer, 0, 0, 1, 1)
+        gridLayout.addWidget(poetryContainer, 0, 0, 1, 1)
         
-        stackLayout.setStackingMode(QStackedLayout.StackAll)
-        
-        stackWidget = QWidget()
-        stackWidget.setLayout(stackLayout)
+        gridWidget = QWidget()
+        gridWidget.setLayout(gridLayout)
         
         # 主界面布局
         homeLayout = QVBoxLayout(home)
         homeLayout.setAlignment(Qt.AlignCenter)
         homeLayout.setContentsMargins(0, 0, 0, 0)
-        homeLayout.addWidget(stackWidget)
+        homeLayout.addWidget(gridWidget)
         
         self.addSubInterface(home, FIF.HOME, "主界面")
         
