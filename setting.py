@@ -559,6 +559,8 @@ class SettingInterface(ScrollArea):
     
     def __clearLog(self):
         """ 清空日志 """
+        from qfluentwidgets import MessageBox
+        
         msgBox = MessageBox(
             "清空日志",
             "确定要清空所有日志文件吗？",
