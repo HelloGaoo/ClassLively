@@ -114,7 +114,7 @@ class Config(QConfig):
         "Time", "ClockSize", 120, RangeValidator(80, 200)
     )
     dateSize = RangeConfigItem(
-        "Time", "DateSize", 100, RangeValidator(12, 50)
+        "Time", "DateSize", 20, RangeValidator(12, 50)
     )
     showPoetry = ConfigItem(
         "Poetry", "ShowPoetry", True, BoolValidator()
