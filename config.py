@@ -149,9 +149,82 @@ class Config(QConfig):
     developerMode = ConfigItem(
         "Other", "DeveloperMode", False, BoolValidator()
     )
+    autoStart = ConfigItem(
+        "Other", "AutoStart", False, BoolValidator()
+    )
+    autoOpenOnIdle = ConfigItem(
+        "Other", "AutoOpenOnIdle", False, BoolValidator()
+    )
+    idleMinutes = RangeConfigItem(
+        "Other", "IdleMinutes", 5, RangeValidator(1, 60)
+    )
+    autoOpenMaximize = ConfigItem(
+        "Other", "AutoOpenMaximize", False, BoolValidator()
+    )
 
 
 cfg = Config()
+
+
+def get_default_config_dict():
+    """ 获取默认配置字典 """
+    return {
+        "MainWindow": {
+            "DpiScale": "Auto",
+            "Language": "Auto",
+            "ThemeColor": "#30c361",
+            "ThemeMode": "Auto"
+        },
+        "Log": {
+            "DisableLog": False,
+            "LogLevel": "Info",
+            "MaxCount": 50,
+            "MaxDays": 7
+        },
+        "Other": {
+            "CloseAction": "minimize",
+            "AllowMultipleInstances": False,
+            "DeveloperMode": False,
+            "AutoStart": False,
+            "AutoOpenOnIdle": False,
+            "IdleMinutes": 5,
+            "AutoOpenMaximize": False
+        },
+        "Wallpaper": {
+            "SaveLimit": 50,
+            "AutoGetInterval": "30 分钟",
+            "AutoSyncToDesktop": True
+        },
+        "Appearance": {
+            "BackgroundBlurRadius": 0
+        },
+        "Time": {
+            "ShowClockSeconds": True,
+            "ShowLunarCalendar": True,
+            "ClockColor": "#FFFFFF",
+            "ClockSize": 120,
+            "DateSize": 20
+        },
+        "Poetry": {
+            "ShowPoetry": True,
+            "PoetryApiUrl": "https://www.ffapi.cn/int/v1/shici",
+            "PoetryUpdateInterval": "1 小时",
+            "PoetrySize": 16
+        },
+        "Weather": {
+            "WeatherSize": 24,
+            "WeatherIconSize": 64,
+            "UpdateInterval": "15 分钟",
+            "City": "北京",
+            "Latitude": 39.9042,
+            "Longitude": 116.4074
+        },
+        "QFluentWidgets": {
+            "FontFamilies": ["HarmonyOS Sans SC"]
+        }
+    }
+
+
 if not os.path.exists('config'):
     os.makedirs('config')
 qconfig.load('config/config.json', cfg)

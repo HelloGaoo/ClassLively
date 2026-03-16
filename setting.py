@@ -1,14 +1,16 @@
 import os
 import sys
+import json
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QWidget, QLabel
 from qfluentwidgets import (
     SettingCardGroup, OptionsSettingCard, ScrollArea, ExpandLayout, 
     Theme, setTheme, isDarkTheme, FluentIcon as FIF, CustomColorSettingCard, setThemeColor,
     SwitchSettingCard, RangeSettingCard, InfoBar, LineEdit, SettingCard, qconfig, ComboBoxSettingCard,
-    SpinBox, PushButton
+    SpinBox, PushButton, MessageBox
 )
-from config import cfg
+from config import cfg, get_default_config_dict
+from city_selector import SelectCityDialog
 
 
 class LineEditSettingCard(SettingCard):
@@ -96,6 +98,38 @@ class SettingInterface(ScrollArea):
         self.expandLayout = ExpandLayout(self.scrollWidget)
 
         self.settingLabel = QLabel("设置", self)
+
+        self.basicGroup = SettingCardGroup("基本", self.scrollWidget)
+        self.autoStartCard = SwitchSettingCard(
+            FIF.PLAY, 
+            "开机自启动",
+            "设置应用在系统启动时自动运行",
+            configItem=cfg.autoStart,
+            parent=self.basicGroup
+        )
+        self.autoOpenOnIdleCard = SwitchSettingCard(
+            FIF.VIEW,
+            "空闲时自动打开",
+            "电脑空闲时自动从最小化打开界面",
+            configItem=cfg.autoOpenOnIdle,
+            parent=self.basicGroup
+        )
+        self.idleMinutesCard = SpinBoxSettingCard(
+            cfg.idleMinutes,
+            FIF.HISTORY,
+            "空闲检测时间",
+            "设置电脑空闲多少分钟后触发自动打开（1-60 分钟）",
+            parent=self.basicGroup,
+            min_value=1,
+            max_value=60
+        )
+        self.autoOpenMaximizeCard = SwitchSettingCard(
+            FIF.FULL_SCREEN,
+            "自动打开时最大化",
+            "空闲自动打开界面时是否最大化窗口",
+            configItem=cfg.autoOpenMaximize,
+            parent=self.basicGroup
+        )
 
         self.appearanceGroup = SettingCardGroup("外观", self.scrollWidget)
         self.themeCard = ComboBoxSettingCard(
@@ -249,6 +283,11 @@ class SettingInterface(ScrollArea):
         """ 初始化布局 """
         self.settingLabel.move(60, 63)
 
+        self.basicGroup.addSettingCard(self.autoStartCard)
+        self.basicGroup.addSettingCard(self.autoOpenOnIdleCard)
+        self.basicGroup.addSettingCard(self.idleMinutesCard)
+        self.basicGroup.addSettingCard(self.autoOpenMaximizeCard)
+        
         self.appearanceGroup.addSettingCard(self.themeCard)
         self.appearanceGroup.addSettingCard(self.themeColorCard)
         self.appearanceGroup.addSettingCard(self.backgroundBlurCard)
@@ -383,6 +422,7 @@ class SettingInterface(ScrollArea):
 
         self.expandLayout.setSpacing(28)
         self.expandLayout.setContentsMargins(60, 10, 60, 0)
+        self.expandLayout.addWidget(self.basicGroup)
         self.expandLayout.addWidget(self.appearanceGroup)
         self.expandLayout.addWidget(self.wallpaperGroup)
         self.expandLayout.addWidget(self.timeGroup)
@@ -445,7 +485,6 @@ class SettingInterface(ScrollArea):
     
     def __resetDefaultSettings(self):
         """ 恢复默认设置 """
-        from qfluentwidgets import MessageBox
         
         msgBox = MessageBox(
             "恢复默认设置",
@@ -463,60 +502,9 @@ class SettingInterface(ScrollArea):
                 
                 if not os.path.exists('config'):
                     os.makedirs('config')
-                
-                default_config = {
-                    "MainWindow": {
-                        "DpiScale": "Auto",
-                        "Language": "Auto",
-                        "ThemeColor": "#30c361",
-                        "ThemeMode": "Auto"
-                    },
-                    "Log": {
-                        "DisableLog": False,
-                        "LogLevel": "Info",
-                        "MaxCount": 50,
-                        "MaxDays": 7
-                    },
-                    "Other": {
-                        "CloseAction": "minimize",
-                        "AllowMultipleInstances": False,
-                        "DeveloperMode": False
-                    },
-                    "Wallpaper": {
-                        "SaveLimit": 50,
-                        "AutoGetInterval": "30分钟",
-                        "AutoSyncToDesktop": True
-                    },
-                    "Appearance": {
-                        "BackgroundBlurRadius": 0
-                    },
-                    "Time": {
-                        "ShowClockSeconds": True,
-                        "ShowLunarCalendar": True,
-                        "ClockColor": "#FFFFFF",
-                        "ClockSize": 120,
-                        "DateSize": 20
-                    },
-                    "Poetry": {
-                        "ShowPoetry": True,
-                        "PoetryApiUrl": "https://www.ffapi.cn/int/v1/shici",
-                        "PoetryUpdateInterval": "1 小时",
-                        "PoetrySize": 16
-                    },
-                    "Weather": {
-                        "WeatherSize": 24,
-                        "WeatherIconSize": 64,
-                        "UpdateInterval": "1 小时",
-                        "Latitude": 39.9042,
-                        "Longitude": 116.4074
-                    },
-                    "QFluentWidgets": {
-                        "FontFamilies": ["HarmonyOS Sans SC"]
-                    }
-                }
+                default_config = get_default_config_dict()
                 
                 with open(config_path, 'w', encoding='utf-8') as f:
-                    import json
                     json.dump(default_config, f, ensure_ascii=False, indent=4)
                 
                 # 重新加载配置
@@ -538,9 +526,6 @@ class SettingInterface(ScrollArea):
     
     def __onCityButtonClicked(self):
         """ 打开城市选择对话框 """
-        from city_selector import SelectCityDialog
-        from config import cfg
-        from qfluentwidgets import qconfig
         
         dialog = SelectCityDialog(self.window())
         if dialog.exec():
@@ -559,7 +544,6 @@ class SettingInterface(ScrollArea):
     
     def __clearLog(self):
         """ 清空日志 """
-        from qfluentwidgets import MessageBox
         
         msgBox = MessageBox(
             "清空日志",

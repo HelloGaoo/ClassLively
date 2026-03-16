@@ -5,7 +5,7 @@ from PyQt5.QtGui import QFontDatabase, QFont, QIcon, QPixmap, QImage, QPainter, 
 from qfluentwidgets import (
     setTheme, Theme, FluentWindow, FluentTranslator,
     FluentIcon as FIF, NavigationItemPosition, RoundMenu, Action, MessageBox, ScrollArea, SmoothScrollArea, ExpandLayout, isDarkTheme,
-    PushButton, CardWidget, ProgressBar, InfoBar, ImageLabel
+    PushButton, CardWidget, ProgressBar, InfoBar, ImageLabel, qconfig
 )
 import requests
 import sys
@@ -15,12 +15,15 @@ import ctypes
 import json
 from setting import SettingInterface
 import shutil
-from config import cfg
-from logger import logger
+from config import cfg, get_default_config_dict
+from logger import logger, setup_exception_hook
 from version import VERSION, BUILD_DATE
 from constants import APP_NAME
+from city_selector import CityDatabase
 import datetime
 import cnlunar
+import winreg
+import logging
 def check_single_instance():
     """ 检查是否已经有实例 """
     config_path = 'config/config.json'
@@ -53,11 +56,87 @@ else:
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
     MEIPASS_DIR = None
 
+def extract_bundled_files():
+    """从打包文件中提取必要的文件夹和文件"""
+    if not getattr(sys, 'frozen', False) or not MEIPASS_DIR:
+        return
+    
+    # 需要提取的文件夹列表
+    bundled_folders = ['resource', 'font', 'data']
+    
+    for folder in bundled_folders:
+        src_folder = os.path.join(MEIPASS_DIR, folder)
+        dst_folder = os.path.join(BASE_DIR, folder)
+        
+        if not os.path.exists(src_folder):
+            continue
+        
+        if not os.path.exists(dst_folder):
+            try:
+                shutil.copytree(src_folder, dst_folder)
+                logger.info(f"已提取文件夹: {folder}")
+            except Exception as e:
+                logger.error(f"提取文件夹 {folder} 失败: {e}")
+        else:
+            for root, dirs, files in os.walk(src_folder):
+                rel_path = os.path.relpath(root, src_folder)
+                dst_root = os.path.join(dst_folder, rel_path) if rel_path != '.' else dst_folder
+                
+                if not os.path.exists(dst_root):
+                    os.makedirs(dst_root, exist_ok=True)
+                
+                for file in files:
+                    src_file = os.path.join(root, file)
+                    dst_file = os.path.join(dst_root, file)
+                    if not os.path.exists(dst_file):
+                        try:
+                            shutil.copy2(src_file, dst_file)
+                            logger.info(f"已提取文件: {os.path.join(folder, rel_path, file)}")
+                        except Exception as e:
+                            logger.error(f"提取文件 {os.path.join(folder, rel_path, file)} 失败: {e}")
+
 def get_resource_path(relative_path):
     """获取绝对路径"""
+    # 先检查BASE_DIR中的资源文件
+    base_path = os.path.join(BASE_DIR, relative_path)
+    if os.path.exists(base_path):
+        return base_path
+    # 如果BASE_DIR中不存在，检查MEIPASS_DIR
     if MEIPASS_DIR:
-        return os.path.join(MEIPASS_DIR, relative_path)
-    return os.path.join(BASE_DIR, relative_path)
+        meipass_path = os.path.join(MEIPASS_DIR, relative_path)
+        if os.path.exists(meipass_path):
+            return meipass_path
+    # 如果都不存在，返回BASE_DIR中的路径
+    return base_path
+
+def set_auto_start(enabled):
+    """设置开机自启动"""
+    try:
+        key_path = r"SOFTWARE\Microsoft\Windows\CurrentVersion\Run"
+        key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, key_path, 0, winreg.KEY_SET_VALUE)
+        if enabled:
+            if getattr(sys, 'frozen', False):
+                # 打包为exe时
+                exe_path = sys.executable
+                winreg.SetValueEx(key, APP_NAME, 0, winreg.REG_SZ, f'"{exe_path}"')
+                logger.info(f"已设置exe开机自启动: {exe_path}")
+            else:
+                # 直接运行py文件时
+                python_exe = sys.executable
+                script_path = os.path.abspath(__file__)
+                winreg.SetValueEx(key, APP_NAME, 0, winreg.REG_SZ, f'"{python_exe}" "{script_path}"')
+                logger.info(f"已设置py开机自启动: {python_exe} {script_path}")
+        else:
+            try:
+                winreg.DeleteValue(key, APP_NAME)
+                logger.info("已取消开机自启动")
+            except FileNotFoundError:
+                logger.info("开机自启动项不存在")
+        winreg.CloseKey(key)
+        return True
+    except Exception as e:
+        logger.error(f"设置开机自启动失败: {e}")
+        return False
 
 
 class WallpaperInterface(ScrollArea):
@@ -532,6 +611,24 @@ class MainWindow(FluentWindow):
         self.__updateWeatherInterval()
         logger.info("天气更新定时器初始化完成")
 
+        logger.info(f"开机自启动设置: {cfg.autoStart.value}")
+        set_auto_start(cfg.autoStart.value)
+        
+        cfg.autoStart.valueChanged.connect(set_auto_start)
+        
+        # 空闲检测定时器
+        logger.info("开始初始化空闲检测定时器")
+        self.idleTimer = QTimer(self)
+        self.idleTimer.timeout.connect(self.__checkIdle)
+        self.lastMouseActivity = QTime.currentTime()
+        self.isMinimized = False
+        self.idleCheckInterval = 10000  # 10 秒
+        self.hasTriggeredAutoOpen = False
+        cfg.autoOpenOnIdle.valueChanged.connect(self.__updateIdleTimer)
+        cfg.idleMinutes.valueChanged.connect(self.__updateIdleTimer)
+        self.__updateIdleTimer()
+        logger.info("空闲检测定时器初始化完成")
+        
         logger.info("主窗口初始化完成!")
     
     def initSystemTray(self):
@@ -568,6 +665,63 @@ class MainWindow(FluentWindow):
                 logger.info("双击托盘图标，显示主窗口")
                 self.show()
     
+    def __updateIdleTimer(self):
+        """ 更新空闲检测定时器 """
+        self.idleTimer.stop()
+        
+        if cfg.autoOpenOnIdle.value:
+            self.idleTimer.start(self.idleCheckInterval)
+            logger.info(f"空闲检测已启用，检测间隔：{self.idleCheckInterval}ms")
+        else:
+            logger.info("空闲检测已禁用")
+    
+    def __checkIdle(self):
+        """ 检查电脑是否空闲 """
+        if not cfg.autoOpenOnIdle.value:
+            self.hasTriggeredAutoOpen = False
+            return
+        
+        if self.isVisible():
+            self.lastMouseActivity = QTime.currentTime()
+            self.hasTriggeredAutoOpen = False
+            return
+        
+        # 窗口隐藏时，检测全局鼠标活动
+        # Windows API
+        class LASTINPUTINFO(ctypes.Structure):
+            _fields_ = [("cbSize", ctypes.c_uint),
+                       ("dwTime", ctypes.c_uint)]
+        
+        try:
+            last_input = LASTINPUTINFO()
+            last_input.cbSize = ctypes.sizeof(LASTINPUTINFO)
+            ctypes.windll.user32.GetLastInputInfo(ctypes.byref(last_input))
+            ticks = ctypes.windll.kernel32.GetTickCount()
+            idle_time_ms = (ticks - last_input.dwTime)
+            
+            idle_minutes = cfg.idleMinutes.value
+            idle_threshold = idle_minutes * 60 * 1000
+            
+            # 系统空闲时间超过阈值且未触发过时触发
+            if idle_time_ms > idle_threshold and not self.hasTriggeredAutoOpen:
+                logger.info(f"检测到电脑空闲超过{idle_minutes}分钟，自动打开界面")
+                self.__autoOpenFromMinimized()
+                self.lastMouseActivity = QTime.currentTime()
+                self.hasTriggeredAutoOpen = True
+        except Exception as e:
+            logger.error(f"检测空闲时间失败：{e}")
+    
+    def __autoOpenFromMinimized(self):
+        """ 自动打开主界面 """
+        logger.info("自动打开主界面")
+        self.stackedWidget.setCurrentIndex(0)
+        self.show()
+        self.activateWindow()
+        
+        if cfg.autoOpenMaximize.value:
+            logger.info("自动最大化窗口")
+            self.showMaximized()
+    
     def show(self):
         """ 显示窗口 """
         logger.info("显示主窗口")
@@ -576,6 +730,7 @@ class MainWindow(FluentWindow):
     def hide(self):
         """ 隐藏窗口 """
         logger.info("隐藏主窗口")
+        self.hasTriggeredAutoOpen = False
         super().hide()
     
     def closeEvent(self, event):
@@ -811,11 +966,9 @@ class MainWindow(FluentWindow):
         if cfg.showLunarCalendar.value:
             # 农历日期
             try:
-                from cnlunar import Lunar
-                import datetime
                 # 将 QDate 转换为 datetime.datetime 对象
                 py_datetime = datetime.datetime(currentDate.year(), currentDate.month(), currentDate.day(), 0, 0, 0)
-                lunar = Lunar(py_datetime)
+                lunar = cnlunar.Lunar(py_datetime)
                 lunarMonthCn = lunar.lunarMonthCn
                 lunarDayCn = lunar.lunarDayCn
                 # 去掉月份中的"大"、"小"字
@@ -823,7 +976,6 @@ class MainWindow(FluentWindow):
                 lunarString = f"{lunarMonthCn}{lunarDayCn}"
                 dateString = f"{solarString} {lunarString}"
             except Exception as e:
-                import logging
                 logging.error(f"农历显示错误：{e}")
                 dateString = solarString
         else:
@@ -984,8 +1136,6 @@ class MainWindow(FluentWindow):
         """ 更新天气显示 """
         logger.info("获取天气数据")
         try:
-            from city_selector import CityDatabase
-            
             city = cfg.city.value
             logger.debug(f"正在更新天气，使用城市：{city}")
             
@@ -1181,6 +1331,9 @@ if __name__ == "__main__":
     QApplication.setAttribute(Qt.AA_EnableHighDpiScaling)
     QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps)
     
+    # 提取打包的资源文件
+    extract_bundled_files()
+    
     # 创建QApplication
     app = QApplication(sys.argv)
     
@@ -1223,23 +1376,7 @@ if __name__ == "__main__":
         with open(config_path, 'w', encoding='utf-8') as f:
             json.dump(config, f, ensure_ascii=False, indent=4)
     else:
-        default_config = {
-            "MainWindow": {
-                "DpiScale": "Auto",
-                "Language": "Auto",
-                "ThemeColor": "#00C780",
-                "ThemeMode": "Auto"
-            },
-            "Log": {
-                "DisableLog": False,
-                "LogLevel": "Info",
-                "MaxCount": 50,
-                "MaxDays": 7
-            },
-            "QFluentWidgets": {
-                "FontFamilies": ["HarmonyOS Sans SC"]
-            }
-        }
+        default_config = get_default_config_dict()
         with open(config_path, 'w', encoding='utf-8') as f:
             json.dump(default_config, f, ensure_ascii=False, indent=4)
 
@@ -1286,7 +1423,6 @@ if __name__ == "__main__":
     logger.info("字体已设置为：HarmonyOS Sans SC")
     
     # 设置全局异常钩子
-    from logger import setup_exception_hook
     setup_exception_hook()
     logger.info("已设置全局异常钩子")
 
