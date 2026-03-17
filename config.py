@@ -1,4 +1,5 @@
 import os
+import sys
 from enum import Enum
 
 from PyQt5.QtCore import QLocale
@@ -7,6 +8,11 @@ from qfluentwidgets import (
     ColorConfigItem, OptionsValidator, RangeConfigItem, RangeValidator,
     ConfigSerializer, Theme
 )
+
+if getattr(sys, 'frozen', False):
+    BASE_DIR = os.path.dirname(os.path.abspath(sys.executable))
+else:
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
 class ThemeSerializer(ConfigSerializer):
@@ -225,6 +231,6 @@ def get_default_config_dict():
     }
 
 
-if not os.path.exists('config'):
-    os.makedirs('config')
-qconfig.load('config/config.json', cfg)
+if not os.path.exists(os.path.join(BASE_DIR, 'config')):
+    os.makedirs(os.path.join(BASE_DIR, 'config'))
+qconfig.load(os.path.join(BASE_DIR, 'config', 'config.json'), cfg)

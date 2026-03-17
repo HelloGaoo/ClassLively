@@ -26,7 +26,7 @@ import winreg
 import logging
 def check_single_instance():
     """ 检查是否已经有实例 """
-    config_path = 'config/config.json'
+    config_path = os.path.join(BASE_DIR, 'config', 'config.json')
     allow_multiple = False
     
     if os.path.exists(config_path):
@@ -1216,7 +1216,35 @@ class MainWindow(FluentWindow):
                         24: "沙尘暴",
                         25: "扬沙",
                         26: "浮尘",
-                        27: "强沙尘暴"
+                        27: "强沙尘暴",
+                        50: "晴",
+                        51: "多云",
+                        52: "阴",
+                        53: "阵雨",
+                        54: "小雨",
+                        55: "中雨",
+                        56: "大雨",
+                        57: "暴雨",
+                        58: "雷阵雨",
+                        59: "冰雹",
+                        60: "小雪",
+                        61: "中雪",
+                        62: "大雪",
+                        63: "雾",
+                        64: "霾",
+                        65: "沙尘",
+                        66: "大风",
+                        67: "台风",
+                        68: "暴雨",
+                        69: "暴雪",
+                        70: "雨夹雪",
+                        71: "冻雨",
+                        72: "雾凇",
+                        73: "霜冻",
+                        74: "沙尘暴",
+                        75: "扬沙",
+                        76: "浮尘",
+                        77: "强沙尘暴"
                     }
                     
                     weather = weather_map.get(weather_code, "未知")
@@ -1271,7 +1299,35 @@ class MainWindow(FluentWindow):
                 24: "18.svg",     # 沙尘暴
                 25: "18.svg",     # 扬沙
                 26: "18.svg",     # 浮尘
-                27: "18.svg"      # 强沙尘暴
+                27: "18.svg",     # 强沙尘暴
+                50: "0.svg",      # 晴
+                51: "1.svg",      # 多云
+                52: "2.svg",      # 阴
+                53: "7.svg",      # 阵雨
+                54: "7.svg",      # 小雨
+                55: "8.svg",      # 中雨
+                56: "9.svg",      # 大雨
+                57: "10.svg",     # 暴雨
+                58: "4.svg",      # 雷阵雨
+                59: "5.svg",      # 冰雹
+                60: "14.svg",     # 小雪
+                61: "15.svg",     # 中雪
+                62: "16.svg",     # 大雪
+                63: "18.svg",     # 雾
+                64: "18.svg",     # 霾
+                65: "18.svg",     # 沙尘
+                66: "3.svg",      # 大风
+                67: "3.svg",      # 台风
+                68: "11.svg",     # 暴雨
+                69: "17.svg",     # 暴雪
+                70: "19.svg",     # 雨夹雪
+                71: "19.svg",     # 冻雨
+                72: "18.svg",     # 雾凇
+                73: "18.svg",     # 霜冻
+                74: "18.svg",     # 沙尘暴
+                75: "18.svg",     # 扬沙
+                76: "18.svg",     # 浮尘
+                77: "18.svg"      # 强沙尘暴
             }
             
             icon_file = icon_map.get(self.current_weather_code, "0.svg")
@@ -1364,10 +1420,11 @@ if __name__ == "__main__":
     
     install_fonts()
 
-    config_path = 'config/config.json'
+    config_path = os.path.join(BASE_DIR, 'config', 'config.json')
 
-    if not os.path.exists('config'):
-        os.makedirs('config')
+    config_dir = os.path.join(BASE_DIR, 'config')
+    if not os.path.exists(config_dir):
+        os.makedirs(config_dir)
 
     if os.path.exists(config_path):
         with open(config_path, 'r', encoding='utf-8') as f:

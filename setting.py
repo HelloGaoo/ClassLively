@@ -496,12 +496,13 @@ class SettingInterface(ScrollArea):
         
         if msgBox.exec() == 1: 
             try:
-                config_path = 'config/config.json'
+                config_path = os.path.join(BASE_DIR, 'config', 'config.json')
                 if os.path.exists(config_path):
                     os.remove(config_path)
                 
-                if not os.path.exists('config'):
-                    os.makedirs('config')
+                config_dir = os.path.join(BASE_DIR, 'config')
+                if not os.path.exists(config_dir):
+                    os.makedirs(config_dir)
                 default_config = get_default_config_dict()
                 
                 with open(config_path, 'w', encoding='utf-8') as f:
