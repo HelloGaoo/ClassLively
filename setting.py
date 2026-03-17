@@ -10,7 +10,7 @@ from qfluentwidgets import (
     SpinBox, PushButton, MessageBox
 )
 from config import cfg, get_default_config_dict
-from city_selector import SelectCityDialog
+from city_selector import RegionSelectorDialog
 
 
 class LineEditSettingCard(SettingCard):
@@ -526,17 +526,17 @@ class SettingInterface(ScrollArea):
                 )
     
     def __onCityButtonClicked(self):
-        """ 打开城市选择对话框 """
+        """ 打开地区选择对话框 """
         
-        dialog = SelectCityDialog(self.window())
+        dialog = RegionSelectorDialog(self.window())
         if dialog.exec():
-            selected_city = dialog.get_selected_city()
-            if selected_city:
+            selected_region = dialog.get_selected_region()
+            if selected_region:
                 # 更新配置
-                qconfig.set(cfg.city, selected_city)
+                qconfig.set(cfg.city, selected_region)
                 InfoBar.success(
                     "成功",
-                    f"已选择城市：{selected_city}",
+                    f"已选择地区：{selected_region}",
                     duration=3000,
                     parent=self.window()
                 )

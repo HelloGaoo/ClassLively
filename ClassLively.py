@@ -19,7 +19,7 @@ from config import cfg, get_default_config_dict
 from logger import logger, setup_exception_hook
 from version import VERSION, BUILD_DATE
 from constants import APP_NAME
-from city_selector import CityDatabase
+from city_selector import RegionDatabase
 import datetime
 import cnlunar
 import winreg
@@ -109,33 +109,115 @@ def get_resource_path(relative_path):
     # 如果都不存在，返回BASE_DIR中的路径
     return base_path
 
-def set_auto_start(enabled):
+def get_auto_start_status():
+    """获取开机自启动状态"""
+    try:
+        key_path = r"SOFTWARE\Microsoft\Windows\CurrentVersion\Run"
+        key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, key_path, 0, winreg.KEY_READ)
+        try:
+            value, _ = winreg.QueryValueEx(key, APP_NAME)
+            winreg.CloseKey(key)
+            return True, value
+        except FileNotFoundError:
+            winreg.CloseKey(key)
+            return False, None
+    except Exception as e:
+        logger.error(f"获取开机自启动状态失败: {e}")
+        return False, None
+
+
+def set_auto_start(enabled, delay_seconds=5):
     """设置开机自启动"""
     try:
         key_path = r"SOFTWARE\Microsoft\Windows\CurrentVersion\Run"
-        key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, key_path, 0, winreg.KEY_SET_VALUE)
+        
+        # 确保注册表键存在
+        try:
+            key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, key_path, 0, winreg.KEY_SET_VALUE)
+        except FileNotFoundError:
+            # 如果键不存在，创建它
+            key = winreg.CreateKey(winreg.HKEY_CURRENT_USER, key_path)
+        
         if enabled:
             if getattr(sys, 'frozen', False):
                 # 打包为exe时
                 exe_path = sys.executable
-                winreg.SetValueEx(key, APP_NAME, 0, winreg.REG_SZ, f'"{exe_path}"')
-                logger.info(f"已设置exe开机自启动: {exe_path}")
+                if delay_seconds > 0:
+                    command = f'cmd /c "timeout /t {delay_seconds} /nobreak >nul && start \"\" \"{exe_path}\" --autostart"'
+                else:
+                    command = f'"{exe_path}" --autostart'
+                logger.info(f"准备设置exe开机自启动: {exe_path}, 延迟: {delay_seconds}秒")
             else:
                 # 直接运行py文件时
                 python_exe = sys.executable
                 script_path = os.path.abspath(__file__)
-                winreg.SetValueEx(key, APP_NAME, 0, winreg.REG_SZ, f'"{python_exe}" "{script_path}"')
-                logger.info(f"已设置py开机自启动: {python_exe} {script_path}")
+                if delay_seconds > 0:
+                    command = f'cmd /c "timeout /t {delay_seconds} /nobreak >nul && start \"\" \"{python_exe}\" \"{script_path}\" --autostart"'
+                else:
+                    command = f'"{python_exe}" "{script_path}" --autostart'
+                logger.info(f"准备设置py开机自启动: {python_exe} {script_path}, 延迟: {delay_seconds}秒")
+            
+            winreg.SetValueEx(key, APP_NAME, 0, winreg.REG_SZ, command)
+            success, stored_value = get_auto_start_status()
+            if success and stored_value == command:
+                logger.info(f"已成功设置开机自启动，延迟: {delay_seconds}秒")
+                return True
+            else:
+                logger.error("设置开机自启动后验证失败")
+                return False
+                
         else:
             try:
                 winreg.DeleteValue(key, APP_NAME)
                 logger.info("已取消开机自启动")
             except FileNotFoundError:
                 logger.info("开机自启动项不存在")
-        winreg.CloseKey(key)
-        return True
+            winreg.CloseKey(key)
+            success, _ = get_auto_start_status()
+            if not success:
+                logger.info("已确认开机自启动项已删除")
+                return True
+            else:
+                logger.error("删除开机自启动项后验证失败")
+                return False
+                
+    except PermissionError as e:
+        logger.error(f"设置开机自启动失败 - 权限不足: {e}")
+        return False
     except Exception as e:
         logger.error(f"设置开机自启动失败: {e}")
+        return False
+
+
+def sync_auto_start_with_config():
+    """
+    同步配置中的自启动设置与实际注册表状态
+    在应用启动时调用，确保配置与实际状态一致
+    """
+    try:
+        config_auto_start = cfg.autoStart.value
+        actual_auto_start, _ = get_auto_start_status()
+        
+        logger.info(f"同步自启动状态 - 配置: {config_auto_start}, 实际: {actual_auto_start}")
+        
+        if config_auto_start != actual_auto_start:
+            logger.info(f"自启动状态不一致，正在同步...")
+            result = set_auto_start(config_auto_start)
+            if result:
+                logger.info("自启动状态同步成功")
+            else:
+                logger.error("自启动状态同步失败")
+                # 如果设置失败，更新配置匹配实际
+                if actual_auto_start != config_auto_start:
+                    cfg.autoStart.value = actual_auto_start
+                    logger.info(f"已将配置更新为与实际状态一致: {actual_auto_start}")
+            return result
+        else:
+            logger.info("自启动状态已同步，无需更改")
+            return True
+            
+    except Exception as e:
+        logger.error(f"同步自启动状态失败: {e}")
         return False
 
 
@@ -611,10 +693,12 @@ class MainWindow(FluentWindow):
         self.__updateWeatherInterval()
         logger.info("天气更新定时器初始化完成")
 
-        logger.info(f"开机自启动设置: {cfg.autoStart.value}")
-        set_auto_start(cfg.autoStart.value)
+        # 同步自启动状态
+        logger.info("开始同步开机自启动状态")
+        sync_auto_start_with_config()
         
-        cfg.autoStart.valueChanged.connect(set_auto_start)
+        # 连接配置变化信号到设置函数
+        cfg.autoStart.valueChanged.connect(lambda value: set_auto_start(value))
         
         # 空闲检测定时器
         logger.info("开始初始化空闲检测定时器")
@@ -846,7 +930,7 @@ class MainWindow(FluentWindow):
         poetryContainer = QWidget()
         poetryLayout = QVBoxLayout(poetryContainer)
         poetryLayout.setAlignment(Qt.AlignBottom)
-        poetryLayout.setContentsMargins(0, 0, 0, 20)# 最后一个为底部向上预留
+        poetryLayout.setContentsMargins(0, 0, 0, 20)  # 最后一个为底部向上预留
         poetryLayout.addWidget(self.poetryLabel)
         poetryContainer.setStyleSheet("background-color: transparent;")
     
@@ -1137,11 +1221,10 @@ class MainWindow(FluentWindow):
         logger.info("获取天气数据")
         try:
             city = cfg.city.value
-            logger.debug(f"正在更新天气，使用城市：{city}")
+            logger.info(f"正在更新天气，使用城市：{city}")
             
-            # 查询 locationKey
-            city_db = CityDatabase()
-            city_code = city_db.search_code_by_name(city)
+            city_db = RegionDatabase()
+            city_code = city_db.get_code(city)
             
             if city_code:
                 location_key = f"weathercn:{city_code}"
@@ -1149,15 +1232,15 @@ class MainWindow(FluentWindow):
                 location_key = "weathercn:101010100" 
                 logger.warning(f"未找到城市 {city} 的代码，使用默认值")
             
-            logger.debug(f"城市 {city} 对应的 locationKey: {location_key}")
+            logger.info(f"城市 {city} 对应的 locationKey: {location_key}")
             
             api_url = f"https://weatherapi.market.xiaomi.com/wtr-v3/weather/all?locationKey={location_key}&latitude=39.9042&longitude=116.4074&appKey=weather20151024&sign=zUFJoAR2ZVrDy1vF3D07&isGlobal=false&locale=zh_cn"
-            logger.debug(f"天气 API 请求 URL: {api_url}")
+            logger.info(f"天气 API 请求 URL: {api_url}")
             response = requests.get(api_url, timeout=10)
             
             if response.status_code == 200:
                 data = response.json()
-                logger.debug(f"天气API响应: {data}")
+                logger.info(f"天气 API 响应数据：{json.dumps(data, ensure_ascii=False)}")
                 if 'current' in data:
                     current = data['current']
                     
@@ -1168,14 +1251,12 @@ class MainWindow(FluentWindow):
                     
                     # 解析天气代码
                     weather_code = current.get('weather', 0)
-                    # 转换为整数类型
                     try:
                         weather_code = int(weather_code)
                     except (ValueError, TypeError):
                         weather_code = 0
                         logger.warning(f"天气代码为空或无效: {weather_code}")
                     
-                    # 解析预报数据
                     max_temp = 0
                     min_temp = 0
                     if 'forecastDaily' in data and data['forecastDaily']:
@@ -1252,12 +1333,12 @@ class MainWindow(FluentWindow):
                     
                     weather_text = f"{current_temp}{temp_unit}"
                     self.weatherTempLabel.setText(weather_text)
-                    logger.debug(f"已更新天气标签：{weather_text}")
+                    logger.info(f"已更新天气标签：{weather_text}")
                     
                     self.current_weather_code = weather_code
                     
                     self.__updateWeatherIcon()
-                    logger.debug("已更新天气图标")
+                    logger.info(f"已更新天气图标：天气代码={weather_code}, 天气状况={weather}")
                 logger.info("已获取天气数据")
             else:
                 logger.error(f"天气 API 请求失败，状态码：{response.status_code}，响应内容：{response.text}")
@@ -1333,14 +1414,16 @@ class MainWindow(FluentWindow):
             icon_file = icon_map.get(self.current_weather_code, "0.svg")
             icon_path = get_resource_path(os.path.join("resource", "icons", "weather", icon_file))
             if os.path.exists(icon_path):
-                # 使用QIcon加载SVG
+                # QIcon 加载 SVG
                 icon = QIcon(icon_path)
                 icon_size = cfg.weatherIconSize.value
-                # 创建一个pixmap
+                # 创建一个 pixmap
                 pixmap = icon.pixmap(icon_size, icon_size)
                 self.weatherIconLabel.setPixmap(pixmap)
+                logger.info(f"已设置天气图标：代码={self.current_weather_code}, 图标文件={icon_file}, 图标大小={icon_size}x{icon_size}")
             else:
                 self.weatherIconLabel.setText("")
+                logger.warning(f"天气图标文件不存在：{icon_file}")
         except Exception as e:
             logger.error(f"天气图标更新失败：{e}")
 
@@ -1382,15 +1465,23 @@ def install_fonts():
         except Exception:
             pass
 
+def is_auto_start_launch():
+    """检查是否是通过开机自启动启动的"""
+    return '--autostart' in sys.argv or '/autostart' in sys.argv
+
+
 if __name__ == "__main__":
+    # 检查启动参数
+    auto_start_launch = is_auto_start_launch()
+    if auto_start_launch:
+        print("检测到通过开机自启动启动")
+    
     QApplication.setHighDpiScaleFactorRoundingPolicy(Qt.HighDpiScaleFactorRoundingPolicy.PassThrough)
     QApplication.setAttribute(Qt.AA_EnableHighDpiScaling)
     QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps)
     
-    # 提取打包的资源文件
     extract_bundled_files()
     
-    # 创建QApplication
     app = QApplication(sys.argv)
     
     # 检查是否已经有实例在运行
@@ -1484,7 +1575,20 @@ if __name__ == "__main__":
     logger.info("已设置全局异常钩子")
 
     window = MainWindow()
-    window.show()
+    
+    # 根据启动方式决定窗口显示状态
+    if auto_start_launch:
+        # 如果是开机自启动，最小化到托盘
+        logger.info("开机自启动模式：最小化到系统托盘")
+        window.hide()
+        # 确保托盘图标显示
+        if hasattr(window, 'tray_icon') and window.tray_icon:
+            window.tray_icon.show()
+            logger.info("系统托盘图标已显示")
+    else:
+        window.show()
+        logger.info("正常启动模式：显示主窗口")
+    
     logger.info(f"{APP_NAME}版本信息：")
     logger.info(f"版本号：{VERSION} 构建日期：{BUILD_DATE}")
     logger.info(f"{APP_NAME}环境信息：")
