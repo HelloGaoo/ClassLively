@@ -106,6 +106,9 @@ class Config(QConfig):
     autoSyncToDesktop = ConfigItem(
         "Wallpaper", "AutoSyncToDesktop", True, BoolValidator()
     )
+    wallpaperApi = OptionsConfigItem(
+        "Wallpaper", "WallpaperApi", "wp.upx8.com", OptionsValidator(["wp.upx8.com", "api.ltyuanfang.cn"])
+    )
     backgroundBlurRadius = RangeConfigItem(
         "Appearance", "BackgroundBlurRadius", 0, RangeValidator(0, 30)
     )
@@ -199,7 +202,8 @@ def get_default_config_dict():
         "Wallpaper": {
             "SaveLimit": 50,
             "AutoGetInterval": "30 分钟",
-            "AutoSyncToDesktop": True
+            "AutoSyncToDesktop": True,
+            "WallpaperApi": "wp.upx8.com"
         },
         "Appearance": {
             "BackgroundBlurRadius": 0

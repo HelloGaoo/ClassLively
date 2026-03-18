@@ -400,7 +400,11 @@ class WallpaperInterface(ScrollArea):
         """ 获取壁纸 """
         logger.info("开始获取壁纸")
         try:
-            url = "https://wp.upx8.com/api.php?content=风景"
+            wallpaper_api = cfg.wallpaperApi.value
+            if wallpaper_api == "api.ltyuanfang.cn":
+                url = "https://tu.ltyuanfang.cn/api/fengjing.php"
+            else:
+                url = "https://wp.upx8.com/api.php?content=风景"
             logger.info(f"请求壁纸URL: {url}")
             response = requests.get(url, stream=True)
             

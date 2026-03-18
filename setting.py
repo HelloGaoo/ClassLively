@@ -174,6 +174,14 @@ class SettingInterface(ScrollArea):
             texts=["从不", "10分钟", "30分钟", "1小时", "3小时", "6小时", "12小时", "1天", "3天", "5天", "7天"],
             parent=self.wallpaperGroup
         )
+        self.wallpaperApiCard = ComboBoxSettingCard(
+            cfg.wallpaperApi,
+            FIF.LINK,
+            "壁纸API",
+            "选择获取壁纸的API源",
+            texts=["wp.upx8.com", "api.ltyuanfang.cn"],
+            parent=self.wallpaperGroup
+        )
         self.autoSyncToDesktopCard = SwitchSettingCard(
             FIF.HOME,
             "自动同步至桌面",
@@ -294,6 +302,7 @@ class SettingInterface(ScrollArea):
         
         self.wallpaperGroup.addSettingCard(self.wallpaperSaveLimitCard)
         self.wallpaperGroup.addSettingCard(self.autoGetIntervalCard)
+        self.wallpaperGroup.addSettingCard(self.wallpaperApiCard)
         self.wallpaperGroup.addSettingCard(self.autoSyncToDesktopCard)
         
         self.timeGroup.addSettingCard(self.showClockSecondsCard)
