@@ -7,7 +7,7 @@ from qfluentwidgets import (
     SettingCardGroup, OptionsSettingCard, ScrollArea, ExpandLayout, 
     Theme, setTheme, isDarkTheme, FluentIcon as FIF, CustomColorSettingCard, setThemeColor,
     SwitchSettingCard, RangeSettingCard, InfoBar, LineEdit, SettingCard, qconfig, ComboBoxSettingCard,
-    SpinBox, PushButton, MessageBox
+    SpinBox, PushButton, MessageBox, NavigationItemPosition
 )
 from config import cfg, get_default_config_dict
 from city_selector import RegionSelectorDialog

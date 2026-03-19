@@ -221,55 +221,6 @@ def sync_auto_start_with_config():
         return False
 
 
-class BaseScrollAreaInterface(ScrollArea):
-    """ 基础滚动区域界面 """
-    
-    def __init__(self, title: str, parent=None, width=1000, height=800, 
-                 viewport_margins=(0, 120, 0, 20), title_position=(60, 63)):
-        super().__init__(parent=parent)
-        self.title = title
-        self.scrollWidget = QWidget()
-        self.mainLayout = QVBoxLayout(self.scrollWidget)
-        self.titleLabel = QLabel(title, self)
-        
-        self.resize(width, height)
-        self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        self.setViewportMargins(*viewport_margins)
-        self.setWidget(self.scrollWidget)
-        self.setWidgetResizable(True)
-        
-        self.titleLabel.setObjectName('settingLabel')
-        self.scrollWidget.setObjectName('scrollWidget')
-        self.titleLabel.move(*title_position)
-        
-        self.__applyTheme()
-    
-    def __applyTheme(self):
-        theme = 'dark' if isDarkTheme() else 'light'
-        try:
-            qss_path = get_resource_path(os.path.join('resource', 'qss', theme, 'setting_interface.qss'))
-            with open(qss_path, encoding='utf-8') as f:
-                self.setStyleSheet(f.read())
-        except Exception:
-            pass
-
-
-class UpdateInterface(BaseScrollAreaInterface):
-    """ 更新界面 """
-    
-    def __init__(self, parent=None):
-        super().__init__("更新", parent)
-        self.setObjectName("update")
-
-
-class AboutInterface(BaseScrollAreaInterface):
-    """ 关于界面 """
-    
-    def __init__(self, parent=None):
-        super().__init__("关于", parent)
-        self.setObjectName("about")
-
-
 class WallpaperInterface(ScrollArea):
     """ 壁纸界面 """
 
@@ -1014,10 +965,37 @@ class MainWindow(FluentWindow):
         logger.info("添加壁纸界面到导航")
         self.addSubInterface(self.wallpaper, FIF.PHOTO, "壁纸")
         
+        # 更新界面
         logger.info("创建更新界面")
-        self.updateInterface = UpdateInterface(parent=self)
+        update = ScrollArea()
+        update.setObjectName("update")
+        update.scrollWidget = QWidget()
+        update.mainLayout = QVBoxLayout(update.scrollWidget)
+        updateLabel = QLabel("更新", update)
+        
+        # 初始化界面
+        update.resize(1000, 800)
+        update.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        update.setViewportMargins(0, 120, 0, 20)
+        update.setWidget(update.scrollWidget)
+        update.setWidgetResizable(True)
+        
+        # 设置样式
+        updateLabel.setObjectName('settingLabel')
+        update.scrollWidget.setObjectName('scrollWidget')
+        updateLabel.move(60, 63)
+        
+        theme = 'dark' if isDarkTheme() else 'light'
+        try:
+            qss_path = get_resource_path(os.path.join('resource', 'qss', theme, 'setting_interface.qss'))
+            with open(qss_path, encoding='utf-8') as f:
+                update.setStyleSheet(f.read())
+            logger.info(f"设置更新界面样式：{qss_path}")
+        except Exception as e:
+            logger.warning(f"设置更新界面样式失败：{e}")
+        
         logger.info("添加更新界面到导航")
-        self.addSubInterface(self.updateInterface, FIF.SYNC, "更新")
+        self.addSubInterface(update, FIF.SYNC, "更新")
         
         logger.info("主界面导航初始化完成")
 
@@ -1026,15 +1004,42 @@ class MainWindow(FluentWindow):
         logger.info("开始初始化设置导航")
         
         logger.info("创建设置界面")
-        self.settingInterface = SettingInterface(parent=self)
-        self.settingInterface.setObjectName("setting")
+        setting = SettingInterface()
+        setting.setObjectName("setting")
         logger.info("添加设置界面到导航")
-        self.addSubInterface(self.settingInterface, FIF.SETTING, "设置", NavigationItemPosition.BOTTOM)
+        self.addSubInterface(setting, FIF.SETTING, "设置", NavigationItemPosition.BOTTOM)
         
+        # 关于界面
         logger.info("创建关于界面")
-        self.aboutInterface = AboutInterface(parent=self)
+        about = ScrollArea()
+        about.setObjectName("about")
+        about.scrollWidget = QWidget()
+        about.mainLayout = QVBoxLayout(about.scrollWidget)
+        aboutLabel = QLabel("关于", about)
+        
+        # 初始化界面
+        about.resize(1000, 800)
+        about.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        about.setViewportMargins(0, 120, 0, 20)
+        about.setWidget(about.scrollWidget)
+        about.setWidgetResizable(True)
+        
+        # 设置样式
+        aboutLabel.setObjectName('settingLabel')
+        about.scrollWidget.setObjectName('scrollWidget')
+        aboutLabel.move(60, 63)
+        
+        theme = 'dark' if isDarkTheme() else 'light'
+        try:
+            qss_path = get_resource_path(os.path.join('resource', 'qss', theme, 'setting_interface.qss'))
+            with open(qss_path, encoding='utf-8') as f:
+                about.setStyleSheet(f.read())
+            logger.info(f"设置关于界面样式: {qss_path}")
+        except Exception as e:
+            logger.warning(f"设置关于界面样式失败: {e}")
+        
         logger.info("添加关于界面到导航")
-        self.addSubInterface(self.aboutInterface, FIF.INFO, "关于", NavigationItemPosition.BOTTOM)
+        self.addSubInterface(about, FIF.INFO, "关于", NavigationItemPosition.BOTTOM)
         logger.info("设置导航初始化完成")
 
     def resizeEvent(self, event):
