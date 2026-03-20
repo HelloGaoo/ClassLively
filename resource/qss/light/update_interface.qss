@@ -1,0 +1,55 @@
+UpdateInterface, #scrollWidget {
+    background-color: rgb(249, 249, 249);
+}
+
+QScrollArea {
+    background-color: rgb(249, 249, 249);
+    border: none;
+}
+
+
+/* 标签 */
+QLabel#settingLabel {
+    font: 33px;
+    background-color: transparent;
+}
+
+/* 卡片 */
+CardWidget {
+    background-color: rgba(255, 255, 255, 0.8);
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    border-radius: 8px;
+}
+
+/* SmoothScrollArea */
+SmoothScrollArea {
+    background-color: transparent;
+    border: none;
+}
+
+/* 更新日志标题 */
+QLabel#changelogTitle {
+    font-size: 16px;
+    font-weight: bold;
+    color: black;
+}
+
+/* 更新日志内容 */
+QLabel#changelogContent {
+    color: rgba(0, 0, 0, 0.6);
+    line-height: 1.8;
+    font-size: 13px;
+}
+
+/* 版本标题 */
+QLabel#versionTitle {
+    font-size: 20px;
+    font-weight: bold;
+    color: black;
+}
+
+/* 构建日期 */
+QLabel#buildDate {
+    color: rgba(0, 0, 0, 0.4);
+    font-size: 13px;
+}

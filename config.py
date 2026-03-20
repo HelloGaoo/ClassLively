@@ -170,6 +170,12 @@ class Config(QConfig):
     autoOpenMaximize = ConfigItem(
         "Other", "AutoOpenMaximize", False, BoolValidator()
     )
+    autoCheckUpdate = ConfigItem(
+        "Other", "AutoCheckUpdate", True, BoolValidator()
+    )
+    autoUpdate = ConfigItem(
+        "Other", "AutoUpdate", False, BoolValidator()
+    )
 
 
 cfg = Config()
@@ -197,7 +203,9 @@ def get_default_config_dict():
             "AutoStart": False,
             "AutoOpenOnIdle": False,
             "IdleMinutes": 5,
-            "AutoOpenMaximize": False
+            "AutoOpenMaximize": False,
+            "AutoCheckUpdate": True,
+            "AutoUpdate": False
         },
         "Wallpaper": {
             "SaveLimit": 50,

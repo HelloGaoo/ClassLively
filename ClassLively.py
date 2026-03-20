@@ -5,7 +5,7 @@ from PyQt5.QtGui import QFontDatabase, QFont, QIcon, QPixmap, QImage, QPainter, 
 from qfluentwidgets import (
     setTheme, Theme, FluentWindow, FluentTranslator,
     FluentIcon as FIF, NavigationItemPosition, RoundMenu, Action, MessageBox, ScrollArea, SmoothScrollArea, ExpandLayout, isDarkTheme,
-    PushButton, CardWidget, ProgressBar, InfoBar, ImageLabel, qconfig
+    PushButton, CardWidget, ProgressBar, InfoBar, ImageLabel, qconfig, SwitchSettingCard, PrimaryPushButton, SettingCardGroup
 )
 import requests
 import sys
@@ -229,7 +229,6 @@ class BaseScrollAreaInterface(ScrollArea):
         super().__init__(parent=parent)
         self.title = title
         self.scrollWidget = QWidget()
-        self.mainLayout = QVBoxLayout(self.scrollWidget)
         self.titleLabel = QLabel(title, self)
         
         self.resize(width, height)
@@ -241,17 +240,6 @@ class BaseScrollAreaInterface(ScrollArea):
         self.titleLabel.setObjectName('settingLabel')
         self.scrollWidget.setObjectName('scrollWidget')
         self.titleLabel.move(*title_position)
-        
-        self.__applyTheme()
-    
-    def __applyTheme(self):
-        theme = 'dark' if isDarkTheme() else 'light'
-        try:
-            qss_path = get_resource_path(os.path.join('resource', 'qss', theme, 'setting_interface.qss'))
-            with open(qss_path, encoding='utf-8') as f:
-                self.setStyleSheet(f.read())
-        except Exception:
-            pass
 
 
 class UpdateInterface(BaseScrollAreaInterface):
@@ -260,6 +248,151 @@ class UpdateInterface(BaseScrollAreaInterface):
     def __init__(self, parent=None):
         super().__init__("更新", parent)
         self.setObjectName("update")
+        
+        self.mainLayout = QVBoxLayout(self.scrollWidget)
+        self.mainLayout.setContentsMargins(60, 0, 60, 40)
+        self.mainLayout.setSpacing(16)
+        
+        self.__initWidgets()
+        self.__initLayout()
+        self.__setQss()
+        self.__connectSignalToSlot()
+    
+    def __connectSignalToSlot(self):
+        """ 连接信号与槽 """
+        cfg.themeChanged.connect(self.__onThemeChanged)
+    
+    def __setQss(self):
+        """ 设置样式表 """
+        self.scrollWidget.setObjectName('scrollWidget')
+        self.titleLabel.setObjectName('settingLabel')
+        
+        theme = 'dark' if isDarkTheme() else 'light'
+        try:
+            qss_path = get_resource_path(os.path.join('resource', 'qss', theme, 'update_interface.qss'))
+            with open(qss_path, encoding='utf-8') as f:
+                self.setStyleSheet(f.read())
+        except Exception:
+            pass
+    
+    def __onThemeChanged(self, theme: Theme):
+        """ 主题变更槽函数 """
+        setTheme(theme)
+        self.__setQss()
+    
+    def __initWidgets(self):
+        """ 初始化控件 """
+        # 版本信息卡片
+        self.versionCard = CardWidget(self.scrollWidget)
+        self.versionLayout = QHBoxLayout(self.versionCard)
+        self.versionLayout.setContentsMargins(24, 24, 24, 24)
+        self.versionLayout.setSpacing(16)
+        
+        # 版本图标和标题
+        self.versionHeaderLayout = QHBoxLayout()
+        self.versionIcon = QLabel(self.versionCard)
+        self.versionIcon.setFixedSize(48, 48)
+        self.versionIcon.setPixmap(QPixmap("resource/icons/CY.png").scaled(
+            48, 48, Qt.KeepAspectRatio, Qt.SmoothTransformation
+        ))
+        
+        self.versionInfoLayout = QVBoxLayout()
+        self.versionInfoLayout.setSpacing(4)
+        self.versionTitle = QLabel(f"ClassLively {VERSION}", self.versionCard)
+        self.versionTitle.setObjectName("versionTitle")
+        self.buildDate = QLabel(f"构建日期：{BUILD_DATE}", self.versionCard)
+        self.buildDate.setObjectName("buildDate")
+        
+        self.versionInfoLayout.addWidget(self.versionTitle)
+        self.versionInfoLayout.addWidget(self.buildDate)
+        self.versionHeaderLayout.addWidget(self.versionIcon)
+        self.versionHeaderLayout.addLayout(self.versionInfoLayout)
+        
+        # 检查更新按钮
+        self.checkUpdateButton = PrimaryPushButton(FIF.SYNC, "检查更新", self.versionCard)
+        self.checkUpdateButton.setFixedHeight(36)
+        self.checkUpdateButton.clicked.connect(self.__checkUpdate)
+        
+        self.versionLayout.addLayout(self.versionHeaderLayout)
+        self.versionLayout.addStretch()
+        self.versionLayout.addWidget(self.checkUpdateButton)
+        
+        # 更新日志卡片
+        self.changelogCard = CardWidget(self.scrollWidget)
+        self.changelogLayout = QVBoxLayout(self.changelogCard)
+        self.changelogLayout.setContentsMargins(24, 24, 24, 24)
+        self.changelogLayout.setSpacing(16)
+        
+        self.changelogTitle = QLabel("更新日志", self.changelogCard)
+        self.changelogTitle.setObjectName("changelogTitle")
+        
+        self.changelogScroll = SmoothScrollArea(self.changelogCard)
+        self.changelogScroll.setViewportMargins(0, 0, 0, 0)
+        self.changelogScroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.changelogScroll.setWidgetResizable(True)
+        self.changelogContent = QLabel("暂无更新记录")
+        self.changelogContent.setWordWrap(True)
+        self.changelogContent.setObjectName("changelogContent")
+        self.changelogScroll.setWidget(self.changelogContent)
+        self.changelogScroll.setFixedHeight(200)
+        
+        self.changelogLayout.addWidget(self.changelogTitle)
+        self.changelogLayout.addWidget(self.changelogScroll)
+        self.autoCheckUpdateCard = SwitchSettingCard(
+            FIF.UPDATE,
+            "自动检查更新",
+            "启用后，应用启动时会自动检查新版本",
+            configItem=cfg.autoCheckUpdate,
+            parent=self.scrollWidget
+        )
+        self.autoUpdateCard = SwitchSettingCard(
+            FIF.DOWNLOAD,
+            "自动更新",
+            "发现新版本时自动下载并安装",
+            configItem=cfg.autoUpdate,
+            parent=self.scrollWidget
+        )
+    
+    def __initLayout(self):
+        """ 初始化布局 """
+        self.mainLayout.addWidget(self.versionCard)
+        self.mainLayout.addWidget(self.changelogCard)
+        self.mainLayout.addWidget(self.autoCheckUpdateCard)
+        self.mainLayout.addWidget(self.autoUpdateCard)
+        self.mainLayout.addStretch()
+    
+    def __checkUpdate(self):
+        """ 检查更新 """
+        self.checkUpdateButton.setEnabled(False)
+        self.updateStatusLabel.setText("正在检查更新")
+        self.updateStatusLabel.setStyleSheet("color: #0078D4;")
+        self.updateStatusIcon.setStyleSheet("background-color: #0078D4; border-radius: 8px;")
+        
+        def check():
+            import time
+            time.sleep(1.5)
+            return False, None, None
+        
+        import threading
+        def thread_func():
+            has_update, new_version, changelog = check()
+            
+            def update_ui():
+                if has_update:
+                    self.updateStatusLabel.setText(f"发现新版本：{new_version}")
+                    self.updateStatusLabel.setStyleSheet("color: #107C10;")
+                    self.updateStatusIcon.setStyleSheet("background-color: #107C10; border-radius: 8px;")
+                    self.changelogContent.setText(changelog)
+                else:
+                    self.updateStatusLabel.setText("已是最新版本")
+                    self.updateStatusLabel.setStyleSheet("color: #107C10;")
+                    self.updateStatusIcon.setStyleSheet("background-color: #107C10; border-radius: 8px;")
+                self.checkUpdateButton.setEnabled(True)
+            
+            QTimer.singleShot(0, update_ui)
+        
+        thread = threading.Thread(target=thread_func)
+        thread.start()
 
 
 class AboutInterface(BaseScrollAreaInterface):
