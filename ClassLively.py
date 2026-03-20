@@ -1014,11 +1014,6 @@ class MainWindow(FluentWindow):
         logger.info("添加壁纸界面到导航")
         self.addSubInterface(self.wallpaper, FIF.PHOTO, "壁纸")
         
-        logger.info("创建更新界面")
-        self.updateInterface = UpdateInterface(parent=self)
-        logger.info("添加更新界面到导航")
-        self.addSubInterface(self.updateInterface, FIF.SYNC, "更新")
-        
         logger.info("主界面导航初始化完成")
 
     def initSettingsNavigation(self):
@@ -1030,6 +1025,11 @@ class MainWindow(FluentWindow):
         self.settingInterface.setObjectName("setting")
         logger.info("添加设置界面到导航")
         self.addSubInterface(self.settingInterface, FIF.SETTING, "设置", NavigationItemPosition.BOTTOM)
+        
+        logger.info("创建更新界面")
+        self.updateInterface = UpdateInterface(parent=self)
+        logger.info("添加更新界面到导航")
+        self.addSubInterface(self.updateInterface, FIF.SYNC, "更新", NavigationItemPosition.BOTTOM)
         
         logger.info("创建关于界面")
         self.aboutInterface = AboutInterface(parent=self)
