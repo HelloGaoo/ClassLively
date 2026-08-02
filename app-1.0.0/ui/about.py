@@ -21,7 +21,6 @@
 import json
 import logging
 import os
-import sys
 import shutil
 import subprocess
 import threading
@@ -31,7 +30,7 @@ from PyQt6.QtCore import Qt, QSize, QTimer, pyqtSignal, pyqtSlot
 from PyQt6.QtGui import QPixmap, QFont
 from PyQt6.QtWidgets import (
     QApplication, QHBoxLayout, QLabel, QVBoxLayout, QWidget,
-    QGridLayout, QListWidget, QListWidgetItem, QTextBrowser,
+    QListWidgetItem, QTextBrowser,
 )
 from qfluentwidgets import (
     CardWidget,
@@ -39,8 +38,7 @@ from qfluentwidgets import (
     BodyLabel,
     CaptionLabel,
     TitleLabel,
-    StrongBodyLabel,
-    TextEdit,
+    SubtitleLabel,
     PushButton,
     PrimaryPushButton,
     SwitchSettingCard,
@@ -53,7 +51,7 @@ from qfluentwidgets import (
 from core.config import cfg
 from core.constants import PACKAGE_ROOT, APP_DIR, APP_ICON, get_resPath, load_qss, VERSION, BUILD_DATE
 from core.utils import tr, TranslatableWidget, FUI
-from core.updater import check_github_verison, get_github_changelog, download_update, extract_update, create_update_script
+from core.updater import check_github_version_legacy, get_github_changelog, download_update, extract_update, create_update_script
 
 from .common import show_text_file
 
@@ -104,7 +102,7 @@ class AboutInterface(ScrollArea, TranslatableWidget):
         self._topLayout.addSpacing(16)
         self._topLayout.addWidget(self._footerLabel)
 
-        self.titleLabel = QLabel(tr("navigation.about"), self)
+        self.titleLabel = SubtitleLabel(tr("navigation.about"), self)
         self.titleLabel.setObjectName('settingLabel')
         self.titleLabel.move(60, 63)
 
@@ -269,9 +267,9 @@ class AboutInterface(ScrollArea, TranslatableWidget):
 
         leftInfo = QVBoxLayout()
         leftInfo.setSpacing(4)
-        self.versionTitle = QLabel(f"Glimpseon {VERSION}", self.versionCard)
+        self.versionTitle = SubtitleLabel(f"Glimpseon {VERSION}", self.versionCard)
         self.versionTitle.setObjectName("versionTitle")
-        self.buildDate = QLabel(f"{tr('update.build_date')}: {BUILD_DATE}", self.versionCard)
+        self.buildDate = CaptionLabel(f"{tr('update.build_date')}: {BUILD_DATE}", self.versionCard)
         self.buildDate.setObjectName("buildDate")
         leftInfo.addWidget(self.versionTitle)
         leftInfo.addWidget(self.buildDate)
@@ -281,7 +279,7 @@ class AboutInterface(ScrollArea, TranslatableWidget):
         self.updateStatusIcon = QLabel(self.versionCard)
         self.updateStatusIcon.setFixedSize(16, 16)
         self.updateStatusIcon.setObjectName('updateStatusIcon')
-        self.updateStatusLabel = QLabel(tr("update.status_ready"), self.versionCard)
+        self.updateStatusLabel = BodyLabel(tr("update.status_ready"), self.versionCard)
         self.updateStatusLabel.setObjectName('updateStatusLabel')
         self.updateStatusLayout.addWidget(self.updateStatusIcon)
         self.updateStatusLayout.addWidget(self.updateStatusLabel)
@@ -304,7 +302,7 @@ class AboutInterface(ScrollArea, TranslatableWidget):
         cLay.setContentsMargins(24, 20, 24, 20)
         cLay.setSpacing(12)
 
-        self.changelogTitle = QLabel(tr("update.changelog"), self.changelogCard)
+        self.changelogTitle = SubtitleLabel(tr("update.changelog"), self.changelogCard)
         self.changelogTitle.setObjectName("changelogTitle")
 
         # QTextBrowser 显示 Markdown
@@ -313,13 +311,6 @@ class AboutInterface(ScrollArea, TranslatableWidget):
         self.changelogContent.setOpenExternalLinks(False)
         self.changelogContent.setFont(QFont("HarmonyOS Sans", 12))
         self.changelogContent.setPlaceholderText(tr("update.changelog_auto_load"))
-        self.changelogContent.setStyleSheet("""
-            QTextBrowser {
-                background: transparent;
-                border: none;
-                color: #CCCCCC;
-            }
-        """)
 
         cLay.addWidget(self.changelogTitle)
         cLay.addWidget(self.changelogContent, 1)  # stretch=1 占满高度
@@ -412,7 +403,7 @@ class AboutInterface(ScrollArea, TranslatableWidget):
 
         def do_check():
             try:
-                result = check_github_verison()
+                result = check_github_version_legacy()
             except Exception as e:
                 logger.error(f"手动检查：检查更新时出错 - {str(e)}")
                 result = {'success': False, 'error': str(e)}
@@ -431,7 +422,7 @@ class AboutInterface(ScrollArea, TranslatableWidget):
 
         def do_check():
             try:
-                result = check_github_verison()
+                result = check_github_version_legacy()
             except Exception as e:
                 logger.error(f"自动检查：检查更新时出错 - {str(e)}")
                 result = {'success': False, 'error': str(e)}
@@ -440,6 +431,15 @@ class AboutInterface(ScrollArea, TranslatableWidget):
 
         thread = threading.Thread(target=do_check, daemon=True)
         thread.start()
+
+    @staticmethod
+    def _is_newer_version(remote: str, current: str) -> bool:
+        try:
+            def _parse(v):
+                return tuple(int(p) for p in v.strip().split('.'))
+            return _parse(remote) > _parse(current)
+        except (ValueError, AttributeError):
+            return remote != current
 
     @pyqtSlot(object)
     def _on_check_result(self, result: object):
@@ -459,7 +459,7 @@ class AboutInterface(ScrollArea, TranslatableWidget):
 
             logger.info(f"检查结果：GitHub 最新版本：{github_version} (构建日期：{github_build_date})")
 
-            has_update = (github_version != VERSION)
+            has_update = self._is_newer_version(github_version, VERSION)
 
             if has_update:
                 self.has_new_version = True

@@ -1,89 +1,78 @@
-/* 下载界面 */
+/* 下载界面 深色 */
 
-DownloadInterface {
+#download {
     background: transparent;
     border: none;
-    font-family: "HarmonyOS Sans", "Microsoft YaHei", "SimHei", sans-serif;
 }
 
-DownloadInterface #scrollWidget {
-}
-
-DownloadInterface QScrollArea {
+#download QScrollArea {
     background: transparent;
     border: none;
 }
 
 /* 标题 */
 
-DownloadInterface QLabel#settingLabel {
+#download QLabel#settingLabel {
     font-size: 33px;
     background-color: transparent;
-    color: white;
-    font-family: "HarmonyOS Sans", "Microsoft YaHei", "SimHei", sans-serif;
+    color: #ffffff;
 }
 
 /* 卡片 */
 
-DownloadInterface CardWidget {
+#download CardWidget {
     background-color: rgba(255, 255, 255, 0.05);
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 8px;
-    font-family: "HarmonyOS Sans", "Microsoft YaHei", "SimHei", sans-serif;
 }
 
-DownloadInterface CardWidget:hover {
+#download CardWidget:hover {
     background-color: rgba(255, 255, 255, 0.08);
 }
 
 /* 标签 */
 
-DownloadInterface QLabel#softwareNameLabel {
+#download QLabel#softwareNameLabel {
     font-size: 18px;
-    color: white;
-    font-family: "HarmonyOS Sans", "Microsoft YaHei", "SimHei", sans-serif;
+    color: #ffffff;
 }
 
-DownloadInterface QLabel#softwareDescLabel {
+#download QLabel#softwareDescLabel {
     font-size: 14px;
     color: #888888;
-    font-family: "HarmonyOS Sans", "Microsoft YaHei", "SimHei", sans-serif;
 }
 
-DownloadInterface QLabel#sectionTitleLabel {
+#download QLabel#sectionTitleLabel {
     font-size: 20px;
-    color: white;
+    color: #ffffff;
     margin-top: 20px;
     margin-bottom: 10px;
-    font-family: "HarmonyOS Sans", "Microsoft YaHei", "SimHei", sans-serif;
 }
 
-DownloadInterface QLabel#modeLabel,
-DownloadInterface QLabel#sourceLabel {
+#download QLabel#modeLabel,
+#download QLabel#sourceLabel {
     font-size: 18px;
-    color: white;
-    font-family: "HarmonyOS Sans", "Microsoft YaHei", "SimHei", sans-serif;
+    color: #ffffff;
 }
 
-DownloadInterface QLabel#softwareEmptyIconLabel {
+#download QLabel#softwareEmptyIconLabel {
     font-size: 32px;
     background-color: transparent;
 }
 
 /* 模式选择 */
 
-DownloadInterface #modeContainer {
+#download #modeContainer {
     margin-top: 8px;
     margin-bottom: 8px;
 }
 
-DownloadInterface QRadioButton {
+#download QRadioButton {
     font-size: 14px;
-    color: white;
-    font-family: "HarmonyOS Sans", "Microsoft YaHei", "SimHei", sans-serif;
+    color: #ffffff;
 }
 
-DownloadInterface QRadioButton::indicator {
+#download QRadioButton::indicator {
     width: 16px;
     height: 16px;
     border-radius: 8px;
@@ -91,38 +80,37 @@ DownloadInterface QRadioButton::indicator {
     background-color: transparent;
 }
 
-DownloadInterface QRadioButton::indicator:checked {
+#download QRadioButton::indicator:checked {
     border: 2px solid #ff6b9d;
     background-color: #ff6b9d;
 }
 
-DownloadInterface QRadioButton::indicator:hover {
+#download QRadioButton::indicator:hover {
     border: 2px solid #ff8fb3;
 }
 
 /* 下载源下拉框 */
 
-DownloadInterface ComboBox#sourceComboBox {
+#download ComboBox#sourceComboBox {
     font-size: 14px;
-    color: white;
+    color: #ffffff;
     background-color: rgba(255, 255, 255, 0.05);
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 6px;
     padding: 4px 8px;
-    font-family: "HarmonyOS Sans", "Microsoft YaHei", "SimHei", sans-serif;
 }
 
-DownloadInterface ComboBox#sourceComboBox:hover {
+#download ComboBox#sourceComboBox:hover {
     background-color: rgba(255, 255, 255, 0.08);
     border: 1px solid rgba(255, 255, 255, 0.15);
 }
 
-DownloadInterface ComboBox#sourceComboBox::drop-down {
+#download ComboBox#sourceComboBox::drop-down {
     border: none;
     width: 30px;
 }
 
-DownloadInterface ComboBox#sourceComboBox::down-arrow {
+#download ComboBox#sourceComboBox::down-arrow {
     image: none;
     border: none;
     width: 12px;
@@ -132,55 +120,52 @@ DownloadInterface ComboBox#sourceComboBox::down-arrow {
 
 /* 按钮 */
 
-DownloadInterface PushButton#startButton {
+#download PushButton#startButton {
     font-size: 14px;
-    color: white;
+    color: #ffffff;
     background-color: #00c853;
     border: none;
     border-radius: 6px;
     padding: 6px 16px;
-    font-family: "HarmonyOS Sans", "Microsoft YaHei", "SimHei", sans-serif;
 }
 
-DownloadInterface PushButton#startButton:hover {
+#download PushButton#startButton:hover {
     background-color: #00e676;
-    border: none;
 }
 
-DownloadInterface PushButton#startButton:pressed {
+#download PushButton#startButton:pressed {
     background-color: #009624;
-    border: none;
 }
 
-DownloadInterface QToolButton#softwareLinkButton {
+#download QToolButton#softwareLinkButton {
     border: none;
     background: transparent;
     border-radius: 4px;
 }
 
-DownloadInterface QToolButton#softwareLinkButton:hover {
+#download QToolButton#softwareLinkButton:hover {
     background: rgba(255, 255, 255, 0.1);
 }
 
 /* 进度环 */
 
-DownloadInterface ProgressRing {
+#download ProgressRing {
     background-color: transparent;
 }
 
-DownloadInterface ProgressRing::chunk {
+#download ProgressRing::chunk {
     background-color: #00e676;
     border-radius: 30px;
 }
 
 /* 分页栏 */
 
-DownloadInterface #paginationBar {
+#download #paginationBar {
     background-color: transparent;
     padding: 8px 0px;
 }
 
-DownloadInterface #paginationBar PushButton {
+#download #paginationBar PushButton {
     font-size: 14px;
     color: #cccccc;
     background-color: rgba(255, 255, 255, 0.08);
@@ -189,18 +174,18 @@ DownloadInterface #paginationBar PushButton {
     margin: 0px 4px;
 }
 
-DownloadInterface #paginationBar PushButton:hover {
+#download #paginationBar PushButton:hover {
     background-color: rgba(255, 255, 255, 0.15);
     border: 1px solid rgba(255, 255, 255, 0.15);
 }
 
-DownloadInterface #paginationBar PushButton[paginationActive="true"] {
-    color: white;
+#download #paginationBar PushButton[paginationActive="true"] {
+    color: #ffffff;
     background-color: #ff6b9d;
     border: 1px solid #ff6b9d;
 }
 
-DownloadInterface #paginationBar PushButton[paginationActive="true"]:hover {
+#download #paginationBar PushButton[paginationActive="true"]:hover {
     background-color: #ff8fb3;
     border: 1px solid #ff8fb3;
 }

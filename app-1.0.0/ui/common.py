@@ -1,32 +1,20 @@
 # Common UI helpers for dialogs and base classes
 import os
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QIcon, QPixmap, QFont
-from PyQt6.QtWidgets import QHBoxLayout, QLabel, QVBoxLayout, QWidget
-from qfluentwidgets import (
-    CardWidget,
-    ExpandLayout,
-    InfoBar,
-    MessageBox,
-    PrimaryPushButton,
-    PushButton,
-    ScrollArea,
-    SmoothScrollArea,
-    TextEdit,
-    isDarkTheme,
-)
-from core.utils import FUI
+from PyQt6.QtGui import QFont
+from PyQt6.QtWidgets import QWidget
+from qfluentwidgets import MessageBox, ScrollArea, TextEdit, SubtitleLabel
+from core.utils import tr
 
 
 class BaseScrollAreaInterface(ScrollArea):
-    """ 基础滚动区域界面 """
 
     def __init__(self, title: str, parent=None, width=1000, height=800,
                  viewport_margins=(0, 120, 0, 20), title_position=(60, 63)):
         super().__init__(parent=parent)
         self.title = title
         self.scrollWidget = QWidget()
-        self.titleLabel = QLabel(title, self)
+        self.titleLabel = SubtitleLabel(title, self)
 
         self.resize(width, height)
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
@@ -43,10 +31,7 @@ class BaseScrollAreaInterface(ScrollArea):
 
 
 def show_text_file(title: str, intro: str, file_path: str, parent=None):
-    """Show a text file in a MessageBox with a read-only TextEdit.
-
-    If file_path does not exist, intro will be shown as fallback content.
-    """
+    """文件不存在则展示 intro 作为兜底内容"""
     content_text = ""
     if file_path and os.path.exists(file_path):
         try:
@@ -57,11 +42,7 @@ def show_text_file(title: str, intro: str, file_path: str, parent=None):
     else:
         content_text = intro
 
-    msg_box = MessageBox(
-        title=title,
-        content=intro,
-        parent=parent
-    )
+    msg_box = MessageBox(title=title, content=intro, parent=parent)
     try:
         msg_box.cancelButton.hide()
     except Exception:
@@ -74,7 +55,6 @@ def show_text_file(title: str, intro: str, file_path: str, parent=None):
     text_edit.setMinimumWidth(520)
     text_edit.setFont(QFont('Consolas', 12))
 
-    # Insert the text area into the message box
     try:
         msg_box.textLayout.addWidget(text_edit)
         msg_box.textLayout.insertSpacing(0, 10)

@@ -1,15 +1,11 @@
-"""
-课程表
-"""
+"""课程表"""
 
 import json
 import os
 import re
-import sys
 
 from core.constants import DATA_PROFILE, ensure_data_dirs
 
-# 确保目录存在
 ensure_data_dirs()
 
 PROFILES_DIR = DATA_PROFILE
@@ -19,10 +15,10 @@ class TimetableProfile:
 
     def __init__(self, name="档案配置-1"):
         self.name = name
-        self.default_class_duration = 40   # 默认上课时长（m）
-        self.default_break_duration = 10   # 默认课间时长（m）
-        self.periods = []                  # [{"type":"上课/课间/活动", "start":"HH:MM", "end":"HH:MM"}, ...]
-        self.courses = {}                  # {period_index: {"周一":"科目", "周二":"科目", ...}, ...}
+        self.default_class_duration = 40
+        self.default_break_duration = 10
+        self.periods = []
+        self.courses = {}
 
     def to_dict(self):
         return {
@@ -55,16 +51,13 @@ class TimetableProfile:
             return cls.from_dict(json.load(f))
 
     def add_period(self, period_type, start, end):
-        """添加时间段"""
         self.periods.append({"type": period_type, "start": start, "end": end})
         idx = len(self.periods) - 1
         self.courses[str(idx)] = {}
 
     def remove_period(self, index):
-        """删除时间段"""
         if 0 <= index < len(self.periods):
             self.periods.pop(index)
-            # 重新映射 courses
             new_courses = {}
             for i in range(len(self.periods)):
                 key = str(i)
@@ -73,7 +66,6 @@ class TimetableProfile:
             self.courses = new_courses
 
     def get_next_start_time(self):
-        """获取下一个开始时间"""
         if not self.periods:
             return "08:00"
         return self.periods[-1]["end"]
@@ -87,7 +79,6 @@ def get_profile_path(name):
 
 
 def list_profiles():
-    """返回排序档案列表"""
     os.makedirs(PROFILES_DIR, exist_ok=True)
     pattern = re.compile(r"^档案配置-\d+\.json$")
     files = [f for f in os.listdir(PROFILES_DIR) if pattern.match(f)]
@@ -96,7 +87,6 @@ def list_profiles():
 
 
 def next_profile_name():
-    """下一个名称"""
     names = list_profiles()
     if not names:
         return "档案配置-1"
@@ -105,7 +95,6 @@ def next_profile_name():
 
 
 def ensure_default_profile():
-    """至少一个"""
     names = list_profiles()
     if not names:
         name = "档案配置-1"
@@ -116,7 +105,6 @@ def ensure_default_profile():
 
 
 def rename_profile(old_name, new_name):
-    """重命名档案"""
     old_path = get_profile_path(old_name)
     new_path = get_profile_path(new_name)
     if os.path.exists(old_path):
@@ -124,7 +112,6 @@ def rename_profile(old_name, new_name):
 
 
 def delete_profile(name):
-    """删除档案文件"""
     path = get_profile_path(name)
     if os.path.exists(path):
         os.remove(path)

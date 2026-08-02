@@ -647,23 +647,4 @@ if not _cfg_loaded and os.path.exists(CONFIG_PATH):
     try:
         qconfig.load(CONFIG_PATH, cfg)
     except Exception:
-        pass
-
-# 将 Appearance 下的 ComponentCardOpacity/ComponentCardRadius 移到 Grid 下
-if os.path.exists(CONFIG_PATH):
-    try:
-        with open(CONFIG_PATH, 'r', encoding='utf-8') as f:
-            _migrate_data = json.load(f)
-        _migrated = False
-        if "Appearance" in _migrate_data:
-            for _key in ("ComponentCardOpacity", "ComponentCardRadius"):
-                if _key in _migrate_data["Appearance"]:
-                    _migrate_data.setdefault("Grid", {})[_key] = _migrate_data["Appearance"].pop(_key)
-                    _migrated = True
-            if not _migrate_data["Appearance"]:
-                del _migrate_data["Appearance"]
-        if _migrated:
-            with open(CONFIG_PATH, 'w', encoding='utf-8') as f:
-                json.dump(_migrate_data, f, indent=4, ensure_ascii=False)
-    except Exception:
-        pass
+        logger.exception("加载配置失败")

@@ -23,9 +23,11 @@ import os
 from datetime import datetime
 
 from PyQt6.QtCore import Qt, QTimer
-from PyQt6.QtGui import QPainter, QColor, QPen, QBrush, QFont
-from PyQt6.QtWidgets import QApplication, QFileDialog, QHBoxLayout, QLabel, QVBoxLayout, QWidget
+from PyQt6.QtGui import QPainter, QColor, QPen, QBrush, QFont, QIcon
+from PyQt6.QtWidgets import QApplication, QFileDialog, QHBoxLayout, QVBoxLayout, QWidget
 from qfluentwidgets import (
+    BodyLabel,
+    CaptionLabel,
     ComboBoxSettingCard,
     CustomColorSettingCard,
     FluentWindow,
@@ -36,6 +38,7 @@ from qfluentwidgets import (
     ScrollArea,
     SettingCard,
     SpinBox,
+    SubtitleLabel,
     SwitchButton,
     SwitchSettingCard,
     Theme,
@@ -45,13 +48,13 @@ from qfluentwidgets import (
 )
 
 from core.config import cfg, default_cfg, ConfigItem, CONFIG_PATH
-from core.constants import BASE_DIR, DATA_CONFIG, load_qss
+from core.constants import BASE_DIR, DATA_CONFIG, load_qss, clear_qss_cache, APP_ICON, get_resPath
 from core.utils import _load_app_fonts, apply_fonts, tr, get_time_sync_service, FUI
 from core.logger import log_dir
 
 
 class LineEditSettingCard(SettingCard):
-    """带 QLineEdit 的设置卡片 """
+    """带 LineEdit 的设置卡片 """
 
     def __init__(self, configItem, icon, title, content=None, parent=None):
         super().__init__(icon, title, content, parent)
@@ -126,7 +129,7 @@ class SyncStatusSettingCard(SettingCard):
 
     def __init__(self, icon, title, content=None, parent=None):
         super().__init__(icon, title, content, parent)
-        self.statusLabel = QLabel(tr("settings.precise_time_not_synced"))
+        self.statusLabel = BodyLabel(tr("settings.precise_time_not_synced"))
         self.statusLabel.setStyleSheet("color: #999;")
         self.syncBtn = PushButton(FUI.SYNC, tr("settings.precise_time_sync_now"))
         self.syncBtn.setFixedHeight(32)
@@ -241,7 +244,7 @@ class SettingsSubPage(ScrollArea):
         self.vBoxLayout.setSpacing(28)
         self.vBoxLayout.setContentsMargins(60, 10, 60, 0)
 
-        self.titleLabel = QLabel(title, self)
+        self.titleLabel = SubtitleLabel(title, self)
         self.titleLabel.setObjectName("settingLabel")
         self.titleLabel.move(60, 63)
 
@@ -820,6 +823,7 @@ class AdvancedPage(SettingsSubPage):
             font_loaded = _load_app_fonts()
             apply_fonts(app, use_harmonyos=font_loaded)
         current_theme = cfg.themeMode.value
+        clear_qss_cache()
         setTheme(current_theme)
         cfg.themeChanged.emit(current_theme)
 
@@ -946,6 +950,7 @@ class _CornerRadiusPreviewWidget(QWidget):
         font = QFont("Arial", 10)
         painter.setFont(font)
         painter.drawText(card_x, card_y, card_w, card_h, Qt.AlignmentFlag.AlignCenter, "Preview")
+        painter.end()
 
 
 class GridPage(SettingsSubPage):
@@ -970,7 +975,7 @@ class GridPage(SettingsSubPage):
         grid_item_layout.setContentsMargins(0, 0, 0, 0)
         grid_item_layout.setSpacing(4)
         grid_item_layout.addWidget(self.gridPreviewWidget, alignment=Qt.AlignmentFlag.AlignCenter)
-        grid_label = QLabel(tr("settings.grid.preview"), self.scrollWidget)
+        grid_label = CaptionLabel(tr("settings.grid.preview"), self.scrollWidget)
         grid_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         grid_item_layout.addWidget(grid_label)
         preview_layout.addWidget(grid_item)
@@ -983,7 +988,7 @@ class GridPage(SettingsSubPage):
         card_item_layout.setContentsMargins(0, 0, 0, 0)
         card_item_layout.setSpacing(4)
         card_item_layout.addWidget(self.cornerRadiusPreviewWidget, alignment=Qt.AlignmentFlag.AlignCenter)
-        card_label = QLabel(tr("settings.grid.cornerRadius_preview"), self.scrollWidget)
+        card_label = CaptionLabel(tr("settings.grid.cornerRadius_preview"), self.scrollWidget)
         card_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         card_item_layout.addWidget(card_label)
         preview_layout.addWidget(card_item)
@@ -1044,6 +1049,7 @@ class SettingsWindow(FluentWindow):
         self.main_window = main_window
         self.setObjectName("setting")
         self.resize(1150, 750)
+        self.setWindowIcon(QIcon(get_resPath(APP_ICON)))
 
         # 窗口置顶，隐藏最小化和最大化按钮
         self.setWindowFlags(
@@ -1106,4 +1112,6 @@ class SettingsWindow(FluentWindow):
 
     def closeEvent(self, event):
         """关闭时释放资源"""
+        if hasattr(self, '_autoSyncTimer'):
+            self._autoSyncTimer.stop()
         event.accept()

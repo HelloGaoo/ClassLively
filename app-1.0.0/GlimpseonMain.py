@@ -30,7 +30,7 @@ import win32con
 
 from PyQt6.QtCore import QEvent, QLocale, Qt, QThread, QTime, QTimer, QTranslator, pyqtSignal, pyqtSlot
 from PyQt6.QtGui import QIcon, QPixmap, QFont
-from PyQt6.QtWidgets import QApplication, QHBoxLayout, QLabel, QMessageBox, QSizePolicy, QSystemTrayIcon, QVBoxLayout, QWidget
+from PyQt6.QtWidgets import QApplication, QHBoxLayout, QLabel, QSizePolicy, QSystemTrayIcon, QVBoxLayout, QWidget
 from qfluentwidgets import (
     Action,
     BodyLabel,
@@ -41,6 +41,7 @@ from qfluentwidgets import (
     NavigationItemPosition,
     ProgressBar,
     RoundMenu,
+    SubtitleLabel,
     setTheme,
     setThemeColor,
     StrongBodyLabel,
@@ -59,7 +60,6 @@ from core.updater import (
     download_update,
     extract_update,
     get_github_changelog,
-    check_github_verison,
 )
 from core.utils import (
     verify_single_instance,
@@ -163,8 +163,6 @@ class SplashScreen(QWidget, TranslatableWidget):
         self.content_widget.setObjectName("contentWidget")
         self.content_widget.setGeometry(0, 0, 360, 160)
 
-        self._updateBackgroundStyle()
-
         content_layout = QVBoxLayout(self.content_widget)
         content_layout.setContentsMargins(20, 15, 20, 10)
         content_layout.setSpacing(10)
@@ -205,17 +203,6 @@ class SplashScreen(QWidget, TranslatableWidget):
     def _loadQss(self):
         """加载 QSS"""
         self.setStyleSheet(load_qss('app.qss'))
-
-    def _updateBackgroundStyle(self):
-        """更新背景"""
-        bg_color = "rgba(32, 32, 32, 200)" if isDarkTheme() else "rgba(255, 255, 255, 200)"
-
-        self.content_widget.setStyleSheet(f"""
-            #contentWidget {{
-                background-color: {bg_color};
-                border-radius: 10px;
-            }}
-        """)
 
     def _loadIcon(self):
         """加载图标"""
@@ -285,7 +272,7 @@ import win32com.client
 from pathlib import Path
 from PyQt6.QtCore import QByteArray, QPropertyAnimation, QEasingCurve
 from PyQt6.QtGui import QColor
-from PyQt6.QtWidgets import QVBoxLayout, QDialog, QStackedWidget, QPushButton, QLineEdit, QGraphicsOpacityEffect
+from PyQt6.QtWidgets import QVBoxLayout, QDialog, QStackedWidget, QGraphicsOpacityEffect
 from qfluentwidgets import (
     BodyLabel,
     CheckBox,
@@ -322,11 +309,11 @@ class WizardWindow(QDialog, TranslatableWidget):
         self.stackedWidget = QStackedWidget(self)
         self.mainLayout.addWidget(self.stackedWidget)
 
-        self.titleLabel = QLabel("Glimpseon", self)
+        self.titleLabel = SubtitleLabel("Glimpseon", self)
         self.titleLabel.setObjectName("titleLabel")
         self.titleLabel.move(30, 10)
 
-        self.closeButton = QPushButton(self)
+        self.closeButton = PushButton(self)
         self.closeButton.setObjectName("closeButton")
         self.closeButton.setFixedSize(30, 30)
         self.closeButton.move(self.width() - 35, 5)
@@ -1563,7 +1550,7 @@ class Preloader(QThread):
         if not wp: return
         try:
             if wp.current_pixmap and not wp.current_pixmap.isNull(): return
-        except: return
+        except Exception: return
 
         from core.utils import get_cached_content, save_cache
 
@@ -1679,8 +1666,8 @@ if __name__ == "__main__":
     def _background_extract():
         try:
             extract_files()
-        except Exception as e:
-            logger.exception(f"资源提取失败: {e}")
+        except Exception:
+            logger.exception("资源提取失败")
     
     _extract_future = executor.submit(_background_extract)
 
@@ -1714,8 +1701,8 @@ if __name__ == "__main__":
             cleanup_temp_directory(logger=logger)
             splash.status_signal.emit(tr("splash.loading_resources"))  # 正在加载资源...
             splash.progress_signal.emit(70)
-        except Exception as e:
-            logger.exception(f"后台初始化失败: {e}")
+        except Exception:
+            logger.exception("后台初始化失败")
 
     future = executor.submit(_background_init)
 

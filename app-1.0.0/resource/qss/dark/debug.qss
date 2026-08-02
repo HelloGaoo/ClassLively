@@ -1,12 +1,7 @@
-/* 调试面板 */
-
+/* 调试面板 深色 */
 #debug {
     background: transparent;
     border: none;
-    font-family: "HarmonyOS Sans", "Microsoft YaHei", "SimHei", sans-serif;
-}
-
-#debug #scrollWidget {
 }
 
 #debug QScrollArea {
@@ -15,12 +10,10 @@
 }
 
 /* 标题 */
-
 #debug QLabel#settingLabel {
     font-size: 33px;
     background-color: transparent;
-    color: white;
-    font-family: "HarmonyOS Sans", "Microsoft YaHei", "SimHei", sans-serif;
+    color: #ffffff;
 }
 
 #debug SubtitleLabel {
@@ -57,12 +50,10 @@
 }
 
 /* 卡片 */
-
 #debug CardWidget {
     background-color: rgba(255, 255, 255, 0.05);
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 8px;
-    font-family: "HarmonyOS Sans", "Microsoft YaHei", "SimHei", sans-serif;
 }
 
 #debug CardWidget:hover {
@@ -70,7 +61,6 @@
 }
 
 /* 按钮 */
-
 #debug PrimaryPushButton {
     background-color: #0078d4;
     color: #ffffff;
@@ -126,14 +116,12 @@
 }
 
 /* 输入控件 */
-
 #debug QTextEdit {
     background-color: #1e1e1e;
     color: #d4d4d4;
     border: 1px solid #3d3d3d;
     border-radius: 4px;
     padding: 8px;
-    font-family: 'Consolas', 'Courier New', monospace;
     font-size: 13px;
     selection-background-color: #0078d4;
 }
@@ -219,7 +207,6 @@
 }
 
 /* 复选框 */
-
 #debug QCheckBox {
     color: #ffffff;
     spacing: 8px;
@@ -236,11 +223,9 @@
 #debug QCheckBox::indicator:checked {
     background-color: #0078d4;
     border-color: #0078d4;
-    image: url(:/qfluentwidgets/images/icons/CheckBlack_16x16.png);
 }
 
 /* 进度条 */
-
 #debug QProgressBar {
     background-color: #3d3d3d;
     border: none;
@@ -256,7 +241,6 @@
 }
 
 /* 分组框 */
-
 #debug QGroupBox {
     background-color: #2b2b2b;
     border: 1px solid #3d3d3d;
@@ -276,7 +260,6 @@
 }
 
 /* 滚动条 */
-
 #debug QScrollBar:vertical {
     background-color: #2b2b2b;
     width: 10px;
@@ -309,23 +292,14 @@
     background: none;
 }
 
-/* 布局 */
-
-#debug QVBoxLayout,
-#debug QHBoxLayout,
-#debug QGridLayout {
-    spacing: 10px;
-}
-
 /* 天气图标网格 */
-
 #debug #weatherIconGrid {
     background-color: transparent;
 }
 
 #debug #weatherIconGrid CardWidget {
     background-color: rgba(255, 255, 255, 0.06);
-    border: 1px solid rgba(255, 255, 255, 0.10);
+    border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 8px;
 }
 
@@ -336,4 +310,13 @@
 
 #debug #weatherIconGrid CardWidget BodyLabel {
     color: #cccccc;
+}
+
+#debug BodyLabel#weatherCodeLabel {
+    font-size: 11px;
+    font-weight: bold;
+}
+
+#debug BodyLabel#weatherNameLabel {
+    font-size: 10px;
 }

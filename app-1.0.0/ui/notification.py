@@ -11,11 +11,9 @@ from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QDateTime, QDate, QTime
 from PyQt6.QtWidgets import (
     QHBoxLayout,
     QHeaderView,
-    QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
     QWidget,
-    QColorDialog
 )
 from PyQt6.QtGui import QColor, QFont, QIntValidator
 from qfluentwidgets import (
@@ -106,6 +104,7 @@ class _PreviewWidget(QWidget):
             font = QFont("HarmonyOS Sans", 14)
             painter.setFont(font)
             painter.drawText(r, Qt.AlignmentFlag.AlignCenter, tr("notification.preview_hint"))
+            painter.end()
             return
 
         painter.setPen(self._text_color)
@@ -114,6 +113,7 @@ class _PreviewWidget(QWidget):
         painter.setFont(font)
         flags = Qt.AlignmentFlag.AlignCenter | Qt.TextFlag.TextWordWrap
         painter.drawText(r.adjusted(20, 10, -20, -10), flags, self._text)
+        painter.end()
 
 
 # 队列配置详情对话框
@@ -126,26 +126,10 @@ class _ConfigEditDialog(Dialog):
 
         self._result_data = dict(data)
         w = QWidget()
+        w.setObjectName("configEditContent")
         layout = QVBoxLayout(w)
         layout.setSpacing(10)
         layout.setContentsMargins(12, 8, 12, 8)
-
-        # SpinBox / ComboBox / ColorPickButton
-        _spin_style = """
-        SpinBox, ComboBox {
-            background-color: rgba(40,40,40,0.9);
-            color: #e0e0e0;
-            border: 1px solid rgba(255,255,255,0.12);
-            border-radius: 6px;
-            padding: 4px 8px;
-            font-size: 13px;
-            min-width: 100px;
-        }
-        SpinBox:hover, ComboBox:hover { border-color: #0078d4; }
-        SpinBox::up-button, SpinBox::down-button {
-            border: none; width: 20px; background: transparent;
-        }
-        """
 
         row_style = "margin-top: 2px; margin-bottom: 2px;"
 
@@ -168,7 +152,7 @@ class _ConfigEditDialog(Dialog):
         type_map = {NotifType.SCROLL: 0, NotifType.CORNER: 1, NotifType.FULLSCREEN: 2}
         self._type_combo.setCurrentIndex(type_map.get(data.get("type", NotifType.SCROLL), 0))
         self._type_combo.setMinimumWidth(160)
-        self._type_combo.setStyleSheet(_spin_style)
+        self._type_combo.setObjectName("_type_combo")
         r1.addWidget(self._type_combo)
         r1.addStretch()
         layout.addLayout(r1)
@@ -183,8 +167,8 @@ class _ConfigEditDialog(Dialog):
             g.setSpacing(6)
             g.addWidget(BodyLabel(label + ":"))
             btn = PushButton(w)
+            btn.setObjectName("colorBtn")
             btn.setFixedSize(32, 28)
-            btn.setStyleSheet("border-radius:4px;")
             return g, btn
 
         g1, self._bg_btn = _color_group(tr("notification.bg_color"), QColor(0, 0, 0, 180))
@@ -221,7 +205,7 @@ class _ConfigEditDialog(Dialog):
         self._size_spin.setRange(10, 100)
         self._size_spin.setValue(data.get("font_size", 24))
         self._size_spin.setFixedWidth(120)
-        self._size_spin.setStyleSheet(_spin_style)
+        self._size_spin.setObjectName("_size_spin")
         fg1.addWidget(self._size_spin)
         frow.addLayout(fg1)
 
@@ -235,7 +219,7 @@ class _ConfigEditDialog(Dialog):
         wmap = {QFont.Weight.Normal: 0, QFont.Weight.Bold: 1, QFont.Weight.Black: 2}
         self._weight_combo.setCurrentIndex(wmap.get(data.get("font_weight", QFont.Weight.Bold), 1))
         self._weight_combo.setMinimumWidth(130)
-        self._weight_combo.setStyleSheet(_spin_style)
+        self._weight_combo.setObjectName("_weight_combo")
         fg2.addWidget(self._weight_combo)
         frow.addLayout(fg2)
         frow.addStretch()
@@ -253,7 +237,7 @@ class _ConfigEditDialog(Dialog):
         self._speed_spin.setRange(1, 20)
         self._speed_spin.setValue(data.get("speed", 5))
         self._speed_spin.setFixedWidth(120)
-        self._speed_spin.setStyleSheet(_spin_style)
+        self._speed_spin.setObjectName("_speed_spin")
         sg1.addWidget(self._speed_spin)
         sdrow.addLayout(sg1)
 
@@ -264,7 +248,7 @@ class _ConfigEditDialog(Dialog):
         self._dur_spin.setRange(1, 60)
         self._dur_spin.setValue(data.get("duration", 10))
         self._dur_spin.setFixedWidth(120)
-        self._dur_spin.setStyleSheet(_spin_style)
+        self._dur_spin.setObjectName("_dur_spin")
         sg2.addWidget(self._dur_spin)
         sdrow.addLayout(sg2)
         sdrow.addStretch()
@@ -296,7 +280,7 @@ class _ConfigEditDialog(Dialog):
                     break
         self._tts_voice_combo.setCurrentIndex(voice_index)
         self._tts_voice_combo.setMinimumWidth(160)
-        self._tts_voice_combo.setStyleSheet(_spin_style)
+        self._tts_voice_combo.setObjectName("_tts_voice_combo")
         tts_voice_group.addWidget(self._tts_voice_combo)
         tts_edit_row.addLayout(tts_voice_group)
 
@@ -307,7 +291,7 @@ class _ConfigEditDialog(Dialog):
         self._tts_rate_spin.setRange(50, 200)
         self._tts_rate_spin.setValue(data.get("tts_rate", 100))
         self._tts_rate_spin.setFixedWidth(120)
-        self._tts_rate_spin.setStyleSheet(_spin_style)
+        self._tts_rate_spin.setObjectName("_tts_rate_spin")
         tts_rate_group.addWidget(self._tts_rate_spin)
         tts_edit_row.addLayout(tts_rate_group)
 
@@ -318,7 +302,7 @@ class _ConfigEditDialog(Dialog):
         self._tts_volume_spin.setRange(0, 200)
         self._tts_volume_spin.setValue(data.get("tts_volume", 100))
         self._tts_volume_spin.setFixedWidth(120)
-        self._tts_volume_spin.setStyleSheet(_spin_style)
+        self._tts_volume_spin.setObjectName("_tts_volume_spin")
         tts_volume_group.addWidget(self._tts_volume_spin)
         tts_edit_row.addLayout(tts_volume_group)
 
@@ -337,7 +321,7 @@ class _ConfigEditDialog(Dialog):
         self._bg_height_spin.setRange(40, 300)
         self._bg_height_spin.setValue(cfg.scrollBannerBgHeight.value)
         self._bg_height_spin.setFixedWidth(120)
-        self._bg_height_spin.setStyleSheet(_spin_style)
+        self._bg_height_spin.setObjectName("_bg_height_spin")
         self._bg_height_spin.valueChanged.connect(lambda v: cfg.set(cfg.scrollBannerBgHeight, v))
         bg1.addWidget(self._bg_height_spin)
         brrow.addLayout(bg1)
@@ -384,18 +368,14 @@ class _ConfigEditDialog(Dialog):
         self.cancelButton.setText(tr("common.cancel"))
 
     def _update_edit_color_btn(self, btn, color):
-        btn.setStyleSheet(f"background-color:{color.name()};border-radius:4px;"
-                          if color.alpha() >= 255
-                          else f"background-color:{color.name()};border-radius:4px;")
+        btn.setStyleSheet(f"background-color:{color.name()};")
 
     def _edit_pick_color(self, tag):
         old = self._edit_bg if tag == "bg" else self._edit_fg
-        dlg = QColorDialog(old, self)
-        dlg.setWindowTitle(self.tr("common.color_pick") if hasattr(self, "tr") else tr("common.color_pick"))
-        if tag == "bg":
-            dlg.setOption(QColorDialog.ColorDialogOption.ShowAlphaChannel, True)
+        title = self.tr("common.color_pick") if hasattr(self, "tr") else tr("common.color_pick")
+        dlg = ColorDialog(old, title, self, enableAlpha=(tag == "bg"))
         if dlg.exec():
-            c = dlg.selectedColor()
+            c = dlg.color
             if tag == "bg":
                 self._edit_bg = c
             else:
@@ -515,9 +495,9 @@ class NotificationPage(ScrollArea, TranslatableWidget):
         self.queueTable.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
         self.queueTable.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
         self.queueTable.verticalHeader().hide()
-        self.queueTable.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
-        self.queueTable.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
-        self.queueTable.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self.queueTable.setSelectionBehavior(TableWidget.SelectionBehavior.SelectRows)
+        self.queueTable.setSelectionMode(TableWidget.SelectionMode.SingleSelection)
+        self.queueTable.setEditTriggers(TableWidget.EditTrigger.NoEditTriggers)
         self.queueTable.setAlternatingRowColors(True)
         self.queueTable.setMinimumHeight(180)
         queue_layout.addWidget(self.queueTable)
@@ -822,11 +802,18 @@ class NotificationPage(ScrollArea, TranslatableWidget):
         self._schedule_check_timer = QTimer(self)
         self._schedule_check_timer.setInterval(10000)
         self._schedule_check_timer.timeout.connect(self._check_scheduled)
-        self._schedule_check_timer.start()
 
         # 内容变更同步预览
         self.contentEdit.textChanged.connect(self._update_preview)
         self._update_preview()
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        self._schedule_check_timer.start()
+
+    def hideEvent(self, event):
+        self._schedule_check_timer.stop()
+        super().hideEvent(event)
 
     # 队列管理
 
@@ -938,9 +925,7 @@ class NotificationPage(ScrollArea, TranslatableWidget):
     # 颜色按钮
 
     def _update_color_btn(self, btn: PushButton, color: QColor):
-        btn.setStyleSheet(
-            f"#colorBtn {{ background-color: {color.name()}; border: 1px solid rgba(128,128,128,0.3); border-radius: 4px; }}"
-        )
+        btn.setStyleSheet(f"background-color: {color.name()};")
 
     def _pick_color(self, target: str):
         attr = "_bg_color" if target == "bg" else "_fg_color"

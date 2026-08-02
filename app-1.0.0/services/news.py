@@ -14,14 +14,13 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""新闻服务模块"""
+"""新闻服务"""
 
 import logging
 from typing import Any, Dict, List, Optional
 
 import requests
 
-from core.logger import logger
 from core.utils import get_cached_content, save_cache
 
 CCTV_NEWS_API_URL = "https://api.xcvts.cn/api/hotlist/ysxw?type=json"
@@ -33,7 +32,6 @@ logger = logging.getLogger("Glimpseon.services.news")
 
 
 class NewsService:
-    """新闻服务类"""
 
     @staticmethod
     def _create_session() -> requests.Session:
@@ -58,44 +56,42 @@ class NewsService:
 
     @classmethod
     def fetch_cctv_news(cls, use_cache: bool = True) -> Optional[List[Dict[str, Any]]]:
-        """央视新闻xcvts.cn API"""
         cache_name = "news_cctv"
         if use_cache:
             cached = get_cached_content(cache_name)
             if cached is not None:
                 return cached
 
-        session = cls._create_session()
-        try:
-            response = session.get(CCTV_NEWS_API_URL, timeout=10)
-            if response.status_code != 200:
-                logger.error(f"央视新闻请求失败，状态码：{response.status_code}")
+        with cls._create_session() as session:
+            try:
+                response = session.get(CCTV_NEWS_API_URL, timeout=10)
+                if response.status_code != 200:
+                    logger.error(f"央视新闻请求失败，状态码：{response.status_code}")
+                    return None
+
+                data = cls._parse_response_json(response)
+                if data is None:
+                    return None
+
+                if isinstance(data, dict):
+                    news_list = data.get("data") or data.get("news") or []
+                elif isinstance(data, list):
+                    news_list = data
+                else:
+                    news_list = []
+
+                if not isinstance(news_list, list):
+                    logger.error("央视新闻获取失败")
+                    return None
+
+                cls._save_cache(cache_name, news_list)
+                return news_list
+            except requests.exceptions.RequestException as e:
+                logger.error(f"央视新闻请求异常：{e}")
                 return None
-
-            data = cls._parse_response_json(response)
-            if data is None:
-                return None
-
-            if isinstance(data, dict):
-                news_list = data.get("data") or data.get("news") or []
-            elif isinstance(data, list):
-                news_list = data
-            else:
-                news_list = []
-
-            if not isinstance(news_list, list):
-                logger.error("央视新闻获取失败")
-                return None
-
-            cls._save_cache(cache_name, news_list)
-            return news_list
-        except requests.exceptions.RequestException as e:
-            logger.error(f"央视新闻请求异常：{e}")
-            return None
 
     @classmethod
     def fetch_daily_news(cls, platform: str, use_cache: bool = True) -> Optional[List[Dict[str, Any]]]:
-        """dailynews热点新闻。"""
         platform = platform.strip().lower()
         if platform not in SUPPORTED_PLATFORMS:
             logger.warning(f"不支持的平台：{platform}")
@@ -107,38 +103,37 @@ class NewsService:
             if cached is not None:
                 return cached
 
-        session = cls._create_session()
-        try:
-            response = session.get(DAILY_NEWS_API_URL, params={"platform": platform}, timeout=10)
-            if response.status_code != 200:
-                logger.error(f"每日热点新闻请求失败：{response.status_code}")
+        with cls._create_session() as session:
+            try:
+                response = session.get(DAILY_NEWS_API_URL, params={"platform": platform}, timeout=10)
+                if response.status_code != 200:
+                    logger.error(f"每日热点新闻请求失败：{response.status_code}")
+                    return None
+
+                data = cls._parse_response_json(response)
+                if data is None:
+                    return None
+
+                news_list = None
+                if isinstance(data, dict):
+                    news_list = data.get("data")
+                    if news_list is None and data.get("status") in ("200", 200):
+                        news_list = []
+                elif isinstance(data, list):
+                    news_list = data
+
+                if not isinstance(news_list, list):
+                    logger.error("每日热点新闻获取失败")
+                    return None
+
+                cls._save_cache(cache_name, news_list)
+                return news_list
+            except requests.exceptions.RequestException as e:
+                logger.error(f"每日热点新闻请求异常：{e}")
                 return None
-
-            data = cls._parse_response_json(response)
-            if data is None:
-                return None
-
-            news_list = None
-            if isinstance(data, dict):
-                news_list = data.get("data")
-                if news_list is None and data.get("status") in ("200", 200):
-                    news_list = []
-            elif isinstance(data, list):
-                news_list = data
-
-            if not isinstance(news_list, list):
-                logger.error("每日热点新闻获取失败")
-                return None
-
-            cls._save_cache(cache_name, news_list)
-            return news_list
-        except requests.exceptions.RequestException as e:
-            logger.error(f"每日热点新闻请求异常：{e}")
-            return None
 
     @classmethod
     def fetch_supported_daily_news(cls, use_cache: bool = True) -> Dict[str, Optional[List[Dict[str, Any]]]]:
-        """获取支持的平台热点新闻。"""
         result = {}
         for platform in SUPPORTED_PLATFORMS:
             result[platform] = cls.fetch_daily_news(platform, use_cache=use_cache)

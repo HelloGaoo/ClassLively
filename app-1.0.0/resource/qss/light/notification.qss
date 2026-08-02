@@ -1,33 +1,28 @@
-/* 通知页面 - 浅色主题 */
-
-#notification, #scrollWidget {
+/* 通知界面 浅色 */
+#notification, #notification #scrollWidget {
     background: transparent;
     border: none;
-    font-family: "HarmonyOS Sans", "Microsoft YaHei", "SimHei", sans-serif;
 }
 
+/* 滚动区域 */
 #notification QScrollArea {
     background: transparent;
     border: none;
 }
 
-/* ── 页面标题 ── */
-
+/* 页面标题 */
 #notification StrongBodyLabel#notificationTitle {
     font-size: 33px;
     background: transparent;
     color: #1a1a1a;
-    font-family: "HarmonyOS Sans", "Microsoft YaHei", "SimHei", sans-serif;
     padding-bottom: 4px;
 }
 
-/* ── 卡片通用 ── */
-
+/* 卡片通用 */
 #notification CardWidget {
     background: rgba(255, 255, 255, 0.8);
     border: 1px solid rgba(0, 0, 0, 0.06);
     border-radius: 10px;
-    font-family: "HarmonyOS Sans", "Microsoft YaHei", "SimHei", sans-serif;
 }
 
 #notification CardWidget:hover {
@@ -35,23 +30,19 @@
     border-color: rgba(0, 0, 0, 0.10);
 }
 
-/* ── 卡片内容文字 ── */
-
+/* 卡片内容文字 */
 #notification CardWidget StrongBodyLabel {
     font-size: 16px;
     font-weight: 600;
     color: #1a1a1a;
-    font-family: "HarmonyOS Sans", "Microsoft YaHei", "SimHei", sans-serif;
 }
 
 #notification CardWidget BodyLabel {
     font-size: 14px;
     color: #666666;
-    font-family: "HarmonyOS Sans", "Microsoft YaHei", "SimHei", sans-serif;
 }
 
-/* ── 字符计数 ── */
-
+/* 字符计数 */
 #notification BodyLabel#charCount {
     font-size: 12px;
     color: #aaaaaa;
@@ -59,8 +50,7 @@
     margin-top: -2px;
 }
 
-/* ── 文本框 ── */
-
+/* 文本框 */
 #notification TextEdit {
     background: #f8f8f8;
     border: 1px solid rgba(0, 0, 0, 0.08);
@@ -68,7 +58,6 @@
     padding: 10px 12px;
     font-size: 14px;
     color: #333333;
-    font-family: "HarmonyOS Sans", "Microsoft YaHei", "SimHei", sans-serif;
     selection-background-color: rgba(0, 120, 212, 0.2);
 }
 
@@ -81,8 +70,7 @@
     border: 1px solid rgba(0, 0, 0, 0.16);
 }
 
-/* ── 通用标签 ── */
-
+/* 通用标签 */
 #notification BodyLabel {
     color: #555555;
     font-size: 14px;
@@ -94,8 +82,7 @@
     font-weight: 600;
 }
 
-/* ── 按钮 ── */
-
+/* 主按钮 */
 #notification PrimaryPushButton {
     background-color: #0078d4;
     color: #ffffff;
@@ -104,7 +91,6 @@
     padding: 8px 20px;
     font-weight: 600;
     font-size: 14px;
-    font-family: "HarmonyOS Sans", "Microsoft YaHei", "SimHei", sans-serif;
 }
 
 #notification PrimaryPushButton:hover {
@@ -115,6 +101,7 @@
     background-color: #006abc;
 }
 
+/* 按钮 */
 #notification PushButton {
     background-color: rgba(0, 0, 0, 0.05);
     color: #444444;
@@ -122,7 +109,6 @@
     border-radius: 6px;
     padding: 8px 20px;
     font-size: 14px;
-    font-family: "HarmonyOS Sans", "Microsoft YaHei", "SimHei", sans-serif;
 }
 
 #notification PushButton:hover {
@@ -135,32 +121,30 @@
     background-color: rgba(0, 0, 0, 0.03);
 }
 
-/* ── 颜色按钮 ── */
-
-#notification PushButton#colorBtn {
+/* 颜色按钮 */
+#notification PushButton#colorBtn,
+#configEditContent PushButton#colorBtn {
     min-width: 32px;
     min-height: 28px;
     padding: 0;
+    border: 1px solid rgba(128, 128, 128, 0.3);
     border-radius: 4px;
 }
 
-/* ── 预览控件 ── */
-
+/* 预览控件 */
 #notification #previewWidget {
     background: transparent;
     border-radius: 12px;
     min-height: 120px;
 }
 
-/* ── 分隔线 ── */
-
+/* 分隔线 */
 #notification #separator {
     background: rgba(0, 0, 0, 0.08);
     margin: 4px 0;
 }
 
-/* ── ComboBox ── */
-
+/* 下拉框 */
 #notification ComboBox {
     background-color: #f8f8f8;
     color: #333333;
@@ -213,8 +197,7 @@
     color: #ffffff;
 }
 
-/* ── SpinBox ── */
-
+/* 数字框 */
 #notification SpinBox {
     background-color: #f8f8f8;
     color: #333333;
@@ -241,13 +224,11 @@
     border-radius: 3px;
 }
 
-/* ── 队列表格 ── */
-
+/* 队列表格 */
 #notification #queueTable {
     background: #f9f9f9;
     border: 1px solid rgba(0, 0, 0, 0.06);
     border-radius: 8px;
-    font-family: "HarmonyOS Sans", "Microsoft YaHei", "SimHei", sans-serif;
     gridline-color: rgba(0, 0, 0, 0.05);
 }
 
@@ -270,13 +251,13 @@
     border: none;
     border-bottom: 1px solid rgba(0, 0, 0, 0.08);
     padding: 6px 10px;
-    font-family: "HarmonyOS Sans", "Microsoft YaHei", "SimHei", sans-serif;
 }
 
 #notification #queueTable QHeaderView::section:hover {
     background-color: #e8e8e8;
 }
 
+/* 队列计数 */
 #notification BodyLabel#queueCount {
     font-size: 12px;
     color: #999999;
@@ -285,15 +266,39 @@
     padding: 2px 10px;
 }
 
+/* 队列操作标签 */
 #notification BodyLabel#queueOpsLabel {
     font-size: 13px;
     color: #888888;
     font-weight: 600;
 }
 
-/* ── 配置详情对话框 ── */
-
-BodyLabel#configValue {
+/* 配置详情 */
+#notification BodyLabel#configValue {
     color: #555555;
     font-size: 13px;
+}
+
+/* 配置对话框 */
+#configEditContent SpinBox,
+#configEditContent ComboBox {
+    background-color: rgba(255, 255, 255, 0.9);
+    color: #333333;
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    border-radius: 6px;
+    padding: 4px 8px;
+    font-size: 13px;
+    min-width: 100px;
+}
+
+#configEditContent SpinBox:hover,
+#configEditContent ComboBox:hover {
+    border-color: #0078d4;
+}
+
+#configEditContent SpinBox::up-button,
+#configEditContent SpinBox::down-button {
+    border: none;
+    width: 20px;
+    background: transparent;
 }

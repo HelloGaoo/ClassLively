@@ -34,6 +34,7 @@
   },
   "timetable": {
     "course_table": "Weekly Course Table",
+    "today_schedule": "Today's Schedule",
     "time_schedule": "Time Schedule",
     "details": "Details",
     "period": "Period",
@@ -393,7 +394,14 @@
     "school_name_example": "e.g.: XX Middle School",
     "lyrics_advance": "Lyrics Advance (ms)",
     "path_not_exist": "Path does not exist",
-    "poetry_default": "Stones from other hills may serve to polish jade. — Book of Odes"
+    "poetry_default": "Stones from other hills may serve to polish jade. — Book of Odes",
+    "add_page_with_count": "Add page ({count})",
+    "page_limit": "Page limit reached",
+    "rename_page": "Rename page",
+    "delete_page": "Delete page",
+    "rename_page_title": "Rename page",
+    "delete_page_confirm": "Delete \"{name}\"? Components on this page will be moved to another page.",
+    "delete_page_no_fallback": "Delete \"{name}\"? Components on this page will be removed."
   },
   "component": {
     "clock": "Clock",
@@ -463,7 +471,35 @@
     "config_top_bg": "Top Background",
     "config_main_bg": "Main Background",
     "bg_mode_opacity": "Follow Opacity",
-    "bg_mode_custom": "Custom Color"
+    "bg_mode_custom": "Custom Color",
+    "config_target_time": "Target Time",
+    "config_target_time_placeholder": "YYYY-MM-DD HH:MM",
+    "config_event_name": "Event Name",
+    "config_apps": "App List",
+    "group_apps": "App Management",
+    "config_app_add": "Add App",
+    "config_app_edit": "Edit",
+    "config_app_delete": "Delete",
+    "config_app_path": "Path or URL",
+    "config_app_icon": "Icon",
+    "config_app_name": "Name",
+    "config_app_empty": "No apps yet, click below to add",
+    "config_app_type_app": "App",
+    "config_app_type_url": "URL",
+    "config_app_type_folder": "Folder",
+    "config_confirm_delete": "Confirm Delete",
+    "config_confirm_delete_msg": "Delete \"{name}\"?"
+  },
+  "countdown": {
+    "no_events": "No countdown events",
+    "click_to_config": "Click to configure countdown",
+    "expired": "Expired"
+  },
+  "school_info_component": {
+    "click_to_config": "Click to configure class card"
+  },
+  "quick_launch_component": {
+    "click_to_config": "Click to configure quick launch"
   },
   "component_library": {
     "title": "Component Library",
@@ -567,7 +603,7 @@
     "load_failed": "Load Failed",
     "history": "Wallpaper History",
     "clear_all": "Clear All",
-    "load_more": "Load More",
+    "load_more": "Load More ({count})",
     "all_history_loaded": "All history loaded",
     "no_history": "No wallpaper history records",
     "confirm_clear": "Confirm Clear",
@@ -613,7 +649,10 @@
     "interval_5d": "5 days",
     "interval_7d": "7 days",
     "select_title": "Select Wallpaper",
-    "image_filter": "Image Files (*.jpg *.jpeg *.png *.bmp *.gif)"
+    "image_filter": "Image Files (*.jpg *.jpeg *.png *.bmp *.gif)",
+    "save_title": "Save Wallpaper",
+    "jpeg_files": "JPEG Image",
+    "png_files": "PNG Image"
   },
   "about": {
     "description": "A Glance, All-around",
@@ -658,7 +697,9 @@
     "bold": "Bold",
     "black": "Black",
     "up": "Move Up",
-    "down": "Move Down"
+    "down": "Move Down",
+    "color_pick": "Pick Color",
+    "confirm_delete": "Confirm Delete"
   },
   "media": {
     "not_playing": "Not Playing",
@@ -810,6 +851,7 @@
   },
   "debug": {
     "title": "Debug",
+    "panel_title": "Debug Panel - Glimpseon",
     "system_monitor": "System Monitor",
     "quick_actions": "Quick Actions",
     "title_network_diag": "Network Diagnosis",
@@ -1025,7 +1067,21 @@
     "tts_voice_label": "TTS Voice",
     "tts_no_speak": "No Speech",
     "tts_rate_label": "TTS Rate (%)",
-    "tts_volume_label": "TTS Volume (%)"
+    "tts_volume_label": "TTS Volume (%)",
+    "schedule_label": "Schedule"
+  },
+  "nav_page": {
+    "empty_hint": "Drag in app / file / folder / webpage\nor right-click to add",
+    "added": "Added",
+    "rename": "Rename",
+    "rename_title": "Rename",
+    "delete": "Delete",
+    "add_file": "Add File / Folder",
+    "add_url": "Add URL",
+    "select_file": "Select File",
+    "select_folder": "Select Folder",
+    "add_url_title": "Add URL",
+    "delete_confirm": "Delete \"{name}\"?"
   },
   "timer_countdown": {
     "title": "Timer & Countdown",

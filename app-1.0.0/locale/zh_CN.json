@@ -34,6 +34,7 @@
   },
   "timetable": {
     "course_table": "单周课程表",
+    "today_schedule": "今日课表",
     "time_schedule": "时间表",
     "details": "详细信息",
     "period": "节次",
@@ -393,7 +394,14 @@
     "school_name_example": "例如：XX 中学",
     "lyrics_advance": "歌词提前(ms)",
     "path_not_exist": "路径不存在",
-    "poetry_default": "他山之石，可以攻玉。——《诗经·小雅·鹤鸣》"
+    "poetry_default": "他山之石，可以攻玉。——《诗经·小雅·鹤鸣》",
+    "add_page_with_count": "添加页面 ({count})",
+    "page_limit": "页面数量已达上限",
+    "rename_page": "重命名页面",
+    "delete_page": "删除页面",
+    "rename_page_title": "重命名页面",
+    "delete_page_confirm": "确定删除「{name}」吗？该页的组件将迁移到其他页面。",
+    "delete_page_no_fallback": "确定删除「{name}」吗？该页的组件将被删除。"
   },
   "component": {
     "clock": "时钟",
@@ -463,7 +471,35 @@
     "config_top_bg": "上层背景",
     "config_main_bg": "主背景",
     "bg_mode_opacity": "跟随不透明度",
-    "bg_mode_custom": "自定义颜色"
+    "bg_mode_custom": "自定义颜色",
+    "config_target_time": "目标时间",
+    "config_target_time_placeholder": "YYYY-MM-DD HH:MM",
+    "config_event_name": "事件名称",
+    "config_apps": "应用列表",
+    "group_apps": "应用管理",
+    "config_app_add": "添加应用",
+    "config_app_edit": "编辑",
+    "config_app_delete": "删除",
+    "config_app_path": "路径或网址",
+    "config_app_icon": "图标",
+    "config_app_name": "名称",
+    "config_app_empty": "暂无应用，点击下方添加",
+    "config_app_type_app": "应用",
+    "config_app_type_url": "网址",
+    "config_app_type_folder": "文件夹",
+    "config_confirm_delete": "确认删除",
+    "config_confirm_delete_msg": "确定要删除 \"{name}\" 吗？"
+  },
+  "countdown": {
+    "no_events": "暂无倒计时",
+    "click_to_config": "单击以配置倒计时",
+    "expired": "已到期"
+  },
+  "school_info_component": {
+    "click_to_config": "单击以配置班级卡片"
+  },
+  "quick_launch_component": {
+    "click_to_config": "单击以配置快捷启动项"
   },
   "component_library": {
     "title": "组件库",
@@ -567,7 +603,7 @@
     "load_failed": "加载失败",
     "history": "历史壁纸",
     "clear_all": "清空全部",
-    "load_more": "加载更多",
+    "load_more": "加载更多 ({count})",
     "all_history_loaded": "已显示全部历史壁纸",
     "no_history": "暂无历史壁纸记录",
     "confirm_clear": "确认清空",
@@ -613,7 +649,10 @@
     "interval_5d": "5 天",
     "interval_7d": "7 天",
     "select_title": "选择壁纸",
-    "image_filter": "图片文件 (*.jpg *.jpeg *.png *.bmp *.gif)"
+    "image_filter": "图片文件 (*.jpg *.jpeg *.png *.bmp *.gif)",
+    "save_title": "另存壁纸",
+    "jpeg_files": "JPEG 图片",
+    "png_files": "PNG 图片"
   },
   "about": {
     "description": "惊鸿一面 面面俱到",
@@ -658,7 +697,9 @@
     "bold": "粗体",
     "black": "黑体",
     "up": "上移",
-    "down": "下移"
+    "down": "下移",
+    "color_pick": "选择颜色",
+    "confirm_delete": "确认删除"
   },
   "media": {
     "not_playing": "未在播放",
@@ -810,6 +851,7 @@
   },
   "debug": {
     "title": "调试",
+    "panel_title": "调试面板 - Glimpseon",
     "system_monitor": "系统监控",
     "quick_actions": "快捷操作",
     "title_network_diag": "网络诊断",
@@ -1025,7 +1067,21 @@
     "tts_voice_label": "朗读音色",
     "tts_no_speak": "不朗读",
     "tts_rate_label": "朗读语速(%)",
-    "tts_volume_label": "朗读音量(%)"
+    "tts_volume_label": "朗读音量(%)",
+    "schedule_label": "定时"
+  },
+  "nav_page": {
+    "empty_hint": "拖入应用 / 文件 / 文件夹 / 网页\n或右键空白处添加",
+    "added": "已添加",
+    "rename": "重命名",
+    "rename_title": "重命名",
+    "delete": "删除",
+    "add_file": "添加文件 / 文件夹",
+    "add_url": "添加网址",
+    "select_file": "选择文件",
+    "select_folder": "选择文件夹",
+    "add_url_title": "添加网址",
+    "delete_confirm": "确定删除「{name}」吗？"
   },
   "timer_countdown": {
     "title": "计时与倒计时",

@@ -154,6 +154,8 @@ logging.setLoggerClass(CustomLogger)
 class Logger:
     def __init__(self, disable_log=False, log_level="INFO", max_count=50, max_days=7, compress_logs=True):
         self.logger = logging.getLogger(APP_NAME)
+        if not isinstance(self.logger, CustomLogger):
+            self.logger.__class__ = CustomLogger
         self.disable_log = disable_log
         self.log_level = log_level
         self.max_count = max_count

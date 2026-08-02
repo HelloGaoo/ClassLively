@@ -1,10 +1,7 @@
-/* 组件库 */
-
-#componentLibrary, #componentEdit,
-#componentLibrary QScrollArea, #componentEdit QScrollArea {
+/* 组件库界面 浅色 */
+#componentLibrary, #componentEdit {
     background: transparent;
     border: none;
-    font-family: "HarmonyOS Sans", "Microsoft YaHei", "SimHei", sans-serif;
 }
 
 /* 分类页面容器 */
@@ -19,13 +16,12 @@
     background-color: rgba(255, 255, 255, 0.8);
     border: 1px solid rgba(0, 0, 0, 0.06);
     border-radius: 8px;
-    font-family: "HarmonyOS Sans", "Microsoft YaHei", "SimHei", sans-serif;
 }
 
 #componentLibrary CardWidget:hover,
 #componentEdit CardWidget:hover {
     background-color: rgba(255, 255, 255, 1);
-    border: 1px solid rgba(0, 0, 0, 0.15);
+    border-color: rgba(0, 0, 0, 0.15);
 }
 
 #componentLibrary StyleCardWidget,
@@ -38,20 +34,23 @@
 #componentLibrary StyleCardWidget:hover,
 #componentEdit StyleCardWidget:hover {
     background-color: rgba(255, 255, 255, 1);
-    border: 1px solid rgba(0, 120, 212, 0.4);
+    border-color: rgba(0, 120, 212, 0.4);
 }
 
 /* 标题 */
 #componentLibrary StrongBodyLabel,
 #componentEdit StrongBodyLabel {
-    color: #1a1a1a;
-    font-family: "HarmonyOS Sans", "Microsoft YaHei", "SimHei", sans-serif;
+    color: #1A1A1A;
 }
 
 #componentLibrary BodyLabel,
 #componentEdit BodyLabel {
     color: #444444;
-    font-family: "HarmonyOS Sans", "Microsoft YaHei", "SimHei", sans-serif;
+}
+
+/* 应用类型标签 */
+BodyLabel#appTypeLabel {
+    color: #888888;
 }
 
 /* 列表 */
@@ -59,7 +58,6 @@
     background-color: rgba(255, 255, 255, 0.6);
     border: 1px solid rgba(0, 0, 0, 0.06);
     border-radius: 6px;
-    font-family: "HarmonyOS Sans", "Microsoft YaHei", "SimHei", sans-serif;
 }
 
 #componentEdit QListWidget::item {
@@ -82,18 +80,12 @@
     background-color: rgba(255, 255, 255, 0.8);
     border: 1px solid rgba(0, 0, 0, 0.08);
     border-radius: 5px;
-    font-family: "HarmonyOS Sans", "Microsoft YaHei", "SimHei", sans-serif;
 }
 
 #componentLibrary PushButton:hover,
 #componentEdit PushButton:hover {
     background-color: rgba(255, 255, 255, 1);
-    border: 1px solid rgba(0, 0, 0, 0.2);
-}
-
-#componentLibrary PrimaryPushButton,
-#componentEdit PrimaryPushButton {
-    font-family: "HarmonyOS Sans", "Microsoft YaHei", "SimHei", sans-serif;
+    border-color: rgba(0, 0, 0, 0.2);
 }
 
 /* 分隔线 */
@@ -104,11 +96,11 @@
 /* 预览图区域 */
 #componentLibrary #preview_label,
 #componentEdit #preview_label {
-    background-color: rgba(0, 0, 0, 0.03);
+    background: transparent;
     border-radius: 6px;
 }
 
-/* 滚动区域透明 */
+/* 滚动区域 */
 #componentLibrary QScrollArea,
 #componentEdit QScrollArea {
     background: transparent;
@@ -138,24 +130,23 @@
     background: transparent;
 }
 
-/* ComboBox / SpinBox / LineEdit */
+/* 输入控件 */
 #componentEdit ComboBox,
 #componentEdit SpinBox,
 #componentEdit LineEdit {
     background-color: rgba(255, 255, 255, 0.8);
     border: 1px solid rgba(0, 0, 0, 0.08);
     border-radius: 5px;
-    font-family: "HarmonyOS Sans", "Microsoft YaHei", "SimHei", sans-serif;
 }
 
 #componentEdit ComboBox:hover,
 #componentEdit SpinBox:hover,
 #componentEdit LineEdit:hover {
-    border: 1px solid rgba(0, 0, 0, 0.25);
     background-color: rgba(255, 255, 255, 1);
+    border-color: rgba(0, 0, 0, 0.25);
 }
 
-/* SwitchButton */
+/* 开关 */
 #componentEdit SwitchButton {
     background: transparent;
 }

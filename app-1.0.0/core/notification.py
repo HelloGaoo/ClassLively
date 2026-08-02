@@ -14,25 +14,21 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""
-通知模块
-"""
-import os
+"""通知模块"""
 import logging
+import os
 from PyQt6.QtCore import (
-    QObject, QTimer, QPropertyAnimation,
-    QEasingCurve, pyqtSlot, Qt, pyqtSignal,
+    QObject, QTimer, pyqtSlot, Qt, pyqtSignal,
 )
 from PyQt6.QtWidgets import (
-    QFrame, QLabel, QApplication, QVBoxLayout, QGraphicsOpacityEffect,
+    QFrame, QApplication, QVBoxLayout,
 )
-from PyQt6.QtGui import QColor, QFont
+from PyQt6.QtGui import QFont
+from qfluentwidgets import BodyLabel
 from plyer import notification as plyer_notification
 import threading
 import subprocess
 import uuid
-
-from core.utils import tr
 
 logger = logging.getLogger("Glimpseon.core.notification")
 
@@ -131,8 +127,7 @@ class ScrollBanner(_BasePopup):
         banner_height = self._bg_height
         self.setGeometry(0, 60, screen.width(), banner_height)
 
-        self.label = QLabel(self.text, self)
-        # 用 QFont 控制字重
+        self.label = BodyLabel(self.text, self)
         weight_map = {0: QFont.Weight.Normal, 1: QFont.Weight.Bold, 2: QFont.Weight.Black}
         weight = weight_map.get(self._font_weight, QFont.Weight.Bold)
         font = QFont("HarmonyOS Sans", self._font_size)
@@ -184,6 +179,7 @@ class ScrollBanner(_BasePopup):
         painter.setBrush(bg)
         painter.setPen(Qt.PenStyle.NoPen)
         painter.drawRect(self.rect())
+        painter.end()
 
     def showEvent(self, event):
         super().showEvent(event)
@@ -193,6 +189,7 @@ class ScrollBanner(_BasePopup):
         self._must_finish = True
 
     def closeEvent(self, event):
+        self._timer.stop()
         self.finished.emit()
         super().closeEvent(event)
 
@@ -224,7 +221,7 @@ class FullScreenPopup(_BasePopup):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        self.label = QLabel(self.text, self)
+        self.label = BodyLabel(self.text, self)
         weight_map = {0: QFont.Weight.Normal, 1: QFont.Weight.Bold, 2: QFont.Weight.Black}
         weight = weight_map.get(self._font_weight, QFont.Weight.Bold)
         font = QFont("HarmonyOS Sans", self._font_size)

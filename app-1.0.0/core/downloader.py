@@ -14,13 +14,9 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""
-文件下载模块
-"""
+"""文件下载模块"""
 
-import logging
 import os
-import sys
 import ctypes
 import shutil
 import subprocess
@@ -30,20 +26,17 @@ import py7zr
 import pythoncom
 import requests
 import zipfile
-from concurrent.futures import ThreadPoolExecutor
 from win32com.client import Dispatch
 
-from core.constants import PACKAGE_ROOT, APP_DIR, DATA_LOG, DATA_CACHE, DATA_TEMP, get_resPath
+from core.constants import PACKAGE_ROOT, APP_DIR, DATA_LOG, DATA_CACHE, DATA_TEMP
 from core.logger import logger
 from core.utils import tr
 
-# urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 import warnings
 warnings.filterwarnings("ignore", message="Unverified HTTPS request")
 
 SEVEN_ZIP_PASSWORD = 'zQt83iOY3xXLfDVg6SJ7ocnapy90I1d62w6jh79WlT0m1qPC8b55HU5Nk4ARZFBs'
 
-# 进程/子进程 优先级控制 这一段是从旧项目SeevvoDownloader搬过来的
 PRIORITY_CLASSES = {
     'idle': 0x40,
     'below_normal': 0x00004000,
@@ -55,11 +48,6 @@ PRIORITY_CLASSES = {
 
 
 def set_priority_pid(pid, level='below_normal'):
-    """设置指定 pid 的进程优先级
-        pid: 进程ID
-        level: 优先级级别，可选值：'idle'|'below_normal'|'normal'|'above_normal'|'high'|'realtime'
-        bool: 设置是否成功
-    """
     try:
         level_const = PRIORITY_CLASSES.get(level, PRIORITY_CLASSES['normal'])
         PROCESS_SET_INFORMATION = 0x0200
@@ -76,21 +64,7 @@ def set_priority_pid(pid, level='below_normal'):
         return False
 
 
-def set_proc_prio(level='high'):
-    """将当前进程优先级设置为指定级别
-        level: 优先级级别，可选值：'idle'|'below_normal'|'normal'|'above_normal'|'high'|'realtime'
-    """
-    try:
-        set_priority_pid(os.getpid(), level)
-        if logger:
-            logger.info(f"已设置当前进程优先级为: {level}")
-    except Exception:
-        if logger:
-            logger.warning("设置当前进程优先级失败")
-
-
 def _popen_low_priority(*popen_args, **popen_kwargs):
-    """安装子进程  below_normal 优先级"""
     process = subprocess.Popen(*popen_args, **popen_kwargs)
     set_priority_pid(process.pid, 'below_normal')
     return process
@@ -126,18 +100,12 @@ def get_source_name(source_key: str) -> str:
     return source_key
 
 DEFAULT_SOURCE = "hk"
-# current_source = DEFAULT_SOURCE
 import threading
 _current_source = DEFAULT_SOURCE
 _source_lock = threading.Lock()
 
 
 def set_download_src(source_key):
-    """设置下载源
-    
-    Args:
-        source_key: 下载源键名 (original, hk, cloudflare, edgeone, geekertao)
-    """
     global _current_source
     with _source_lock:
         if source_key in DOWNLOAD_SOURCES:
@@ -146,7 +114,6 @@ def set_download_src(source_key):
             _current_source = DEFAULT_SOURCE
 
 
-# 目录定义
 LOGS_DIR = DATA_LOG
 CACHE_DIR = DATA_CACHE
 TEMP_DIR = DATA_TEMP
@@ -168,22 +135,6 @@ class Downloader:
         self._last_progress = {}
 
     def set_progress(self, software_name, percent):
-        # try:
-        #     # 失败时回退到0
-        #     last = self._last_progress.get(software_name, -1)
-        #     if percent == 0 or percent >= last:
-        #         self._last_progress[software_name] = percent
-        #         if getattr(self, 'progress_callback', None) and callable(self.progress_callback):
-        #             try:
-        #                 self.progress_callback(software_name, percent)
-        #             except Exception as e:
-        #                 if self.installer_logger:
-        #                     self.installer_logger.warning(f"{software_name}: 调用外部进度回调异常 - {e}")
-        #         else:
-        #             pass
-        # except Exception as e:
-        #     if self.installer_logger:
-        #         self.installer_logger.warning(f"{software_name}: 更新进度回调异常 - {e}")
         last = self._last_progress.get(software_name, -1)
         if percent == 0 or percent >= last:
             self._last_progress[software_name] = percent
@@ -195,7 +146,6 @@ class Downloader:
                         self.installer_logger.warning(f"进度回调异常: {e}")
 
     def _calc_phase_offsets(self, allocation: dict):
-        """返回阶段顺序与每阶段开始偏移量字典。"""
         order = ['download', 'decompress', 'install']
         offsets = {}
         cur = 0
@@ -217,7 +167,6 @@ class Downloader:
         self.set_progress(software_name, total)
     
     def _wait_process(self, software_name, process_name, timeout=30, check_interval=1):
-        #下面这一百行是ai写的 嵌套太多了看不懂 头疼。。。
         if self.installer_logger:
             self.installer_logger.info(f"{software_name}: 等待进程 {process_name} 出现，超时 {timeout} 秒")
         start_time = time.time()
@@ -266,28 +215,7 @@ class Downloader:
             if self.installer_logger:
                 self.installer_logger.info(f"{software_name}: 进程已退出")
             return True
-    
-    def _wait_condition(self, software_name, condition_func, timeout=30, check_interval=1):
-        if self.installer_logger:
-            self.installer_logger.info(f"{software_name}: 等待条件满足，超时 {timeout} 秒")
-        start_time = time.time()
-        
-        while time.time() - start_time < timeout:
-            try:
-                if condition_func():
-                    if self.installer_logger:
-                        self.installer_logger.info(f"{software_name}: 条件已满足")
-                    return True
-            except Exception as err:
-                if self.installer_logger:
-                    self.installer_logger.warning(f"{software_name}: 检查条件时出错 - {err}")
-            
-            time.sleep(check_interval)
-        
-        if self.installer_logger:
-            self.installer_logger.warning(f"{software_name}: 等待条件满足超时（{timeout} 秒）")
-        return False
-    
+
     def _kill_process(self, software_name, process_name):
         if self.installer_logger:
             self.installer_logger.info(f"{software_name}: 尝试终止进程: {process_name}")
@@ -307,24 +235,20 @@ class Downloader:
             if self.installer_logger:
                 self.installer_logger.error(f"{software_name}: 终止进程时出错 - {str(err)}")
 
-
-
-    # 下面为单独的安装函数了 不合并是因为有例外
-    # 这一整个文件基本上都是从旧项目SeevvoDownloader复制来的 但因为场景不一样 可能会有没修改来的问题
-
     def _install_剪辑师(self, software_name, cache_file, progress_callback=None, download_complete_callback=None):
         try:
             installer_path = self._download_file(software_name, cache_file, download_location="Temporary", progress_callback=progress_callback, download_complete_callback=download_complete_callback)
-            
+
             self.silent_installation(software_name, installer_path)
-            
+
             self._clean_tempdir(TEMP_DIR, cache_file["filename"], software_name)
-            
+
             self._update_progress(software_name, 'install', 100)
         except Exception as err:
             if self.installer_logger:
                 self.installer_logger.error(f"{software_name}: 安装失败 - {str(err)}", exc_info=True)
             self.set_progress(software_name, 0)
+            raise
     
     def _install_知识胶囊(self, software_name, cache_file, progress_callback=None, download_complete_callback=None):
         try:
@@ -396,12 +320,9 @@ class Downloader:
 
             output_dir = r"C:\Windows\Web"
             self._decompress_7Z(software_name, installer_path, output_dir)
-            # try:
             self._update_progress(software_name, 'decompress', 100, allocation)
-            # except Exception:
-            #     pass
-            
-            # 调用 native 模块更改桌面背景（C++ 封装，替代原 ctypes 调用）
+
+            # 调用 native 更改桌面背景
             from Glimpseon_native import set_wallpaper
             wallpaper_path = os.path.join(output_dir, "img0.jpg")
             if os.path.exists(wallpaper_path):
@@ -977,7 +898,6 @@ class Downloader:
         if "url" in cache_file:
             return cache_file["url"]
         elif "github_path" in cache_file:
-            # prefix = DOWNLOAD_SOURCES[current_source]["prefix"]
             with _source_lock:
                 src = _current_source
             prefix = DOWNLOAD_SOURCES[src]["prefix"]
@@ -988,12 +908,12 @@ class Downloader:
         """下载文件
             software_name: 软件名称
             cache_file: 缓存文件信息
-            download_location: 下载位置 ("Temporarytr("download.or_separator")Cache")
+            download_location: 下载位置 ("Temporary" 或 "Cache")
             progress_callback: 进度回调函数
             download_complete_callback: 下载完成回调函数
             download_rate_limit: 限速（bytes/s），0表示不限速
             progress_update_interval: UI更新间隔（秒）
-            str: 下载文件的路径
+            return: 下载文件的路径
         """
         url = self._get_download_url(cache_file)
         if not url:
@@ -1048,77 +968,75 @@ class Downloader:
             try:
                 if self.installer_logger:
                     self.installer_logger.info(f"{software_name}: 请求下载 (重试 {retry_count + 1}/{max_retries})")
-                session = requests.Session()
-                session.headers.update(headers)
+                with requests.Session() as session:
+                    session.headers.update(headers)
 
-                response = session.get(url, stream=True, timeout=60, allow_redirects=False, verify=False)
-                if response.status_code in (301, 302):
-                    redirect_url = response.headers.get("Location")
-                    if redirect_url:
-                        if self.installer_logger:
-                            self.installer_logger.info(f"{software_name}: 跟随重定向到: {redirect_url}")
-                        response = session.get(redirect_url, stream=True, timeout=60, verify=False)
+                    response = session.get(url, stream=True, timeout=60, allow_redirects=False, verify=False)
+                    if response.status_code in (301, 302):
+                        redirect_url = response.headers.get("Location")
+                        if redirect_url:
+                            if self.installer_logger:
+                                self.installer_logger.info(f"{software_name}: 跟随重定向到: {redirect_url}")
+                            response = session.get(redirect_url, stream=True, timeout=60, verify=False)
 
-                response.raise_for_status()
-                total_size = int(response.headers.get('content-length', 0))
-                if self.installer_logger:
-                    self.installer_logger.info(f"{software_name}: 文件大小: {total_size} bytes")
+                    response.raise_for_status()
+                    total_size = int(response.headers.get('content-length', 0))
+                    if self.installer_logger:
+                        self.installer_logger.info(f"{software_name}: 文件大小: {total_size} bytes")
 
-                downloaded_size = 0
-                start_time = time.time()
-                window_start = start_time
-                window_downloaded = 0
-                last_update_time = 0
+                    downloaded_size = 0
+                    start_time = time.time()
+                    window_start = start_time
+                    window_downloaded = 0
+                    last_update_time = 0
 
-                with open(save_path, 'wb') as f:
-                    for chunk in response.iter_content(chunk_size=8192):
-                        if chunk:
-                            f.write(chunk)
-                            chunk_len = len(chunk)
-                            downloaded_size += chunk_len
+                    with open(save_path, 'wb') as f:
+                        for chunk in response.iter_content(chunk_size=8192):
+                            if chunk:
+                                f.write(chunk)
+                                chunk_len = len(chunk)
+                                downloaded_size += chunk_len
 
-                            # 限速
-                            if download_rate_limit and download_rate_limit > 0:
-                                window_downloaded += chunk_len
-                                now_t = time.time()
-                                elapsed_window = now_t - window_start
-                                if elapsed_window >= 1.0:
-                                    window_start = now_t
-                                    window_downloaded = 0
-                                else:
-                                    expected_time = window_downloaded / float(download_rate_limit)
-                                    if expected_time > elapsed_window:
-                                        time_to_sleep = expected_time - elapsed_window
-                                        time.sleep(time_to_sleep)
-
-                            now = time.time()
-                            if last_update_time == 0 or (now - last_update_time) >= progress_update_interval:
-                                elapsed_time = now - start_time if (now - start_time) > 0 else 1e-6
-                                speed = downloaded_size / elapsed_time
-                                if self.installer_logger:
-                                    if speed < 1024:
-                                        speed_str = f"{speed:.2f} B/s"
-                                    elif speed < 1024 * 1024:
-                                        speed_str = f"{speed / 1024:.2f} KB/s"
+                                if download_rate_limit and download_rate_limit > 0:
+                                    window_downloaded += chunk_len
+                                    now_t = time.time()
+                                    elapsed_window = now_t - window_start
+                                    if elapsed_window >= 1.0:
+                                        window_start = now_t
+                                        window_downloaded = 0
                                     else:
-                                        speed_str = f"{speed / (1024 * 1024):.2f} MB/s"
-                                    self.installer_logger.debug(f"{software_name}: 下载速度 {speed_str}")
-                                if total_size > 0:
-                                    progress = int((downloaded_size / total_size) * 100)
-                                    _internal_progress(progress)
-                                last_update_time = now
+                                        expected_time = window_downloaded / float(download_rate_limit)
+                                        if expected_time > elapsed_window:
+                                            time.sleep(expected_time - elapsed_window)
 
-                _internal_progress(100)
-                if self.installer_logger:
-                    self.installer_logger.info(f"{software_name}: 下载完成：{save_path}")
+                                now = time.time()
+                                if last_update_time == 0 or (now - last_update_time) >= progress_update_interval:
+                                    elapsed_time = now - start_time if (now - start_time) > 0 else 1e-6
+                                    speed = downloaded_size / elapsed_time
+                                    if self.installer_logger:
+                                        if speed < 1024:
+                                            speed_str = f"{speed:.2f} B/s"
+                                        elif speed < 1024 * 1024:
+                                            speed_str = f"{speed / 1024:.2f} KB/s"
+                                        else:
+                                            speed_str = f"{speed / (1024 * 1024):.2f} MB/s"
+                                        self.installer_logger.debug(f"{software_name}: 下载速度 {speed_str}")
+                                    if total_size > 0:
+                                        progress = int((downloaded_size / total_size) * 100)
+                                        _internal_progress(progress)
+                                    last_update_time = now
 
-                if download_complete_callback:
-                    try:
-                        download_complete_callback(software_name)
-                    except TypeError:
-                        download_complete_callback()
+                    _internal_progress(100)
+                    if self.installer_logger:
+                        self.installer_logger.info(f"{software_name}: 下载完成：{save_path}")
 
-                return save_path
+                    if download_complete_callback:
+                        try:
+                            download_complete_callback(software_name)
+                        except TypeError:
+                            download_complete_callback()
+
+                    return save_path
             except requests.exceptions.RequestException as e:
                 retry_count += 1
                 if self.installer_logger:
@@ -1168,24 +1086,7 @@ class Downloader:
             if self.installer_logger:
                 self.installer_logger.error(f"{software_name}: 安装失败 - {str(err)}")
             raise
-    
-    def _update_status(self, software_name, status):
-        """更新状态
-        """
-        mapping = {
-            tr("install.complete"): 100,
-            tr("install.installed"): 100,
-            tr("install.failed"): 0,
-            tr("download.downloading"): 20,
-            tr("download.extracting"): 50,
-            tr("download.configuring"): 80,
-        }
-        try:
-            if status in mapping:self.set_progress(software_name, mapping[status])
-            if self.installer_logger:self.installer_logger.info(f"{software_name}: {status}")
-        except Exception:
-            if self.installer_logger:self.installer_logger.info(f"{software_name}: {status}")
-    
+
     def _decompress_7Z(self, software_name, archive_path, output_dir):
         """解压7z文件"""
         if self.installer_logger:
@@ -1200,8 +1101,7 @@ class Downloader:
             raise
     
     def _clean_tempdir(self, temp_dir, filename, software_name, max_retries=3, retry_delay=1.0):
-        """清理临时文件
-        这里的与cleanup_temp_directory函数不同 这里的是清理单个文件 那个是清理整个目录 这是在安装后调用的 那个是启动软件自动清理的"""
+        """清理单个临时文件（cleanup_temp_directory 清理整个目录）"""
         file_path = os.path.join(temp_dir, filename)
         if not os.path.exists(file_path):
             return
@@ -1248,6 +1148,3 @@ def cleanup_temp_directory(temp_dir=None, logger=None):
         if logger:logger.info(f"临时目录清理完成，共清理 {count} 个文件/文件夹")
     except Exception as err:
         if logger:logger.error(f"清理临时目录失败：{err}")
-
-# def clean_tempdir(logger=None):
-#     cleanup_temp_directory(logger=logger)

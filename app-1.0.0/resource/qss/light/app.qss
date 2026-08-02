@@ -1,15 +1,14 @@
-/* 启动窗口 */
-
+/* 启动窗口 浅色 */
 #contentWidget {
-    background-color: rgba(255, 255, 255, 230);
+    background-color: rgba(255, 255, 255, 0.78);
     border-radius: 10px;
 }
 
+/* 标签 */
 StrongBodyLabel {
     color: #000000;
     font-size: 24px;
     font-weight: bold;
-    font-family: "HarmonyOS Sans";
 }
 
 BodyLabel {
@@ -27,6 +26,7 @@ BodyLabel {
     font-size: 13px;
 }
 
+/* 进度条 */
 ProgressBar {
     background-color: #E0E0E0;
     border-radius: 2px;
@@ -40,38 +40,31 @@ ProgressBar::chunk {
 }
 
 /* 向导窗口 */
-
 WizardWindow {
-    background-color: rgb(247, 247, 247);
-    font-family: "HarmonyOS Sans", "Microsoft YaHei", "SimHei", sans-serif;
+    background-color: #F7F7F7;
 }
 
 WizardWindow QWidget {
-    background-color: rgb(247, 247, 247);
+    background-color: #F7F7F7;
 }
 
-/* 标签 */
-
 WizardWindow StrongBodyLabel {
-    color: black;
-    font-family: "HarmonyOS Sans", "Microsoft YaHei", "SimHei", sans-serif;
+    color: #000000;
     font-size: 28px;
+    font-weight: 900;
     margin-top: 8px;
     margin-bottom: 8px;
-    font-weight: 900;
 }
 
 WizardWindow BodyLabel {
     color: rgba(0, 0, 0, 0.8);
-    font-family: "HarmonyOS Sans", "Microsoft YaHei", "SimHei", sans-serif;
     font-size: 20px;
     margin-top: 6px;
     margin-bottom: 6px;
 }
 
 WizardWindow QLabel#titleLabel {
-    color: black;
-    font-family: "HarmonyOS Sans", "Microsoft YaHei", "SimHei", sans-serif;
+    color: #000000;
     font-size: 16px;
     font-weight: bold;
 }
@@ -81,30 +74,22 @@ WizardWindow QLabel#welcomeLabel {
     padding-left: 8px;
 }
 
-/* 控件 */
-
 WizardWindow CheckBox {
-    color: black;
-    font-family: "HarmonyOS Sans", "Microsoft YaHei", "SimHei", sans-serif;
+    color: #000000;
     font-size: 18px;
     margin-top: 4px;
     margin-bottom: 4px;
 }
 
-WizardWindow a {
-    color: #4fc08d;
-}
-
-WizardWindow QPushButton#closeButton {
+WizardWindow PushButton#closeButton {
     background-color: transparent;
     border: none;
-    color: black;
+    color: #000000;
     font-size: 20px;
     border-radius: 15px;
 }
 
-WizardWindow QPushButton#closeButton:hover {
+WizardWindow PushButton#closeButton:hover {
     background-color: #E81123;
-    color: white;
-    border: none;
+    color: #FFFFFF;
 }

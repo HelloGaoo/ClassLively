@@ -1,38 +1,33 @@
-/* 壁纸界面 */
-
-#wallpaper, #scrollWidget {
+/* 壁纸界面 深色 */
+#wallpaper, #wallpaper #scrollWidget {
     background: transparent;
     border: none;
-    font-family: "HarmonyOS Sans", "Microsoft YaHei", "SimHei", sans-serif;
 }
 
 #wallpaper QScrollArea {
-    border: none;
     background: transparent;
+    border: none;
 }
 
 /* 标题 */
-
 #wallpaper QLabel#settingLabel {
     font-size: 33px;
     background-color: transparent;
-    color: white;
-    font-family: "HarmonyOS Sans", "Microsoft YaHei", "SimHei", sans-serif;
+    color: #FFFFFF;
 }
 
 /* 卡片 */
-
 #wallpaper CardWidget {
     background-color: rgba(255, 255, 255, 0.05);
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 8px;
-    font-family: "HarmonyOS Sans", "Microsoft YaHei", "SimHei", sans-serif;
 }
 
 #wallpaper CardWidget:hover {
     background-color: rgba(255, 255, 255, 0.08);
 }
 
+/* 设置卡片 */
 #wallpaper SettingCard,
 #wallpaper LineEditSettingCard,
 #wallpaper SpinBoxSettingCard,
@@ -46,7 +41,6 @@
 #wallpaper SpinBoxSettingCard:hover,
 #wallpaper ButtonSettingCard:hover {
     background-color: rgba(255, 255, 255, 0.05);
-    border-radius: 8px;
 }
 
 #wallpaper OptionsSettingCard:hover,
@@ -58,7 +52,6 @@
 }
 
 /* 控件 */
-
 #wallpaper PushButton {
     background-color: transparent;
     border: 1px solid rgba(255, 255, 255, 0.08);
@@ -81,8 +74,8 @@
 }
 
 #wallpaper ComboBox:hover {
-    border: 1px solid rgba(255, 255, 255, 0.3);
     background-color: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.3);
 }
 
 #wallpaper LineEdit {
@@ -93,8 +86,8 @@
 }
 
 #wallpaper LineEdit:hover {
-    border: 1px solid rgba(255, 255, 255, 0.3);
     background-color: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.3);
 }
 
 #wallpaper SpinBox {
@@ -105,12 +98,11 @@
 }
 
 #wallpaper SpinBox:hover {
-    border: 1px solid rgba(255, 255, 255, 0.3);
     background-color: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.3);
 }
 
 /* 壁纸特有 */
-
 #wallpaper #wallpaperContent {
     background-color: transparent;
 }
@@ -152,7 +144,7 @@
 }
 
 #wallpaper #thumbnailCard QLabel#thumbImage {
-    background-color: rgba(128, 128, 128, 30);
+    background-color: rgba(128, 128, 128, 0.12);
     border-radius: 4px;
 }
 

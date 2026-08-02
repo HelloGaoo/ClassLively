@@ -27,8 +27,9 @@ from typing import Optional
 
 from PyQt6.QtCore import QMetaObject, Q_ARG, QUrl, Qt, QTimer, pyqtSlot
 from PyQt6.QtGui import QPixmap, QDesktopServices
-from PyQt6.QtWidgets import QGridLayout, QHBoxLayout, QLabel, QToolButton, QVBoxLayout, QWidget
+from PyQt6.QtWidgets import QGridLayout, QHBoxLayout, QLabel, QVBoxLayout, QWidget
 from qfluentwidgets import (
+    BodyLabel,
     CardWidget,
     CheckBox,
     ComboBox,
@@ -39,7 +40,9 @@ from qfluentwidgets import (
     PushButton,
     RadioButton,
     ScrollArea,
+    SubtitleLabel,
     Theme,
+    ToolButton,
     qconfig,
 )
 
@@ -395,7 +398,7 @@ class DownloadInterface(BaseScrollAreaInterface, TranslatableWidget):
         modeGroupLayout.setSpacing(16)
         modeGroupLayout.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         
-        self.modeLabel = QLabel(tr("download.select_mode") + ":", modeGroup)  # 选择模式
+        self.modeLabel = BodyLabel(tr("download.select_mode") + ":", modeGroup)  # 选择模式
         self.modeLabel.setObjectName("modeLabel")
         
         self.singleModeButton = RadioButton(tr("download.single_mode"), modeGroup)  # 单个下载
@@ -421,7 +424,7 @@ class DownloadInterface(BaseScrollAreaInterface, TranslatableWidget):
         sourceGroupLayout.setSpacing(8)
         sourceGroupLayout.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         
-        self.sourceLabel = QLabel(tr("download.download_source") + ":", sourceGroup)  # 下载源
+        self.sourceLabel = BodyLabel(tr("download.download_source") + ":", sourceGroup)  # 下载源
         self.sourceLabel.setObjectName("sourceLabel")  
         self.sourceComboBox = ComboBox(sourceGroup)
         self.sourceComboBox.setObjectName("sourceComboBox")
@@ -528,7 +531,7 @@ class DownloadInterface(BaseScrollAreaInterface, TranslatableWidget):
             sec = item['section']
             if sec != current_section:
                 if sec not in shown_sections:
-                    label = QLabel(sec, self.softwareContainer)
+                    label = SubtitleLabel(sec, self.softwareContainer)
                     label.setObjectName("sectionTitleLabel")
                     self.softwareLayout.addWidget(label)
                     shown_sections.add(sec)
@@ -563,6 +566,10 @@ class DownloadInterface(BaseScrollAreaInterface, TranslatableWidget):
         if self._pendingLayout and self._allSoftwareData:
             self._pendingLayout = False
             self._layoutAllSoftware()
+
+    def hideEvent(self, event):
+        self._resizeTimer.stop()
+        super().hideEvent(event)
 
     def _onDataPopulated(self):
         """数据加载完成后调用"""
@@ -607,13 +614,13 @@ class DownloadInterface(BaseScrollAreaInterface, TranslatableWidget):
         name_layout = QHBoxLayout()
         name_layout.setSpacing(6)
         name_layout.setContentsMargins(0, 0, 0, 0)
-        name_label = QLabel(name, card)
+        name_label = SubtitleLabel(name, card)
         name_label.setObjectName("softwareNameLabel")
         name_label.setWordWrap(False)
         name_layout.addWidget(name_label)
         
         if link:
-            link_btn = QToolButton(card)
+            link_btn = ToolButton(card)
             link_btn.setIcon(FUI.LINK.icon())
             link_btn.setFixedSize(20, 20)
             link_btn.setObjectName("softwareLinkButton")
@@ -624,7 +631,7 @@ class DownloadInterface(BaseScrollAreaInterface, TranslatableWidget):
         name_layout.addStretch(1)
         info_layout.addLayout(name_layout)
         
-        desc_label = QLabel(description, card)
+        desc_label = BodyLabel(description, card)
         desc_label.setObjectName("softwareDescLabel")
         desc_label.setWordWrap(True)
         desc_label.setFixedHeight(40)

@@ -19,7 +19,6 @@
 """
 
 import os
-import sys
 import datetime
 import json
 import logging
@@ -27,16 +26,13 @@ from dataclasses import dataclass, asdict
 from typing import List, Optional
 
 import requests
-from PyQt6.QtCore import Qt, QEvent, pyqtSignal, QTimer, QSize
+from PyQt6.QtCore import Qt, pyqtSignal, QTimer, QSize
 from PyQt6.QtGui import QPixmap, QImage, QImageReader, QColor
 from PyQt6.QtWidgets import (
-    QApplication,
     QFileDialog,
     QGridLayout,
-    QGraphicsBlurEffect,
     QHBoxLayout,
     QLabel,
-    QScrollArea,
     QSizePolicy,
     QVBoxLayout,
     QWidget,
@@ -47,15 +43,12 @@ from qfluentwidgets import (
     ComboBoxSettingCard,
     InfoBar,
     MessageBox,
-    MaskDialogBase,
     MessageBoxBase,
     PrimaryPushButton,
     PushButton,
     RangeSettingCard,
     ScrollArea,
-    SettingCard,
     SettingCardGroup,
-    SmoothScrollArea,
     StrongBodyLabel,
     SubtitleLabel,
     SwitchSettingCard,
@@ -63,8 +56,8 @@ from qfluentwidgets import (
 )
 
 from core.config import cfg
-from core.constants import BASE_DIR, WALLPAPER_DIR, get_resPath, load_qss, RESOURCE_DEFAULT_WALLPAPER
-from core.utils import get_cached_content, save_cache, get_cache_info, tr, TranslatableWidget, INTERVAL_MAP, FUI
+from core.constants import WALLPAPER_DIR, get_resPath, load_qss, RESOURCE_DEFAULT_WALLPAPER
+from core.utils import get_cached_content, save_cache, tr, TranslatableWidget, INTERVAL_MAP, FUI
 
 logger = logging.getLogger("Glimpseon.ui.wallpaper")
 
@@ -108,7 +101,7 @@ def clear_thumbnail_cache():
 
 @dataclass
 class WallpaperRecord:
-    """记录类"""
+    """壁纸记录"""
     id: str
     path: str
     source: str
@@ -137,22 +130,22 @@ class WallpaperRecord:
 
 
 class WallpaperHistory:
-    """历史管理"""
-    
+    """壁纸历史管理（单例）"""
+
     _instance: Optional['WallpaperHistory'] = None
-    
+
     def __new__(cls):
         if cls._instance is None:
             cls._instance = super().__new__(cls)
             cls._instance._initialized = False
         return cls._instance
-    
+
     def __init__(self):
         if self._initialized:
             return
         self._initialized = True
-        
-        self.wallpaper_dir = WALLPAPER_DIR  # os.path.join(BASE_DIR, 'wallpaper')
+
+        self.wallpaper_dir = WALLPAPER_DIR
         self.history_file = os.path.join(self.wallpaper_dir, HISTORY_FILE_NAME)
         self._history: List[WallpaperRecord] = []
         self._load()
@@ -314,10 +307,10 @@ class WallpaperInfoCard(CardWidget):
         layout = QHBoxLayout(self)
         layout.setContentsMargins(16, 12, 16, 12)
         layout.setSpacing(20)
-        self.resolutionLabel = BodyLabel(tr("wallpaper.resolution") + ": --", self)  # 分辨率
-        self.sizeLabel = BodyLabel(tr("wallpaper.size") + ": --", self)  # 大小
-        self.sourceLabel = BodyLabel(tr("wallpaper.source") + ": --", self)  # 来源
-        self.pathLabel = BodyLabel(tr("wallpaper.path") + ": --", self)  # 路径
+        self.resolutionLabel = BodyLabel(tr("wallpaper.resolution") + ": --", self)
+        self.sizeLabel = BodyLabel(tr("wallpaper.size") + ": --", self)
+        self.sourceLabel = BodyLabel(tr("wallpaper.source") + ": --", self)
+        self.pathLabel = BodyLabel(tr("wallpaper.path") + ": --", self)
         layout.addWidget(self.resolutionLabel)
         layout.addWidget(self.sizeLabel)
         layout.addWidget(self.sourceLabel)
@@ -325,12 +318,12 @@ class WallpaperInfoCard(CardWidget):
     
     def updateInfo(self, path: str = None, source: str = None):
         if not path or not os.path.exists(path):
-            self.resolutionLabel.setText(tr("wallpaper.resolution") + ": --")  # 分辨率
-            self.sizeLabel.setText(tr("wallpaper.size") + ": --")  # 大小
-            self.sourceLabel.setText(tr("wallpaper.source") + ": --")  # 来源
-            self.pathLabel.setText(tr("wallpaper.path") + ": --")  # 路径
+            self.resolutionLabel.setText(tr("wallpaper.resolution") + ": --")
+            self.sizeLabel.setText(tr("wallpaper.size") + ": --")
+            self.sourceLabel.setText(tr("wallpaper.source") + ": --")
+            self.pathLabel.setText(tr("wallpaper.path") + ": --")
             return
-        
+
         file_size = os.path.getsize(path)
         if file_size < 1024:
             size_str = f"{file_size} B"
@@ -338,19 +331,19 @@ class WallpaperInfoCard(CardWidget):
             size_str = f"{file_size / 1024:.1f} KB"
         else:
             size_str = f"{file_size / 1024 / 1024:.1f} MB"
-        
-        resolution = tr("wallpaper.unknown")  # 未知
+
+        resolution = tr("wallpaper.unknown")
         try:
             reader = QImageReader(path)
             size = reader.size()
             if size.isValid(): resolution = f"{size.width()}x{size.height()}"
         except Exception:
             pass
-        
+
         self.resolutionLabel.setText(f"{tr('wallpaper.resolution')}: {resolution}")
         self.sizeLabel.setText(f"{tr('wallpaper.size')}: {size_str}")
         self.sourceLabel.setText(f"{tr('wallpaper.source')}: {source or tr('wallpaper.source_local')}")
-        
+
         display_path = path
         if len(path) > 50:
             display_path = "..." + path[-47:]
@@ -385,10 +378,10 @@ class WallpaperPreviewDialog(MessageBoxBase):
                 self.imageLabel.setPixmap(scaled)
                 self.imageLabel.setFixedSize(scaled.size())
             else:
-                self.imageLabel.setText(tr("wallpaper.load_image_failed"))  # 加载图片失败
+                self.imageLabel.setText(tr("wallpaper.load_image_failed"))
                 self.imageLabel.setFixedSize(max_w, max_h)
         else:
-            self.imageLabel.setText(tr("wallpaper.file_not_exist"))  # 文件不存在
+            self.imageLabel.setText(tr("wallpaper.file_not_exist"))
             self.imageLabel.setFixedSize(max_w, max_h)
         
         imageLayout.addWidget(self.imageLabel, 0, Qt.AlignmentFlag.AlignCenter)
@@ -397,11 +390,11 @@ class WallpaperPreviewDialog(MessageBoxBase):
         self.infoLabel = BodyLabel(infoText, self)
         self.infoLabel.setWordWrap(True)
         
-        self.useButton = PrimaryPushButton(FUI.ACCEPT, tr("wallpaper.use_this"), self)  # 使用此壁纸
+        self.useButton = PrimaryPushButton(FUI.ACCEPT, tr("wallpaper.use_this"), self)
         self.useButton.setFixedHeight(36)
         self.useButton.clicked.connect(self._onUse)
 
-        self.deleteButton = PushButton(FUI.DELETE, tr("wallpaper.delete"), self)  # 删除
+        self.deleteButton = PushButton(FUI.DELETE, tr("wallpaper.delete"), self)
         self.deleteButton.setFixedHeight(36)
         self.deleteButton.clicked.connect(self._onDelete)
         
@@ -420,7 +413,7 @@ class WallpaperPreviewDialog(MessageBoxBase):
         self.viewLayout.addSpacing(16)
         self.viewLayout.addLayout(btnLayout)
         
-        self.yesButton.setText(tr("wallpaper.close"))  # 关闭
+        self.yesButton.setText(tr("wallpaper.close"))
         self.cancelButton.hide()
         self.widget.setMinimumWidth(700)
         self.widget.setMinimumHeight(560)
@@ -470,9 +463,9 @@ class WallpaperThumbnailCard(CardWidget):
         if cached_pixmap:
             self.imageLabel.setPixmap(cached_pixmap)
         elif os.path.exists(self.record.path):
-            self._showPlaceholder(tr("wallpaper.load_failed"))  # 加载失败
+            self._showPlaceholder(tr("wallpaper.load_failed"))
         else:
-            self._showPlaceholder(tr("wallpaper.file_not_exist"))  # 文件不存在
+            self._showPlaceholder(tr("wallpaper.file_not_exist"))
 
         self.infoLabel = BodyLabel(self)
         self.infoLabel.setObjectName("thumbInfo")
@@ -515,13 +508,13 @@ class WallpaperHistoryWidget(QWidget):
         headerLayout = QHBoxLayout()
         headerLayout.setContentsMargins(0, 0, 0, 0)
         
-        self.titleLabel = StrongBodyLabel(tr("wallpaper.history"), self)  # 历史记录
+        self.titleLabel = StrongBodyLabel(tr("wallpaper.history"), self)
         self.titleLabel.setObjectName("historyTitle")
-        
+
         self.countLabel = BodyLabel("", self)
         self.countLabel.setObjectName("historyCount")
-        
-        self.clearInvalidBtn = PushButton(FUI.DELETE, tr("wallpaper.clear_all"), self)  # 清空全部
+
+        self.clearInvalidBtn = PushButton(FUI.DELETE, tr("wallpaper.clear_all"), self)
         self.clearInvalidBtn.setFixedHeight(36)
         self.clearInvalidBtn.setMinimumWidth(100)
         self.clearInvalidBtn.clicked.connect(self._clearAll)
@@ -542,7 +535,7 @@ class WallpaperHistoryWidget(QWidget):
         loadMoreLayout = QHBoxLayout(self.loadMoreWidget)
         loadMoreLayout.setContentsMargins(0, 8, 0, 20)
         loadMoreLayout.addStretch(1)
-        self.loadMoreBtn = PushButton(FUI.SYNC, tr("wallpaper.load_more"), self)  # 加载更多
+        self.loadMoreBtn = PushButton(FUI.SYNC, tr("wallpaper.load_more"), self)
         self.loadMoreBtn.setObjectName("loadMoreBtn")
         self.loadMoreBtn.setFixedHeight(36)
         self.loadMoreBtn.setMinimumWidth(140)
@@ -550,13 +543,13 @@ class WallpaperHistoryWidget(QWidget):
         loadMoreLayout.addWidget(self.loadMoreBtn)
         loadMoreLayout.addStretch(1)
         self.loadMoreWidget.hide()
-        
-        self.noMoreLabel = BodyLabel(tr("wallpaper.all_history_loaded"), self)  # 已加载全部历史
+
+        self.noMoreLabel = BodyLabel(tr("wallpaper.all_history_loaded"), self)
         self.noMoreLabel.setObjectName("emptyLabel")
         self.noMoreLabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.noMoreLabel.hide()
-        
-        self.emptyLabel = BodyLabel(tr("wallpaper.no_history"), self)  # 暂无历史记录
+
+        self.emptyLabel = BodyLabel(tr("wallpaper.no_history"), self)
         self.emptyLabel.setObjectName("emptyLabel")
         self.emptyLabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.emptyLabel.hide()
@@ -655,7 +648,7 @@ class WallpaperHistoryWidget(QWidget):
                 self.noMoreLabel.hide()
         else:
             remaining = len(self._allRecords) - self._displayedCount
-            self.loadMoreBtn.setText(f"加载更多 ({remaining})")
+            self.loadMoreBtn.setText(tr("wallpaper.load_more").format(count=remaining))
             self.loadMoreWidget.show()
             self.noMoreLabel.hide()
     
@@ -698,9 +691,9 @@ class WallpaperHistoryWidget(QWidget):
         mask.setStyleSheet("background-color: rgba(0, 0, 0, 120);")
         mask.show()
         
-        w = MessageBox(tr("wallpaper.confirm_clear"), f"{tr('wallpaper.confirm_clear_msg')} {count} {tr('wallpaper.confirm_clear_unit')}", mask)  # 确认清空 / 确定要清空 / 条记录吗？
-        w.yesButton.setText(tr("wallpaper.confirm"))  # 确定
-        w.cancelButton.setText(tr("wallpaper.cancel"))  # 取消
+        w = MessageBox(tr("wallpaper.confirm_clear"), f"{tr('wallpaper.confirm_clear_msg')} {count} {tr('wallpaper.confirm_clear_unit')}", mask)
+        w.yesButton.setText(tr("wallpaper.confirm"))
+        w.cancelButton.setText(tr("wallpaper.cancel"))
         if w.exec():
             self.historyManager.clear_all()
             self._loadHistory()
@@ -753,31 +746,31 @@ class WallpaperInterface(ScrollArea, TranslatableWidget):
         self.autoSyncCheckTimer = QTimer(self)
         self.autoSyncCheckTimer.timeout.connect(self._checkAutoSync)
 
-        self.wallpaperLabel = QLabel(tr("navigation.wallpaper"), self)  # 壁纸
-        
+        self.wallpaperLabel = SubtitleLabel(tr("navigation.wallpaper"), self)
+
         self.contentWidget = QWidget()
         self.contentWidget.setObjectName("wallpaperContent")
         self.contentLayout = QVBoxLayout(self.contentWidget)
         self.contentLayout.setContentsMargins(60, 0, 60, 40)
         self.contentLayout.setSpacing(16)
-        
+
         self.infoCard = WallpaperInfoCard(self.contentWidget)
-        
-        self.getButton = PrimaryPushButton(FUI.DOWNLOAD, tr("wallpaper.get_wallpaper"))  # 获取壁纸
+
+        self.getButton = PrimaryPushButton(FUI.DOWNLOAD, tr("wallpaper.get_wallpaper"))
         self.getButton.setFixedHeight(36)
-        self.saveButton = PushButton(FUI.SAVE, tr("wallpaper.save_as"))  # 另存为
+        self.saveButton = PushButton(FUI.SAVE, tr("wallpaper.save_as"))
         self.saveButton.setFixedHeight(36)
-        self.selectButton = PushButton(FUI.FOLDER, tr("wallpaper.manual_select"))  # 手动选择
+        self.selectButton = PushButton(FUI.FOLDER, tr("wallpaper.manual_select"))
         self.selectButton.setFixedHeight(36)
-        self.setWallpaperButton = PushButton(FUI.HOME, tr("wallpaper.set_desktop"))  # 设为桌面
+        self.setWallpaperButton = PushButton(FUI.HOME, tr("wallpaper.set_desktop"))
         self.setWallpaperButton.setFixedHeight(36)
-        
-        self.settingsGroup = SettingCardGroup(tr("wallpaper.settings"), self.contentWidget)  # 设置
+
+        self.settingsGroup = SettingCardGroup(tr("wallpaper.settings"), self.contentWidget)
         self.wallpaperSaveLimitCard = RangeSettingCard(
             cfg.wallpaperSaveLimit,
             FUI.SAVE,
-            tr("wallpaper.save_limit"),  # 保存数量上限
-            tr("wallpaper.save_limit_desc"),  # 设置壁纸历史记录的最大保存数量
+            tr("wallpaper.save_limit"),
+            tr("wallpaper.save_limit_desc"),
             parent=self.settingsGroup
         )
         self.settingsGroup.addSettingCard(self.wallpaperSaveLimitCard)
@@ -793,35 +786,35 @@ class WallpaperInterface(ScrollArea, TranslatableWidget):
         self.wallpaperApiCard = ComboBoxSettingCard(
             cfg.wallpaperApi,
             FUI.LINK,
-            tr("wallpaper.api"),  # 壁纸 API
-            tr("wallpaper.api_desc"),  # 选择获取壁纸的 API 来源
+            tr("wallpaper.api"),
+            tr("wallpaper.api_desc"),
             texts=["wp.upx8.com", "api.ltyuanfang.cn", "imlcd.cn_bg_high", "imlcd.cn_bg_mc", "imlcd.cn_bg_gq"],
             parent=self.settingsGroup
         )
         self.settingsGroup.addSettingCard(self.wallpaperApiCard)
         self.autoSyncToDesktopCard = SwitchSettingCard(
             FUI.HOME,
-            tr("wallpaper.auto_sync"),  # 自动同步桌面
-            tr("wallpaper.auto_sync_desc"),  # 获取壁纸后自动设置为桌面壁纸
+            tr("wallpaper.auto_sync"),
+            tr("wallpaper.auto_sync_desc"),
             configItem=cfg.autoSyncToDesktop,
             parent=self.settingsGroup
         )
         self.settingsGroup.addSettingCard(self.autoSyncToDesktopCard)
-        
-        self.effectsGroup = SettingCardGroup(tr("wallpaper.background_effects"), self.contentWidget)  # 背景效果
+
+        self.effectsGroup = SettingCardGroup(tr("wallpaper.background_effects"), self.contentWidget)
         self.blurCard = RangeSettingCard(
             cfg.backgroundBlurRadius,
             FUI.BRUSH,
-            tr("wallpaper.blur"),  # 背景模糊
-            tr("wallpaper.blur_desc"),  # 设置背景图片的模糊强度（0-30）
+            tr("wallpaper.blur"),
+            tr("wallpaper.blur_desc"),
             parent=self.effectsGroup
         )
         self.effectsGroup.addSettingCard(self.blurCard)
         self.brightnessCard = RangeSettingCard(
             cfg.wallpaperBrightness,
             FUI.BRUSH,
-            tr("wallpaper.brightness"),  # 亮度/暗化
-            tr("wallpaper.brightness_desc"),  # 调整壁纸暗化程度（0正常 ~ -100最暗）
+            tr("wallpaper.brightness"),
+            tr("wallpaper.brightness_desc"),
             parent=self.effectsGroup
         )
         self.effectsGroup.addSettingCard(self.brightnessCard)
@@ -883,48 +876,36 @@ class WallpaperInterface(ScrollArea, TranslatableWidget):
             self.scrollWidget.setObjectName('scrollWidget')
         self.wallpaperLabel.setObjectName('settingLabel')
         self.setStyleSheet(load_qss('wallpaper.qss'))
-    
-    def resizeEvent(self, event):
-        super().resizeEvent(event)
-    
-    def eventFilter(self, obj, event):
-        if not hasattr(self, 'scrollWidget'):
-            return super().eventFilter(obj, event)
-        return super().eventFilter(obj, event)
-    
+
     def _connectSignalToSlot(self):
         self.getButton.clicked.connect(self._getWallpaper)
         self.saveButton.clicked.connect(self._saveWallpaper)
         self.selectButton.clicked.connect(self._selectWallpaper)
         self.setWallpaperButton.clicked.connect(self._setWallpaper)
-        
+
         cfg.autoGetInterval.valueChanged.connect(self._updateAutoGetTimer)
         cfg.autoSyncToDesktop.valueChanged.connect(self._updateAutoSyncCheckTimer)
         cfg.wallpaperSaveLimit.valueChanged.connect(self._onWallpaperSaveLimitChanged)
         cfg.wallpaperBrightness.valueChanged.connect(self._applyEffects)
-        
+
         self._updateAutoGetTimer()
         self._updateAutoSyncCheckTimer()
-    
+
+    def hideEvent(self, event):
+        self.autoGetTimer.stop()
+        self.autoSyncCheckTimer.stop()
+        super().hideEvent(event)
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        self._updateAutoGetTimer()
+        self._updateAutoSyncCheckTimer()
+
     def _updateAutoGetTimer(self):
         self.autoGetTimer.stop()
         interval_str = cfg.autoGetInterval.value
 
         if interval_str != "never":
-            # interval_map 弃用 改用 core.utils.INTERVAL_MAP（单位秒）
-            # interval_map = {
-            #     "10m": 10 * 60 * 1000, "10分钟": 10 * 60 * 1000,
-            #     "30m": 30 * 60 * 1000, "30分钟": 30 * 60 * 1000,
-            #     "1h": 60 * 60 * 1000, "1小时": 60 * 60 * 1000,
-            #     "3h": 3 * 60 * 60 * 1000, "3小时": 3 * 60 * 60 * 1000,
-            #     "6h": 6 * 60 * 60 * 1000, "6小时": 6 * 60 * 60 * 1000,
-            #     "12h": 12 * 60 * 60 * 1000, "12小时": 12 * 60 * 60 * 1000,
-            #     "1d": 24 * 60 * 60 * 1000, "1天": 24 * 60 * 60 * 1000,
-            #     "3d": 3 * 24 * 60 * 60 * 1000, "3天": 3 * 24 * 60 * 60 * 1000,
-            #     "5d": 5 * 24 * 60 * 60 * 1000, "5天": 5 * 24 * 60 * 60 * 1000,
-            #     "7d": 7 * 24 * 60 * 60 * 1000, "7天": 7 * 24 * 60 * 60 * 1000,
-            # }
-            # interval = interval_map.get(interval_str, 30 * 60 * 1000)
             interval = INTERVAL_MAP.get(interval_str.strip(), 30 * 60) * 1000
             self.autoGetTimer.start(interval)
     
@@ -940,11 +921,10 @@ class WallpaperInterface(ScrollArea, TranslatableWidget):
             self.autoSyncCheckTimer.start(5000)
     
     def _onWallpaperSaveLimitChanged(self, new_limit: int):
-        wallpaper_dir = WALLPAPER_DIR  # os.path.join(BASE_DIR, 'wallpaper')
-        self._manageWallpaperLimit(wallpaper_dir, new_limit)
+        self._manageWallpaperLimit(WALLPAPER_DIR, new_limit)
 
     def _applyEffects(self):
-        """暗化效果（-100 最暗 ~ 0 正常）"""
+        """暗化（-100最暗 ~ 0正常）"""
         dim_value = cfg.wallpaperBrightness.value
         alpha = abs(dim_value) / 100.0
         style_str = f"#dimOverlay {{ background-color: rgba(0, 0, 0, {alpha:.2f}); }}"
@@ -952,7 +932,7 @@ class WallpaperInterface(ScrollArea, TranslatableWidget):
         if home and hasattr(home, 'homeDimOverlay'):home.homeDimOverlay.setStyleSheet(style_str)
     
     def _loadWallpaperFromCache(self) -> bool:
-        cached = get_cached_content("wallpaper", ignore_expiry=True)  # 过期也显示旧的
+        cached = get_cached_content("wallpaper", ignore_expiry=True)
         if not cached:
             logger.debug("壁纸缓存不存在")
             return False
@@ -1003,7 +983,7 @@ class WallpaperInterface(ScrollArea, TranslatableWidget):
             
             if response.status_code == 200:
                 logger.info(f"壁纸请求成功，状态码: {response.status_code}")
-                wallpaper_dir = WALLPAPER_DIR  # os.path.join(BASE_DIR, 'wallpaper')
+                wallpaper_dir = WALLPAPER_DIR
                 if not os.path.exists(wallpaper_dir):
                     os.makedirs(wallpaper_dir)
                     logger.info(f"创建壁纸目录: {wallpaper_dir}")
@@ -1058,14 +1038,13 @@ class WallpaperInterface(ScrollArea, TranslatableWidget):
         logger.info("加载默认壁纸")
         if self._loadWallpaperFromCache():return
         default_wallpaper_path = get_resPath(RESOURCE_DEFAULT_WALLPAPER)
-        
+
         if not os.path.exists(default_wallpaper_path):
-            wallpaper_dir = WALLPAPER_DIR  # os.path.join(BASE_DIR, 'wallpaper')
-            if os.path.exists(wallpaper_dir):
-                wallpapers = [f for f in os.listdir(wallpaper_dir) if f.endswith('.jpg') and f.startswith('wallpaper_')]
+            if os.path.exists(WALLPAPER_DIR):
+                wallpapers = [f for f in os.listdir(WALLPAPER_DIR) if f.endswith('.jpg') and f.startswith('wallpaper_')]
                 if wallpapers:
-                    wallpapers.sort(key=lambda x: os.path.getmtime(os.path.join(wallpaper_dir, x)), reverse=True)
-                    default_wallpaper_path = os.path.join(wallpaper_dir, wallpapers[0])
+                    wallpapers.sort(key=lambda x: os.path.getmtime(os.path.join(WALLPAPER_DIR, x)), reverse=True)
+                    default_wallpaper_path = os.path.join(WALLPAPER_DIR, wallpapers[0])
         
         if os.path.exists(default_wallpaper_path):
             self.current_pixmap = QPixmap(default_wallpaper_path)
@@ -1085,10 +1064,10 @@ class WallpaperInterface(ScrollArea, TranslatableWidget):
         home = self._getHome()
         if home and hasattr(home, 'homeBackgroundImage') and self.current_pixmap:
             home.originalPixmap = self.current_pixmap
-            home._computeBlurredBackground()  # 一次性模糊原图并缓存
+            home._computeBlurredBackground()
 
     def get_dominant_color(self, sample_size: int = 32) -> QColor:
-        """从当前壁纸提取一个主色（简单平均采样）。"""
+        """提取壁纸主色（平均采样）"""
         try:
             if not self.current_pixmap or self.current_pixmap.isNull():
                 return QColor(cfg.themeColor.value if hasattr(cfg.themeColor, 'name') else cfg.themeColor.value)
@@ -1099,7 +1078,6 @@ class WallpaperInterface(ScrollArea, TranslatableWidget):
             if w <= 0 or h <= 0:
                 return QColor(cfg.themeColor.value)
 
-            # 缩放到较小尺寸以加快计算
             sw = min(sample_size, w)
             sh = min(sample_size, h)
             small = img.scaled(sw, sh, Qt.AspectRatioMode.IgnoreAspectRatio, Qt.TransformationMode.SmoothTransformation)
@@ -1127,9 +1105,9 @@ class WallpaperInterface(ScrollArea, TranslatableWidget):
             return
         
         file_path, _ = QFileDialog.getSaveFileName(
-            self, "另存壁纸",
-            WALLPAPER_DIR,  # os.path.join(BASE_DIR, "wallpaper")
-            "JPEG图片 (*.jpg);;PNG图片 (*.png)"
+            self, tr("wallpaper.save_title"),
+            WALLPAPER_DIR,
+            f"{tr('wallpaper.jpeg_files')} (*.jpg);;{tr('wallpaper.png_files')} (*.png)"
         )
         
         if file_path:
@@ -1145,7 +1123,7 @@ class WallpaperInterface(ScrollArea, TranslatableWidget):
         logger.info("开始手动选择壁纸")
         file_path, _ = QFileDialog.getOpenFileName(
             self, tr("wallpaper.select_title"),
-            WALLPAPER_DIR,  # os.path.join(BASE_DIR, "wallpaper")
+            WALLPAPER_DIR,
             tr("wallpaper.image_filter")
         )
         
@@ -1166,7 +1144,7 @@ class WallpaperInterface(ScrollArea, TranslatableWidget):
                 self._updateMainWindowBackground()
                 self._applyEffects()
                 
-                if source != "历史记录":
+                if source != tr("wallpaper.history"):
                     _, api_source = self._getApiUrl()
                     self.historyManager.add(path, source if source != tr("wallpaper.source_local") else api_source, "")
                 
@@ -1203,6 +1181,6 @@ class WallpaperInterface(ScrollArea, TranslatableWidget):
         except Exception as e:
             logger.error(f"设置壁纸失败: {str(e)}")
             if show_notification:
-                InfoBar.error(tr("wallpaper.error"), f"{tr('wallpaper.set_failed')}: {str(e)}", duration=5000, parent=self)  # 错误 / 设置失败
+                InfoBar.error(tr("wallpaper.error"), f"{tr('wallpaper.set_failed')}: {str(e)}", duration=5000, parent=self)
 
 

@@ -370,23 +370,6 @@ def get_cached_content(cache_name: str, ignore_expiry: bool = False) -> Optional
     return None
 
 
-def is_cache_expired(cache_name: str) -> bool:
-    """检查缓存是否过期"""
-    cache_data = load_cache(cache_name, ignore_expiry=True)
-    if not cache_data:
-        return True  # 不存在视为过期
-    now = time.time()
-    expires_at = cache_data.get("expires_at", 0)
-    if expires_at == float('inf'):
-        return False
-    return now >= expires_at
-
-
-def is_cache_valid(cache_name: str) -> bool:
-    cache_data = load_cache(cache_name)
-    return cache_data is not None
-
-
 def clear_cache(cache_name: str):
     cache_path = get_cache_path(cache_name)
     if os.path.exists(cache_path):
@@ -406,33 +389,6 @@ def clear_all_cache():
                 logger.info(f"缓存文件已删除: {filename}")
             except Exception as e:
                 logger.error(f"删除缓存文件失败 {filename}: {e}")
-
-
-def get_cache_info(cache_name: str) -> Optional[dict]:
-    cache_path = get_cache_path(cache_name)
-
-    if not os.path.exists(cache_path):
-        return None
-
-    try:
-        with open(cache_path, 'r', encoding='utf-8') as f:
-            cache_data = json.load(f)
-
-        now = time.time()
-        timestamp = cache_data.get("timestamp", 0)
-        expires_at = cache_data.get("expires_at", 0)
-
-        return {
-            "name": cache_name,
-            "cached_time": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(timestamp)),
-            "expires_time": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(expires_at)) if expires_at != float('inf') else tr("time.never"),
-            "remaining_seconds": -1 if expires_at == float('inf') else max(0, int(expires_at - now)),
-            "is_expired": now >= expires_at,
-            "interval": cache_data.get("interval", "未知"),
-        }
-    except Exception as e:
-        logger.error(f"获取缓存信息失败 {cache_name}: {e}")
-        return None
 
 
 def extract_files():
@@ -793,11 +749,6 @@ def precise_time_str() -> str:
     return now.strftime('%Y-%m-%d %H:%M:%S')
 
 
-def offset_time_str() -> str:
-    """偏移后时间字符串"""
-    return precise_now().strftime('%Y-%m-%d %H:%M:%S')
-
-
 # Mixin
 
 class TranslatableWidget:
@@ -923,6 +874,14 @@ _ICON_NAME_MAP = {
     "GITHUB": "link",
     "CARE_LEFT_SOLID": "chevron_left",
     "CARE_RIGHT_SOLID": "chevron_right",
+
+    # 书写板图标
+    "CURSOR": "cursor",
+    "BLUR": "blur",
+    "BOARD": "board",
+    "PEN": "pen",
+    "ERASER": "eraser",
+    "UNDO": "arrow_undo",
 }
 
 

@@ -14,17 +14,12 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""
-常量定义模块
-
-路径常量从 paths.py 导入，确保所有模块使用相同的路径
-"""
+"""常量定义"""
 
 import os
 
 from qfluentwidgets import isDarkTheme
 
-# 从 paths.py 导入所有路径常量
 from core.paths import (
     PACKAGE_ROOT, APP_DIR, MEIPASS_DIR, BASE_DIR,
     DATA_ROOT, DATA_CONFIG, DATA_LOG, DATA_CACHE, DATA_TEMP,
@@ -33,9 +28,6 @@ from core.paths import (
     ensure_data_dirs, get_resource_path
 )
 
-# ============================================================
-# 应用信息
-# ============================================================
 APP_NAME = "Glimpseon"
 APP_ICON = "resource/icons/CY.png"
 APP_LICENSE = "LICENSE"
@@ -70,12 +62,11 @@ _qss_cache = {}
 
 
 def clear_qss_cache():
-    """清空 QSS 缓存"""
     _qss_cache.clear()
 
 
 def load_qss(qss_filename: str) -> str:
-    """加载 QSS 样式文件"""
+    from core.logger import logger as _logger
     theme = 'dark' if isDarkTheme() else 'light'
     cache_key = (theme, qss_filename)
     if cache_key in _qss_cache:
@@ -83,11 +74,13 @@ def load_qss(qss_filename: str) -> str:
 
     qss_path = get_resource_path(os.path.join(RESOURCE_QSS, theme, qss_filename))
     if not os.path.exists(qss_path):
+        _logger.warning(f"QSS文件不存在: {qss_path}")
         return ''
     try:
-        with open(qss_path, 'r', encoding='utf-8') as f:
+        with open(qss_path, 'r', encoding='utf-8-sig') as f:
             content = f.read()
         _qss_cache[cache_key] = content
         return content
-    except:
+    except Exception as e:
+        _logger.error(f"QSS加载失败 {qss_path}: {e}")
         return ''

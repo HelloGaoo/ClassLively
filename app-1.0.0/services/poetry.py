@@ -14,34 +14,23 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""
-一言服务模块
-"""
+"""一言服务"""
 
-import logging
 from typing import Optional
 
 import requests
 
 from core.config import cfg
 from core.logger import logger
-from core.utils import tr,  get_cached_content, save_cache
+from core.utils import tr, get_cached_content, save_cache
+
 FALLBACK_POETRY = tr("poetry.default")
 
 
 class PoetryService:
-    """一言服务"""
-
-    API_MAP = {
-        '一言 API': 'https://api.imlcd.cn/yy/api.php',
-        '诗词 API': 'https://www.ffapi.cn/int/v1/shici',
-    }
 
     @staticmethod
     def get_poetry(api_url: Optional[str] = None) -> str:
-        """
-        获取一句一言
-        """
         if api_url is None:
             api_url = cfg.poetryApiUrl.value
 
@@ -65,7 +54,6 @@ class PoetryService:
 
     @staticmethod
     def get_poetry_with_cache() -> str:
-        """获取一言"""
         cached = get_cached_content("poetry")
         if cached:
             return cached
@@ -73,16 +61,3 @@ class PoetryService:
         text = PoetryService.get_poetry()
         save_cache("poetry", text, cfg.poetryUpdateInterval.value)
         return text
-
-    @staticmethod
-    def get_api_name(url: str) -> str:
-        """获取API名称"""
-        for name, api_url in PoetryService.API_MAP.items():
-            if api_url == url:
-                return name
-        return '一言 API'
-
-    @staticmethod
-    def get_api_url(name: str) -> str:
-        """获取API URL"""
-        return PoetryService.API_MAP.get(name, 'https://api.imlcd.cn/yy/api.php')

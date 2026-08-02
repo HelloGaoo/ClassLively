@@ -24,13 +24,12 @@ import logging
 import os
 import re
 import shutil
-import sys
 import time
 import datetime
 import webbrowser
 from collections import OrderedDict
 from concurrent.futures import ThreadPoolExecutor
-from typing import Optional, Dict
+from typing import Optional
 import threading
 from collections import deque
 
@@ -73,17 +72,17 @@ from PyQt6.QtGui import (
 )
 from PyQt6.QtSvg import QSvgRenderer
 from PyQt6.QtWidgets import (
-    QFileIconProvider, QGridLayout, QLabel, QSizePolicy, QWidget, QVBoxLayout, QHBoxLayout, QApplication, QProgressBar, QGraphicsOpacityEffect,
-    QScrollArea, QStackedWidget, QPushButton, QListWidget, QListWidgetItem, QLineEdit, QSlider, QFileDialog, QTextEdit
+    QFileIconProvider, QGridLayout, QLabel, QSizePolicy, QWidget, QVBoxLayout, QHBoxLayout, QApplication, QGraphicsOpacityEffect,
+    QStackedWidget, QListWidgetItem, QFileDialog
 )
-from qfluentwidgets import InfoBar, isDarkTheme, RoundMenu, Action, FluentWindow, setTheme, ScrollArea, PushButton, ToolButton, TransparentToolButton, StrongBodyLabel, CardWidget, BodyLabel, ComboBox, SpinBox, SwitchButton, HorizontalFlipView, VerticalFlipView, PrimaryPushButton, Pivot, MessageBoxBase, ProgressBar, LineEdit, ColorPickerButton
+from qfluentwidgets import InfoBar, isDarkTheme, RoundMenu, Action, FluentWindow, setTheme, ScrollArea, PushButton, ToolButton, TransparentToolButton, StrongBodyLabel, CardWidget, BodyLabel, ComboBox, SpinBox, SwitchButton, HorizontalFlipView, VerticalFlipView, PrimaryPushButton, Pivot, MessageBoxBase, ProgressBar, LineEdit, ColorPickerButton, ListWidget, Slider, TextEdit, CaptionLabel, SubtitleLabel
 from win32com.shell import shell
 
 from core.config import cfg, save_cfg
 from core.utils import tr, FUI, get_cached_content, save_cache
 from services.media import MediaInfo, Lyrics, get_media_info, fetch_all_info, close as close_media
 from services.news import NewsService
-from core.constants import BASE_DIR, APP_DIR, DATA_CONFIG, DATA_CLASSPHOTOS, DATA_NOTES, load_qss, NEWS_ICONS, get_resPath
+from core.constants import BASE_DIR, DATA_CONFIG, DATA_CLASSPHOTOS, DATA_NOTES, load_qss, NEWS_ICONS, get_resPath, APP_ICON
 from resource.software_list import get_software_icon_path
 from core.component import (
     ComponentDefinition,
@@ -106,7 +105,6 @@ def get_component_display_name(component_id: str) -> str:
     return name_map.get(component_id, component_id)
 
 
-# 组件系统
 COMPONENT_STYLES = {
     "clock": {
         "digital": {
@@ -282,10 +280,7 @@ COMPONENT_STYLES = {
     },
 }
 
-
-COMPONENTS_CONFIG_PATH = os.path.join(DATA_CONFIG, "components.json")
-
-
+            
 class ComponentManager:
     """组件管理器"""
 
@@ -296,94 +291,106 @@ class ComponentManager:
         self.components = {}  # id: DraggableContainer 实例
         self._component_data = {}  # id: 原始配置数据
 
-    def load_components(self):
-        """从 config/components.json 加载组件"""
-        if not os.path.exists(COMPONENTS_CONFIG_PATH):
-            default_data = {"components": []}
-            try:
-                os.makedirs(os.path.dirname(COMPONENTS_CONFIG_PATH), exist_ok=True)
-                with open(COMPONENTS_CONFIG_PATH, "w", encoding="utf-8") as f:
-                    json.dump(default_data, f, indent=2, ensure_ascii=False)
-            except Exception as e:
-                logger.error(f"创建组件配置失败: {e}")
-                return
+    @property
+    def page_manager(self):
+        """通过 home_interface 获取 PageManager"""
+        return getattr(self.home, 'page_manager', None)
 
-        try:
-            with open(COMPONENTS_CONFIG_PATH, "r", encoding="utf-8") as f:
-                data = json.load(f)
-        except Exception as e:
-            logger.error(f"加载组件配置失败: {e}")
+    def _get_parent_widget(self, page_index: int):
+        """获取页面父 widget"""
+        if hasattr(self.home, "get_info_page_widget"):
+            pw = self.home.get_info_page_widget(page_index)
+            if pw is not None:
+                return pw
+        return self.home
+
+    def load_components(self):
+        """按页面加载组件"""
+        pm = self.page_manager
+        if pm is None:
+            logger.warning("[ComponentManager] PageManager 未初始化")
             return
 
-        components_list = data.get("components", [])
-        for comp_data in components_list[:self.MAX_COMPONENTS]:
-            comp_id = comp_data.get("id")
-            comp_type = comp_data.get("type")
-            comp_style = comp_data.get("style")
-
-            if not comp_id or not comp_type or not comp_style:
-                logger.warning(f"组件数据不完整: {comp_data}")
+        total = 0
+        for page_index, meta in enumerate(pm.pages()):
+            if meta.type != "info":
                 continue
+            for comp_data in meta.components:
+                if total >= self.MAX_COMPONENTS:
+                    break
+                comp_id = comp_data.get("id")
+                comp_type = comp_data.get("type")
+                comp_style = comp_data.get("style")
 
-            # 获取组件类
-            style_info = COMPONENT_STYLES.get(comp_type, {}).get(comp_style)
-            if not style_info or style_info.get("class") is None:
-                logger.warning(f"组件样式未注册: {comp_type}/{comp_style}")
-                continue
+                if not comp_id or not comp_type or not comp_style:
+                    logger.warning(f"组件数据不完整: {comp_data}")
+                    continue
 
-            comp_class = style_info["class"]
-            try:
-                instance = comp_class(self.home, comp_data)
-                # 恢复组件尺寸 show() 设位置
-                size_data = comp_data.get("size")
-                if size_data and size_data.get("w") and size_data.get("h"):
-                    instance.resize(size_data["w"], size_data["h"])
-                else:
-                    default_size = style_info.get("default_size", (200, 80))
-                    instance.resize(*default_size)
-                instance._size_explicitly_set = True
-                if comp_data.get("enabled", True):
-                    instance.show()
-                else:
+                style_info = COMPONENT_STYLES.get(comp_type, {}).get(comp_style)
+                if not style_info or style_info.get("class") is None:
+                    logger.warning(f"组件样式未注册: {comp_type}/{comp_style}")
+                    continue
+
+                comp_class = style_info["class"]
+                try:
+                    parent_widget = self._get_parent_widget(page_index)
+                    instance = comp_class(parent_widget, comp_data)
+                    size_data = comp_data.get("size")
+                    if size_data and size_data.get("w") and size_data.get("h"):
+                        instance.resize(size_data["w"], size_data["h"])
+                    else:
+                        default_size = style_info.get("default_size", (200, 80))
+                        instance.resize(*default_size)
+                    instance._size_explicitly_set = True
                     instance.hide()
-                # show() 触发 showEvent 但 _size_explicitly_set=True 不会 adjustSize
-                instance.setPositionPercent(
-                    comp_data.get("position", {}).get("x", 0.5),
-                    comp_data.get("position", {}).get("y", 0.5)
-                )
+                    instance.setPositionPercent(
+                        comp_data.get("position", {}).get("x", 0.5),
+                        comp_data.get("position", {}).get("y", 0.5)
+                    )
 
-                self.components[comp_id] = instance
-                self._component_data[comp_id] = comp_data
-                logger.info(f"加载组件: {comp_id} ({comp_type}/{comp_style})")
-            except Exception as e:
-                logger.error(f"创建组件失败 {comp_id}: {e}")
+                    comp_data["page_index"] = page_index
+                    self.components[comp_id] = instance
+                    self._component_data[comp_id] = comp_data
+                    total += 1
+                    logger.info(f"加载组件: {comp_id} ({comp_type}/{comp_style}) page={page_index}")
+                except Exception as e:
+                    logger.error(f"创建组件失败 {comp_id}: {e}")
+            if total >= self.MAX_COMPONENTS:
+                break
+        logger.info(f"[ComponentManager] 共加载 {total} 个组件")
 
     def save_components(self):
-        """保存到 config/components.json"""
-        data = {"components": []}
+        """按页面分块保存组件"""
+        pm = self.page_manager
+        if pm is None:
+            return
+
+        page_components = {}  # page_index -> list of comp_data
         for comp_id, instance in self.components.items():
             pos_x, pos_y = instance.getPositionPercent()
+            stored = self._component_data.get(comp_id, {})
+            page_index = stored.get("page_index", 0)
             comp_data = {
                 "id": comp_id,
-                "type": self._component_data.get(comp_id, {}).get("type", "unknown"),
-                "style": self._component_data.get(comp_id, {}).get("style", "unknown"),
+                "type": stored.get("type", "unknown"),
+                "style": stored.get("style", "unknown"),
                 "position": {"x": pos_x, "y": pos_y},
                 "size": {"w": instance.width(), "h": instance.height()},
-                "enabled": instance.isVisible(),
-                "config": self._component_data.get(comp_id, {}).get("config", {}),
+                "enabled": stored.get("enabled", True),
+                "page_index": page_index,
+                "config": stored.get("config", {}),
             }
+            page_components.setdefault(page_index, []).append(comp_data)
 
-            data["components"].append(comp_data)
+        for page_index, meta in enumerate(pm.pages()):
+            if meta.type == "info":
+                meta.components = page_components.get(page_index, [])
 
-        try:
-            with open(COMPONENTS_CONFIG_PATH, "w", encoding="utf-8") as f:
-                json.dump(data, f, indent=2, ensure_ascii=False)
-            logger.info(f"保存组件配置到: {COMPONENTS_CONFIG_PATH}")
-        except Exception as e:
-            logger.error(f"保存组件配置失败: {e}")
+        pm.save()
+        logger.info("[ComponentManager] 组件已保存")
 
-    def add_component(self, comp_type: str, comp_style: str, config=None) -> str:
-        """添加新组件"""
+    def add_component(self, comp_type: str, comp_style: str, config=None, page_index: int = 0) -> str:
+        """添加新组件到指定页面"""
         if len(self.components) >= self.MAX_COMPONENTS:
             logger.warning(f"组件数量上限: {self.MAX_COMPONENTS}")
             return ""
@@ -402,23 +409,23 @@ class ComponentManager:
             "position": {"x": 0.5, "y": 0.5},
             "size": {"w": default_size[0], "h": default_size[1]},
             "enabled": True,
+            "page_index": page_index,
             "config": config or style_info.get("default_config", {}),
         }
 
         comp_class = style_info["class"]
         try:
-            instance = comp_class(self.home, comp_data)
+            parent_widget = self._get_parent_widget(page_index)
+            instance = comp_class(parent_widget, comp_data)
             instance.resize(*default_size)
             instance._size_explicitly_set = True
             instance.show()
-            # show() 触发 showEvent 调 adjustSize() 可能改变尺寸
-            # 目的防止加载数据之后布局变了
             instance.setPositionPercent(0.5, 0.5)
 
             self.components[comp_id] = instance
             self._component_data[comp_id] = comp_data
             self.save_components()
-            logger.info(f"添加组件: {comp_id} ({comp_type}/{comp_style})")
+            logger.info(f"添加组件: {comp_id} ({comp_type}/{comp_style}) page={page_index}")
             return comp_id
         except Exception as e:
             logger.error(f"创建组件失败: {e}")
@@ -438,8 +445,38 @@ class ComponentManager:
         logger.info(f"删除组件: {comp_id}")
 
     def get_all_containers(self) -> list:
-        """返回 DraggableContainer 实例"""
+        """返回 DraggableContainer """
         return list(self.components.values())
+
+    def get_components_by_page(self, page_index: int) -> list:
+        """返回指定页面的所有容器"""
+        result = []
+        for comp_id, instance in self.components.items():
+            stored = self._component_data.get(comp_id, {})
+            if stored.get("page_index", 0) == page_index:
+                result.append(instance)
+        return result
+
+    def get_component_page(self, comp_id: str) -> int:
+        """获取组件所属页面"""
+        return self._component_data.get(comp_id, {}).get("page_index", 0)
+
+    def set_component_page(self, comp_id: str, page_index: int):
+        """设置组件所属页面"""
+        if comp_id in self._component_data:
+            self._component_data[comp_id]["page_index"] = page_index
+            self.save_components()
+
+    def shift_pages_after_delete(self, deleted_index: int, fallback_index: int = 0):
+        """删除页面后：把大于 deleted_index 的页面 page_index 减 1
+        等于 deleted_index 的迁移到 fallback_index"""
+        for comp_id, stored in self._component_data.items():
+            pi = stored.get("page_index", 0)
+            if pi == deleted_index:
+                stored["page_index"] = fallback_index
+            elif pi > deleted_index:
+                stored["page_index"] = pi - 1
+        self.save_components()
 
     def get_component_data(self, comp_id: str) -> dict:
         """获取单个组件的配置数据"""
@@ -508,7 +545,7 @@ class DraggableWidget(QWidget):
             try:
                 child.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, transparent)
             except RuntimeError:
-                pass  # 已销毁的子部件
+                pass
 
     def setSelected(self, selected: bool):
         self._selected = selected
@@ -561,13 +598,11 @@ class DraggableWidget(QWidget):
 
         if getattr(self, '_dragging', False): return
 
-        # 选中后
         if getattr(self, '_selected', False):
             painter = QPainter(self)
             painter.setRenderHint(painter.RenderHint.Antialiasing)
             color = QColor(getattr(self, '_cached_primary_color', QColor(48, 195, 97)))
 
-            # 选中框在组件边缘向内缩进4px
             border_rect = QRectF(self.rect()).adjusted(4, 4, -4, -4)
 
             # 外发光
@@ -588,7 +623,6 @@ class DraggableWidget(QWidget):
             painter.setBrush(Qt.BrushStyle.NoBrush)
             painter.drawRoundedRect(QRectF(self.rect()).adjusted(3, 3, -3, -3), 8, 8)
 
-            # 弧线
             w = self.width()
             h = self.height()
             arc_r = 18
@@ -604,7 +638,6 @@ class DraggableWidget(QWidget):
             painter.setPen(outer_pen)
             painter.drawArc(arc_rect, int(-30 * 16), int(-60 * 16))
 
-            # 内层弧线
             inner_color = QColor(color)
             inner_color.setAlpha(230)
             inner_pen = QPen(inner_color)
@@ -927,6 +960,8 @@ class ComponentConfigDialog(MessageBoxBase):
     def _init_ui(self):
         self.setWindowTitle(tr("component_edit.config_title"))
         self.widget.setMinimumSize(520, 480)
+        self.widget.setObjectName("componentEdit")
+        self.setStyleSheet(load_qss('component.qss'))
 
         self._pivot = Pivot(self)
         self._stack = QStackedWidget(self)
@@ -934,7 +969,6 @@ class ComponentConfigDialog(MessageBoxBase):
         # 基础设置
         self._basic_page = ScrollArea()
         self._basic_page.setWidgetResizable(True)
-        self._basic_page.setStyleSheet("background: transparent; border: none;")
         basic_content = QWidget()
         self._build_basic_page(basic_content)
         self._basic_page.setWidget(basic_content)
@@ -947,7 +981,6 @@ class ComponentConfigDialog(MessageBoxBase):
         # 进阶设置
         self._advanced_page = ScrollArea()
         self._advanced_page.setWidgetResizable(True)
-        self._advanced_page.setStyleSheet("background: transparent; border: none;")
         advanced_content = QWidget()
         self._build_advanced_page(advanced_content)
         self._advanced_page.setWidget(advanced_content)
@@ -1052,7 +1085,7 @@ class ComponentConfigDialog(MessageBoxBase):
             row.setContentsMargins(0, 0, 0, 0)
             row.setSpacing(4)
             row.addWidget(BodyLabel(self.label_text, dialog))
-            self._widget = QLineEdit(dialog)
+            self._widget = LineEdit(dialog)
             self._widget.setPlaceholderText(self._placeholder)
             row.addWidget(self._widget)
             return row
@@ -1110,7 +1143,7 @@ class ComponentConfigDialog(MessageBoxBase):
             self._val_lbl.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
             top.addWidget(self._val_lbl)
             row.addLayout(top)
-            self._widget = QSlider(Qt.Orientation.Horizontal, dialog)
+            self._widget = Slider(Qt.Orientation.Horizontal, dialog)
             self._widget.setRange(self._min, self._max)
             self._widget.setValue(self.default)
             self._widget.valueChanged.connect(lambda v: self._val_lbl.setText(f"{v}{self._suffix}"))
@@ -1161,6 +1194,139 @@ class ComponentConfigDialog(MessageBoxBase):
             c = self._picker.color()
             result[self.key + "_color"] = c.name() if c.isValid() else "#ffffff"
 
+    class _AppListField(_Field):
+        """应用列表字段"""
+        def __init__(self, key, label_text, default):
+            super().__init__(key, label_text, default)
+            self._container = None
+            self._dialog = None
+
+        def build(self, dialog):
+            from core.config import cfg as _cfg
+            from core.config import save_cfg as _save_cfg
+            self._dialog = dialog
+            self._cfg = _cfg
+            self._save_cfg = _save_cfg
+
+            layout = QVBoxLayout()
+            layout.setContentsMargins(0, 0, 0, 0)
+            layout.setSpacing(8)
+            layout.addWidget(BodyLabel(self.label_text, dialog))
+
+            self._container = QVBoxLayout()
+            self._container.setSpacing(6)
+            layout.addLayout(self._container)
+
+            self._add_btn = PushButton(FUI.ADD, tr("component_edit.config_app_add"), dialog)
+            self._add_btn.clicked.connect(self._add_app)
+            layout.addWidget(self._add_btn)
+
+            self._render_list()
+            return layout
+
+        def _render_list(self):
+            if not self._container:
+                return
+            while self._container.count():
+                item = self._container.takeAt(0)
+                if item and item.widget():
+                    item.widget().deleteLater()
+
+            apps = list(self._cfg.quickLaunchApps.value or [])
+            if not apps:
+                empty = BodyLabel(tr("component_edit.config_app_empty"), self._dialog)
+                empty.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                self._container.addWidget(empty)
+                return
+
+            for i, app in enumerate(apps):
+                self._container.addWidget(self._build_app_row(app, i))
+
+        def _build_app_row(self, app, idx):
+            row = QWidget()
+            row_layout = QHBoxLayout(row)
+            row_layout.setContentsMargins(0, 0, 0, 0)
+            row_layout.setSpacing(8)
+
+            icon_lbl = QLabel()
+            icon_lbl.setFixedSize(24, 24)
+            icon_path = get_ql_icon_path(app.get("icon", ""))
+            if icon_path and os.path.exists(icon_path):
+                pm = QPixmap(icon_path)
+                if not pm.isNull():
+                    icon_lbl.setPixmap(pm.scaled(
+                        24, 24, Qt.AspectRatioMode.KeepAspectRatio,
+                        Qt.TransformationMode.SmoothTransformation))
+
+            name_lbl = BodyLabel(app.get("name", ""), self._dialog)
+            type_text = tr(f"component_edit.config_app_type_{app.get('type', 'app')}")
+            type_lbl = BodyLabel(f"[{type_text}]", self._dialog)
+            type_lbl.setObjectName("appTypeLabel")
+
+            edit_btn = PushButton(tr("component_edit.config_app_edit"), self._dialog)
+            edit_btn.setFixedHeight(32)
+            edit_btn.clicked.connect(lambda _, i=idx: self._edit_app(i))
+
+            del_btn = PushButton(tr("component_edit.config_app_delete"), self._dialog)
+            del_btn.setFixedHeight(32)
+            del_btn.clicked.connect(lambda _, i=idx: self._delete_app(i))
+
+            row_layout.addWidget(icon_lbl)
+            row_layout.addWidget(name_lbl, 1)
+            row_layout.addWidget(type_lbl)
+            row_layout.addWidget(edit_btn)
+            row_layout.addWidget(del_btn)
+            return row
+
+        def _add_app(self):
+            from ui.home import AppEditDialog
+            d = AppEditDialog(self._dialog, None)
+            if d.exec():
+                result = d.get_app_data()
+                if result:
+                    apps = list(self._cfg.quickLaunchApps.value or [])
+                    apps.append(result)
+                    self._cfg.quickLaunchApps.value = apps
+                    self._save_cfg()
+                    self._render_list()
+
+        def _edit_app(self, idx):
+            from ui.home import AppEditDialog
+            apps = list(self._cfg.quickLaunchApps.value or [])
+            if idx >= len(apps):
+                return
+            d = AppEditDialog(self._dialog, apps[idx])
+            if d.exec():
+                result = d.get_app_data()
+                if result:
+                    apps[idx] = result
+                    self._cfg.quickLaunchApps.value = apps
+                    self._save_cfg()
+                    self._render_list()
+
+        def _delete_app(self, idx):
+            from qfluentwidgets import MessageBox
+            apps = list(self._cfg.quickLaunchApps.value or [])
+            if idx >= len(apps):
+                return
+            name = apps[idx].get("name", "")
+            box = MessageBox(
+                tr("component_edit.config_confirm_delete"),
+                tr("component_edit.config_confirm_delete_msg", name=name),
+                self._dialog
+            )
+            if box.exec():
+                apps.pop(idx)
+                self._cfg.quickLaunchApps.value = apps
+                self._save_cfg()
+                self._render_list()
+
+        def load(self, config):
+            pass
+
+        def save(self, result):
+            pass
+
     # 组件配置注册表
     # key 对应返回 [(分组标题, [字段实例, ...]), ...] 的函数。
     def _basic_defs(self):
@@ -1185,8 +1351,8 @@ class ComponentConfigDialog(MessageBoxBase):
             ],
             "countdown|event": lambda: [
                 (tr("component_edit.group_target"), [
-                    self._TextField("target_name", tr("component_edit.config_target_name"), ""),
-                    self._TextField("target_date", tr("component_edit.config_target_date"), "", "YYYY-MM-DD"),
+                    self._TextField("event_name", tr("component_edit.config_event_name"), ""),
+                    self._TextField("target_time", tr("component_edit.config_target_time"), "", "YYYY-MM-DD HH:MM"),
                 ]),
             ],
             "school_info|class_info": lambda: [
@@ -1208,8 +1374,8 @@ class ComponentConfigDialog(MessageBoxBase):
                 ]),
             ],
             "quick_launch|dock": lambda: [
-                (tr("component_edit.group_display"), [
-                    self._SpinField("icon_size", tr("component_edit.config_icon_size"), 64, 24, 96),
+                (tr("component_edit.group_apps"), [
+                    self._AppListField("apps", tr("component_edit.config_apps"), []),
                 ]),
             ],
         }
@@ -1278,14 +1444,12 @@ class ComponentConfigDialog(MessageBoxBase):
         """添加一个配置分组"""
         # 标题可选 例如班级卡片那个外观配置
         group_box = QWidget()
-        group_box.setStyleSheet("QWidget { background: transparent; }")
         group_layout = QVBoxLayout(group_box)
         group_layout.setContentsMargins(0, 0, 0, 0)
         group_layout.setSpacing(8)
         if title:
             group_layout.addWidget(StrongBodyLabel(title, self))
         content = QWidget()
-        content.setStyleSheet("QWidget { background: transparent; }")
         content_layout = QVBoxLayout(content)
         content_layout.setContentsMargins(12, 4, 0, 4)
         content_layout.setSpacing(10)
@@ -1669,7 +1833,7 @@ class LyricsWidget(QWidget):
         self.update()
 
 
-class MediaProgressBar(QProgressBar):
+class MediaProgressBar(ProgressBar):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setTextVisible(False)
@@ -1827,12 +1991,12 @@ class MediaWidget(QWidget):
         right_col.setSpacing(6)
         right_col.setContentsMargins(0, 2, 0, 0)
 
-        self._title = QLabel(tr("media.not_playing"))  # 未在播放
+        self._title = SubtitleLabel(tr("media.not_playing"))  # 未在播放
         self._title.setObjectName("mediaTitleLabel")
         self._title.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         right_col.addWidget(self._title)
 
-        self._artist = QLabel("")
+        self._artist = CaptionLabel("")
         self._artist.setObjectName("mediaArtistLabel")
         self._artist.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         right_col.addWidget(self._artist)
@@ -1847,7 +2011,7 @@ class MediaWidget(QWidget):
         pl.setContentsMargins(0, 4, 0, 0)
         pl.setSpacing(8)
 
-        self._time = QLabel("0:00")
+        self._time = CaptionLabel("0:00")
         self._time.setObjectName("mediaTimeLabel")
         self._time.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         pl.addWidget(self._time)
@@ -1856,7 +2020,7 @@ class MediaWidget(QWidget):
         self._bar.setRange(0, 100)
         pl.addWidget(self._bar, 1)
 
-        self._dur = QLabel("0:00")
+        self._dur = CaptionLabel("0:00")
         self._dur.setObjectName("mediaDurationLabel")
         self._dur.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         pl.addWidget(self._dur)
@@ -2337,26 +2501,22 @@ class MediaWidget(QWidget):
         close_media()
 
 
-
-DEFAULT_ICON_DIR = 'default_icon'
-
-def get_default_icon_path(icon_filename='exe.ico'):
-    base_dir = BASE_DIR
-    return os.path.join(base_dir, 'data', DEFAULT_ICON_DIR, icon_filename)
-
 def get_ql_icon_path(icon_filename):
     if not icon_filename:
         return None
     base_dir = BASE_DIR
-    icon_path = os.path.join(base_dir, 'data', 'ql_icon', icon_filename)
-    if os.path.exists(icon_path):
-        return icon_path
-    sw_path = os.path.join(base_dir, 'data', 'software_icon', icon_filename)
-    if os.path.exists(sw_path):
-        return sw_path
-    default_icon = get_default_icon_path(icon_filename)
-    if os.path.exists(default_icon):
-        return default_icon
+    for sub in ('ql_icon', 'software_icon', 'default_icon'):
+        p = os.path.join(base_dir, 'data', sub, icon_filename)
+        if os.path.exists(p):
+            return p
+    root, ext = os.path.splitext(icon_filename)
+    if ext.lower() in ('.png', '.ico'):
+        alt_ext = '.ico' if ext.lower() == '.png' else '.png'
+        alt_name = root + alt_ext
+        for sub in ('ql_icon', 'software_icon', 'default_icon'):
+            p = os.path.join(base_dir, 'data', sub, alt_name)
+            if os.path.exists(p):
+                return p
     return None
 
 def get_ql_icon_save_dir():
@@ -2406,22 +2566,27 @@ def resolve_app_from_path(file_path):
     fi = QFileInfo(real_path if os.path.exists(real_path) else file_path)
     icon = provider.icon(fi)
     icon_filename = 'exe.ico'
+    pixmap = QPixmap()
     sizes = icon.availableSizes()
     if sizes:
         best_size = max(sizes, key=lambda s: s.width() * s.height())
         pixmap = icon.pixmap(best_size)
-        if not pixmap.isNull():
-            target_size = 256
-            if pixmap.width() < target_size:
-                pixmap = pixmap.scaled(target_size, target_size, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
-            cleaned_name = re.sub(r'[^\w\u4e00-\u9fff]', '', name)
-            if cleaned_name:
-                icon_filename = cleaned_name + '.ico'
-            else:
-                icon_filename = 'default.ico'
-            icon_dir = get_ql_icon_save_dir()
-            icon_save_path = os.path.join(icon_dir, icon_filename)
-            pixmap.save(icon_save_path, 'PNG')
+    if pixmap.isNull():
+        pixmap = icon.pixmap(256, 256)
+    if pixmap.isNull():
+        pixmap = icon.pixmap(32, 32)
+    if not pixmap.isNull():
+        target_size = 256
+        if pixmap.width() < target_size:
+            pixmap = pixmap.scaled(target_size, target_size, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+        cleaned_name = re.sub(r'[^\w\u4e00-\u9fff]', '', name)
+        if cleaned_name:
+            icon_filename = cleaned_name + '.png'
+        else:
+            icon_filename = 'exe.png'
+        icon_dir = get_ql_icon_save_dir()
+        icon_save_path = os.path.join(icon_dir, icon_filename)
+        pixmap.save(icon_save_path, 'PNG')
 
     return {"name": name, "path": real_path, "icon": icon_filename, "type": app_type}
 
@@ -2540,24 +2705,6 @@ class QuickLaunchDock(QWidget):
         if idx < 0 or idx >= len(self._apps):
             return
         self._start_bounce(idx)
-
-    def update_icon_size(self, size):
-        self._icon_gap = cfg.quickLaunchIconSpacing.value
-        self._show_labels = cfg.quickLaunchShowLabels.value
-        self._pixmaps = []
-        for a in self._apps:
-            fn = a.get("icon", "exe.ico")
-            p = get_ql_icon_path(fn)
-            pm = None
-            if p and os.path.exists(p):
-                raw = QPixmap(p)
-                if not raw.isNull():
-                    dpr = self.devicePixelRatioF() if hasattr(self, 'devicePixelRatioF') else self.devicePixelRatio()
-                    raw.setDevicePixelRatio(dpr)
-                    pm = raw
-            self._pixmaps.append(pm)
-        self._fix_size()
-        self.update()
 
     def _bg_rect(self):
         sz = self._sz()
@@ -3118,18 +3265,20 @@ class QuickLaunchDock(QWidget):
             return
 
         dark = isDarkTheme()
+        radius = max(0, cfg.componentCardRadius.value)
+        op = max(0.0, min(1.0, cfg.componentCardOpacity.value / 100.0))
 
         path = QPainterPath()
-        path.addRoundedRect(bg, self.RADIUS, self.RADIUS)
+        path.addRoundedRect(bg, radius, radius)
 
         if dark:
-            bg_c = QColor(30, 30, 32, 165)
+            bg_c = QColor(30, 30, 32, int(255 * op))
             brd_c = QColor(255, 255, 255, 20)
             sh_top = QColor(255, 255, 255, 22)
             sh_mid = QColor(255, 255, 255, 6)
             inner_glow = QColor(255, 255, 255, 8)
         else:
-            bg_c = QColor(235, 235, 240, 172)
+            bg_c = QColor(235, 235, 240, int(255 * op))
             brd_c = QColor(0, 0, 0, 12)
             sh_top = QColor(255, 255, 255, 95)
             sh_mid = QColor(255, 255, 255, 18)
@@ -3139,7 +3288,7 @@ class QuickLaunchDock(QWidget):
 
         shadow_path = QPainterPath()
         sr = QRectF(bg.x() + 1.5, bg.y() + 2, bg.width() - 3, bg.height() * 0.5)
-        shadow_path.addRoundedRect(sr, self.RADIUS - 3, self.RADIUS - 3)
+        shadow_path.addRoundedRect(sr, max(0, radius - 3), max(0, radius - 3))
         p.setBrush(QBrush(inner_glow))
         p.drawPath(shadow_path)
 
@@ -3310,11 +3459,11 @@ class DigitalClockComponent(DraggableContainer):
         self._update_time()
 
     def _setup_ui(self):
-        self.clockLabel = QLabel("00:00:00")
+        self.clockLabel = BodyLabel("00:00:00")
         self.clockLabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.clockLabel.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 
-        self.dateLabel = QLabel("")
+        self.dateLabel = CaptionLabel("")
         self.dateLabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.dateLabel.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 
@@ -3528,7 +3677,7 @@ class WeatherIconTempComponent(WeatherComponentBase):
         cfg.weatherIconSize.valueChanged.connect(self._update_icon_size)
 
     def _setup_ui(self):
-        self.tempLabel = QLabel("")
+        self.tempLabel = BodyLabel("")
         self.tempLabel.setObjectName("weatherTempLabel")
         self.tempLabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.tempLabel.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
@@ -3653,12 +3802,12 @@ class WeatherHourlyComponent(WeatherComponentBase):
         left_layout.setContentsMargins(0, 0, 0, 0)
         left_layout.setSpacing(2)
 
-        self.cityLabel = QLabel("--")
+        self.cityLabel = SubtitleLabel("--")
         self.cityLabel.setAlignment(Qt.AlignmentFlag.AlignLeft)
         self.cityLabel.setCursor(Qt.CursorShape.PointingHandCursor)
         self.cityLabel.setToolTip(tr("weather_service.select_region"))
 
-        self.currentTempLabel = QLabel("--°")
+        self.currentTempLabel = BodyLabel("--°")
         self.currentTempLabel.setAlignment(Qt.AlignmentFlag.AlignLeft)
 
         left_layout.addWidget(self.cityLabel)
@@ -3676,7 +3825,7 @@ class WeatherHourlyComponent(WeatherComponentBase):
         self.currentIconLabel.setAlignment(Qt.AlignmentFlag.AlignRight)
         self.currentIconLabel.setFixedSize(self._scaled_px(60), self._scaled_px(60))
 
-        self.alertLabel = QLabel("")
+        self.alertLabel = CaptionLabel("")
         self.alertLabel.setAlignment(Qt.AlignmentFlag.AlignRight)
 
         right_layout.addWidget(self.currentIconLabel)
@@ -3703,14 +3852,14 @@ class WeatherHourlyComponent(WeatherComponentBase):
             col_layout.setSpacing(3)
             col_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-            time_label = QLabel("--:00")
+            time_label = CaptionLabel("--:00")
             time_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
             icon_label = QLabel()
             icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             icon_label.setFixedSize(self._scaled_px(28), self._scaled_px(28))
 
-            temp_label = QLabel("--°")
+            temp_label = CaptionLabel("--°")
             temp_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
             col_layout.addWidget(time_label)
@@ -3930,12 +4079,12 @@ class WeatherWeeklyComponent(WeatherComponentBase):
         tl_layout.setContentsMargins(0, 0, 0, 0)
         tl_layout.setSpacing(2)
 
-        self.cityLabel = QLabel("--")
+        self.cityLabel = SubtitleLabel("--")
         self.cityLabel.setAlignment(Qt.AlignmentFlag.AlignLeft)
         self.cityLabel.setCursor(Qt.CursorShape.PointingHandCursor)
         self.cityLabel.setToolTip(tr("weather_service.select_region"))
 
-        self.currentTempLabel = QLabel("--°")
+        self.currentTempLabel = BodyLabel("--°")
         self.currentTempLabel.setAlignment(Qt.AlignmentFlag.AlignLeft)
 
         tl_layout.addWidget(self.cityLabel)
@@ -3976,7 +4125,7 @@ class WeatherWeeklyComponent(WeatherComponentBase):
             row_layout.setContentsMargins(0, 0, 0, 0)
             row_layout.setSpacing(0)
 
-            day_label = QLabel("--")
+            day_label = CaptionLabel("--")
             day_label.setFixedWidth(self._scaled_px(40))
             day_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
 
@@ -3984,14 +4133,14 @@ class WeatherWeeklyComponent(WeatherComponentBase):
             icon_label.setFixedSize(self._scaled_px(18), self._scaled_px(18))
             icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-            low_label = QLabel("--")
+            low_label = CaptionLabel("--")
             low_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
             low_label.setObjectName(f"weeklyLow_{i}")
 
             spacer = QLabel()
             spacer.setFixedWidth(self._scaled_px(8))
 
-            high_label = QLabel("--°")
+            high_label = CaptionLabel("--°")
             high_label.setFixedWidth(self._scaled_px(28))
             high_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
             high_label.setObjectName(f"weeklyHigh_{i}")
@@ -4184,10 +4333,11 @@ class PoetryOneLineComponent(DraggableContainer):
         self._setup_timer()
 
     def _setup_ui(self):
-        self.poetryLabel = QLabel("")
+        self.poetryLabel = BodyLabel("")
         self.poetryLabel.setObjectName("poetryLabel")
-        self.poetryLabel.setAlignment(Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignHCenter)
-        self.poetryLabel.setWordWrap(False)
+        self.poetryLabel.setAlignment(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter)
+        self.poetryLabel.setWordWrap(True)
+        self.poetryLabel.setTextFormat(Qt.TextFormat.RichText)
         self.poetryLabel.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 
         layout = self.inner_layout
@@ -4208,7 +4358,7 @@ class PoetryOneLineComponent(DraggableContainer):
         cfg.showPoetry.valueChanged.connect(self._refresh_poetry)
         cfg.poetryApiUrl.valueChanged.connect(self._refresh_poetry)
         cfg.poetryUpdateInterval.valueChanged.connect(self._update_interval)
-        cfg.poetryTextColor.valueChanged.connect(self._apply_style) 
+        cfg.poetryTextColor.valueChanged.connect(self._apply_style)
         cfg.poetrySize.valueChanged.connect(self._apply_style)
 
         if hasattr(self._home, 'poetry_updated'):
@@ -4217,10 +4367,29 @@ class PoetryOneLineComponent(DraggableContainer):
         self._update_interval()
         self._refresh_poetry()
 
+    def _format_poetry(self, text):
+        """格式化一言"""
+        if not text:
+            return ""
+        content = text.strip()
+        attribution = ""
+        for sep in ["——", "—"]:
+            if sep in content:
+                content, _, attribution = content.partition(sep)
+                content = content.strip()
+                attribution = attribution.strip()
+                break
+        # 逗号换行
+        content = re.sub(r'([,，])', r'\1<br>', content).strip()
+        content = content.removesuffix('<br>').rstrip()
+        if attribution:
+            return f"<div>{content}</div><div>{attribution}</div>"
+        return f"<div>{content}</div>"
+
     def _update_poetry(self, text):
         """收到信号更新显示"""
         if text:
-            self.poetryLabel.setText(text)
+            self.poetryLabel.setText(self._format_poetry(text))
             self.updateSize()
 
     def _update_interval(self):
@@ -4234,9 +4403,8 @@ class PoetryOneLineComponent(DraggableContainer):
             return
         self.show()
 
-        # 缓存获取
         if hasattr(self._home, '_cached_poetry') and self._home._cached_poetry:
-            self.poetryLabel.setText(self._home._cached_poetry)
+            self.poetryLabel.setText(self._format_poetry(self._home._cached_poetry))
         else:
             self.poetryLabel.setText("")
 
@@ -4317,7 +4485,7 @@ class NewsComponent(DraggableContainer):
 
         self.itemWidgets = []
         for i in range(self._item_count):
-            item_label = QLabel("--")
+            item_label = BodyLabel("--")
             item_label.setWordWrap(True)
             item_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
             item_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
@@ -4444,13 +4612,23 @@ class CountdownEventComponent(DraggableContainer):
         super().__init__(parent, component_id=component_data["id"], layout_direction="vertical")
         self.setObjectName("countdownContainer")
         self._home = parent
-        self._carousel_index = 0
+        self._click_start_pos = QPoint()
+        self._read_config(component_data.get("config", {}))
         self._setup_ui()
         self._setup_timer()
 
+    def _read_config(self, config):
+        self._event_name = config.get("event_name", getattr(self, "_event_name", "")) or ""
+        self._target_time = config.get("target_time", getattr(self, "_target_time", "")) or ""
+
+    def apply_config(self, config):
+        self._read_config(config)
+        self._update_countdown()
+
     def _setup_ui(self):
-        self.countdownLabel = QLabel("")
+        self.countdownLabel = BodyLabel("")
         self.countdownLabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.countdownLabel.setWordWrap(True)
         self.countdownLabel.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 
         layout = self.inner_layout
@@ -4463,69 +4641,27 @@ class CountdownEventComponent(DraggableContainer):
         self._size_explicitly_set = True
         self.resize(200, 200)
         self._apply_style()
+
     def _setup_timer(self):
         self.timer = QTimer(self)
         self.timer.timeout.connect(self._update_countdown)
         self.timer.start(1000)
-
-        self.carousel_timer = QTimer(self)
-        self.carousel_timer.timeout.connect(self._next_carousel)
-
-        cfg.showCountdown.valueChanged.connect(self._update_countdown)
-        cfg.countdownDisplayMode.valueChanged.connect(self._update_countdown)
-        cfg.countdownCarouselInterval.valueChanged.connect(self._update_carousel_interval)
-        cfg.countdownList.valueChanged.connect(self._update_countdown)
         cfg.countdownTextColor.valueChanged.connect(self._apply_style)
         cfg.countdownTextSize.valueChanged.connect(self._apply_style)
-
-        self._update_carousel_interval()
         self._update_countdown()
 
-    def _update_carousel_interval(self):
-        interval = cfg.countdownCarouselInterval.value
-        self.carousel_timer.setInterval(interval * 1000)
-        if cfg.countdownDisplayMode.value == "carousel":
-            self.carousel_timer.start()
-        else:
-            self.carousel_timer.stop()
-
-    def _next_carousel(self):
-        countdown_list = cfg.countdownList.value
-        if countdown_list:
-            self._carousel_index = (self._carousel_index + 1) % len(countdown_list)
-            self._update_countdown()
+    def _is_configured(self):
+        return bool(self._event_name and self._target_time)
 
     def _update_countdown(self):
-        if not cfg.showCountdown.value:
-            self.hide()
-            return
-        self.show()
-
-        countdown_list = cfg.countdownList.value
-        if not countdown_list:
-            self.countdownLabel.setText(tr("countdown.no_events"))
+        if not self._is_configured():
+            self.countdownLabel.setText(tr("countdown.click_to_config"))
+            self.updateSize()
             return
 
-        display_mode = cfg.countdownDisplayMode.value
-
-        if display_mode == "carousel":
-            idx = self._carousel_index % len(countdown_list)
-            event = countdown_list[idx]
-            self._display_event(event)
-        else:
-            # 显示第一个或最近的
-            event = countdown_list[0]
-            self._display_event(event)
-
-    def _display_event(self, event):
-        name = event.get("name", "")
-        target_time = event.get("targetTime")
-        if not target_time:
-            self.countdownLabel.setText(name)
-            return
-
+        name = self._event_name
         try:
-            target_dt = py_datetime.datetime.fromisoformat(target_time)
+            target_dt = py_datetime.datetime.fromisoformat(self._target_time)
             now = py_datetime.datetime.now()
             delta = target_dt - now
 
@@ -4533,13 +4669,13 @@ class CountdownEventComponent(DraggableContainer):
                 days = delta.days
                 hours, remainder = divmod(delta.seconds, 3600)
                 minutes, seconds = divmod(remainder, 60)
-                text = f"{name}: {days}天 {hours}时 {minutes}分 {seconds}秒"
+                text = f"{name}\n{days}天 {hours}时 {minutes}分 {seconds}秒"
             else:
-                text = f"{name}: 已到期"
-
+                text = f"{name}\n{tr('countdown.expired')}"
             self.countdownLabel.setText(text)
         except Exception:
             self.countdownLabel.setText(name)
+        self.updateSize()
 
     def _apply_style(self):
         self._apply_card_style()
@@ -4558,6 +4694,20 @@ class CountdownEventComponent(DraggableContainer):
     def apply_scale(self, factor):
         self._apply_style()
 
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._click_start_pos = event.globalPosition().toPoint()
+        super().mousePressEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton and hasattr(self, '_click_start_pos'):
+            delta = event.globalPosition().toPoint() - self._click_start_pos
+            if abs(delta.x()) < 5 and abs(delta.y()) < 5:
+                self._on_config_clicked()
+                event.accept()
+                return
+        super().mouseReleaseEvent(event)
+
 
 class SchoolInfoComponent(DraggableContainer):
     """班级卡片组件"""
@@ -4566,6 +4716,7 @@ class SchoolInfoComponent(DraggableContainer):
         super().__init__(parent, component_id=component_data["id"], layout_direction="vertical")
         self.setObjectName("schoolInfoContainer")
         self._home = parent
+        self._click_start_pos = QPoint()
         self._read_config(component_data.get("config", {}))
         self._setup_ui()
 
@@ -4609,10 +4760,10 @@ class SchoolInfoComponent(DraggableContainer):
         # 班级 人数
         class_row = QHBoxLayout()
         class_row.setContentsMargins(0, 0, 0, 0)
-        self.classLabel = QLabel("")
+        self.classLabel = StrongBodyLabel("")
         self.classLabel.setObjectName("schoolClassLabel")
         self.classLabel.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
-        self.countLabel = QLabel("")
+        self.countLabel = CaptionLabel("")
         self.countLabel.setObjectName("schoolCountLabel")
         self.countLabel.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         class_row.addWidget(self.classLabel, 1)
@@ -4620,13 +4771,13 @@ class SchoolInfoComponent(DraggableContainer):
         top_layout.addLayout(class_row)
 
         # 学校名
-        self.nameLabel = QLabel("")
+        self.nameLabel = BodyLabel("")
         self.nameLabel.setObjectName("schoolNameLabel")
         self.nameLabel.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         top_layout.addWidget(self.nameLabel)
 
         # 口号 组件背景为背景
-        self.sloganLabel = QLabel("")
+        self.sloganLabel = BodyLabel("")
         self.sloganLabel.setObjectName("schoolSloganLabel")
         self.sloganLabel.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         self.sloganLabel.setContentsMargins(20, 4, 20, 4)
@@ -4686,7 +4837,20 @@ class SchoolInfoComponent(DraggableContainer):
         font_scale = self._font_scale / 100.0
         return max(1, int(base_px * font_scale * self._scale_factor))
 
+    def _is_configured(self):
+        return bool(self._class or self._school or self._count or self._slogan)
+
     def _update_info(self):
+        if not self._is_configured():
+            # 未配置显示提示
+            self.classLabel.setText(tr("school_info_component.click_to_config"))
+            self.classLabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.countLabel.setText("")
+            self.nameLabel.setText("")
+            self.sloganLabel.setText("")
+            return
+
+        self.classLabel.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         class_text = self._class
         school_text = self._school
         slogan_text = self._slogan
@@ -4703,6 +4867,22 @@ class SchoolInfoComponent(DraggableContainer):
             self.countLabel.setText(f"{self._count}人")
         else:
             self.countLabel.setText("")
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._click_start_pos = event.globalPosition().toPoint()
+        super().mousePressEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        if (event.button() == Qt.MouseButton.LeftButton
+                and hasattr(self, '_click_start_pos')
+                and not self._is_configured()):
+            delta = event.globalPosition().toPoint() - self._click_start_pos
+            if abs(delta.x()) < 5 and abs(delta.y()) < 5:
+                self._on_config_clicked()
+                event.accept()
+                return
+        super().mouseReleaseEvent(event)
 
     def showEvent(self, event):
         super().showEvent(event)
@@ -4774,51 +4954,101 @@ class QuickLaunchDockComponent(DraggableContainer):
         super().__init__(parent, component_id=component_data["id"], layout_direction="vertical")
         self.setObjectName("quickLaunchContainer")
         self._home = parent
+        self._click_start_pos = QPoint()
+        self._dock = None
+        self._placeholder = None
         self._setup_ui()
         self._setup_signals()
 
     def _setup_ui(self):
-        self.dock = QuickLaunchDock(self)
-        self.dock.setObjectName("quickLaunchDock")
-
         layout = self.inner_layout
         layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.setContentsMargins(20, 16, 20, 16)
-        layout.addWidget(self.dock)
+
+        self._dock = QuickLaunchDock(self)
+        self._dock.setObjectName("quickLaunchDock")
+        layout.addWidget(self._dock)
+
+        self._placeholder = CaptionLabel(tr("quick_launch_component.click_to_config"))
+        self._placeholder.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._placeholder.setWordWrap(True)
+        self._placeholder.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        layout.addWidget(self._placeholder)
 
         self._set_natural_size(400, 200)
         self.setMinimumSize(120, 80)
         self._size_explicitly_set = True
         self.resize(400, 200)
 
-        # 加载应用
-        apps = cfg.quickLaunchApps.value
-        if apps:
-            self.dock.set_apps(apps)
+        self._apply_style()
+        self._update_apps()
+
+    def _apply_style(self):
+        self.setStyleSheet("#quickLaunchContainer { background: transparent; }")
+        if self._placeholder:
+            is_dark = isDarkTheme()
+            color = "#cccccc" if is_dark else "#666666"
+            size = cfg.quickLaunchIconSize.value if hasattr(cfg, 'quickLaunchIconSize') else 14
+            self._placeholder.setStyleSheet(f"""
+                color: {color};
+                font-size: {max(12, int(size * 0.22))}px;
+                font-family: {FONT_FAMILY};
+                background-color: transparent;
+            """)
+        if self._dock:
+            self._dock.update()
+        self.updateSize()
 
     def apply_scale(self, factor):
-        self.dock.set_scale_factor(factor)
-        self.dock._fix_size()
-        self.dock.update()
+        if self._dock:
+            self._dock.set_scale_factor(factor)
+            self._dock._fix_size()
+            self._dock.update()
+        self._apply_style()
 
     def _setup_signals(self):
-        cfg.showQuickLaunch.valueChanged.connect(self._on_visibility_changed)
+        cfg.showQuickLaunch.valueChanged.connect(self._update_apps)
         cfg.quickLaunchApps.valueChanged.connect(self._update_apps)
         cfg.quickLaunchIconSize.valueChanged.connect(self._update_apps)
         cfg.quickLaunchIconSpacing.valueChanged.connect(self._update_apps)
         cfg.quickLaunchShowLabels.valueChanged.connect(self._update_apps)
 
-    def _on_visibility_changed(self):
-        if cfg.showQuickLaunch.value:
-            self.show()
-            self._update_apps()
-        else:
-            self.hide()
+    def _has_apps(self):
+        apps = cfg.quickLaunchApps.value
+        return bool(apps)
 
     def _update_apps(self):
+        if not cfg.showQuickLaunch.value:
+            self.hide()
+            return
+        self.show()
+
         apps = cfg.quickLaunchApps.value
         if apps:
-            self.dock.set_apps(apps)
+            self._dock.set_apps(apps)
+            self._dock.show()
+            self._placeholder.hide()
+        else:
+            self._dock.set_apps([])
+            self._dock.hide()
+            self._placeholder.show()
+        self.updateSize()
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._click_start_pos = event.globalPosition().toPoint()
+        super().mousePressEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        if (event.button() == Qt.MouseButton.LeftButton
+                and hasattr(self, '_click_start_pos')
+                and not self._has_apps()):
+            delta = event.globalPosition().toPoint() - self._click_start_pos
+            if abs(delta.x()) < 5 and abs(delta.y()) < 5:
+                self._on_config_clicked()
+                event.accept()
+                return
+        super().mouseReleaseEvent(event)
 
 
 SOLAR_TERMS_CN = [
@@ -5015,6 +5245,7 @@ class _DayCell(QWidget):
             painter.setPen(QColor("#ffffff") if self._is_today else QColor("#c0c0c0"))
             sub_rect = QRect(r.left(), int(mid), w, int(h - mid))
             painter.drawText(sub_rect, Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter, self._sub_text)
+        painter.end()
 
 
 class CalendarMonthComponent(DraggableContainer):
@@ -5045,7 +5276,7 @@ class CalendarMonthComponent(DraggableContainer):
         title_layout.setContentsMargins(0, 0, 0, 0)
         title_layout.setSpacing(0)
 
-        self._title_label = QLabel("")
+        self._title_label = SubtitleLabel("")
         self._title_label.setObjectName("calTitle")
         title_layout.addWidget(self._title_label)
         title_layout.addStretch()
@@ -5076,7 +5307,7 @@ class CalendarMonthComponent(DraggableContainer):
         wk_layout.setContentsMargins(0, 0, 0, 0)
         wk_layout.setSpacing(0)
         for i, n in enumerate(wk_names):
-            lbl = QLabel(n)
+            lbl = CaptionLabel(n)
             lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
             lbl.setObjectName("calWk")
             if i == 0 or i == 6:
@@ -5115,7 +5346,6 @@ class CalendarMonthComponent(DraggableContainer):
     def _setup_timer(self):
         self._timer = QTimer(self)
         self._timer.timeout.connect(self._check_day_change)
-        self._timer.start(60000)
 
     def _check_day_change(self):
         t = QDate.currentDate()
@@ -5222,6 +5452,14 @@ class CalendarMonthComponent(DraggableContainer):
         self._down_btn.setFixedSize(self._scaled_px(28), self._scaled_px(18))
         self._apply_style()
 
+    def showEvent(self, e):
+        super().showEvent(e)
+        self._timer.start(60000)
+
+    def hideEvent(self, e):
+        self._timer.stop()
+        super().hideEvent(e)
+
 
 class _TimetableRow(QWidget):
     """单行课程/课间"""
@@ -5253,7 +5491,7 @@ class _TimetableRow(QWidget):
         self._main_layout.addWidget(self._content)
 
         # 进度条 当前行显示
-        self._progress = QProgressBar(self)
+        self._progress = ProgressBar(self)
         self._progress.setObjectName("timetableProgress")
         self._progress.setFixedHeight(3)
         self._progress.setTextVisible(False)
@@ -5324,17 +5562,17 @@ class TimetablePreviewComponent(DraggableContainer):
         layout.setSpacing(6)
 
         # 标题
-        self._title_label = QLabel("今日课表")
+        self._title_label = SubtitleLabel(tr("timetable.today_schedule"))
         self._title_label.setObjectName("timetableTitle")
         layout.addWidget(self._title_label)
 
         # 滚动区域
-        self._scroll = QScrollArea(self)
+        self._scroll = ScrollArea(self)
         self._scroll.setObjectName("timetableScroll")
         self._scroll.setWidgetResizable(True)
         self._scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self._scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
-        self._scroll.setFrameShape(QScrollArea.Shape.NoFrame)
+        self._scroll.setFrameShape(ScrollArea.Shape.NoFrame)
 
         self._scroll_content = QWidget()
         self._scroll_content.setObjectName("timetableScrollContent")
@@ -5358,12 +5596,10 @@ class TimetablePreviewComponent(DraggableContainer):
         # 定时刷新 自动滚动
         self._refresh_timer = QTimer(self)
         self._refresh_timer.timeout.connect(self._on_timer)
-        self._refresh_timer.start(5000)
 
         # 进度条更新
         self._progress_timer = QTimer(self)
         self._progress_timer.timeout.connect(self._update_progress)
-        self._progress_timer.start(1000)
 
         # 监听用户手动滚动
         self._scroll.verticalScrollBar().sliderReleased.connect(self._on_user_scroll_action)
@@ -5575,18 +5811,18 @@ class TimetablePreviewComponent(DraggableContainer):
         past_suffix = "Past" if is_past else ""
 
         # 第几节
-        idx_lbl = QLabel(f"第{index}节")
+        idx_lbl = CaptionLabel(f"第{index}节")
         idx_lbl.setObjectName("timetableIdx" + past_suffix)
         idx_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         row.addWidget(idx_lbl)
 
         # 课程名
-        subj_lbl = QLabel(subject or "—")
+        subj_lbl = BodyLabel(subject or "—")
         subj_lbl.setObjectName("timetableSubj" + past_suffix)
         row.addWidget(subj_lbl, 1)
 
         # 时间
-        time_lbl = QLabel(f"{start}~{end}")
+        time_lbl = CaptionLabel(f"{start}~{end}")
         time_lbl.setObjectName("timetableTime" + past_suffix)
         time_lbl.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         row.addWidget(time_lbl)
@@ -5596,12 +5832,12 @@ class TimetablePreviewComponent(DraggableContainer):
     def _build_break_row(self, start, end, break_name, is_current=True):
         row = _TimetableRow(is_current=is_current, is_break=True, parent=self)
 
-        lbl = QLabel(break_name or "课间")
+        lbl = BodyLabel(break_name or "课间")
         lbl.setObjectName("timetableBreakLabel")
         lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         row.addWidget(lbl, 1)
 
-        time_lbl = QLabel(f"{start}~{end}")
+        time_lbl = CaptionLabel(f"{start}~{end}")
         time_lbl.setObjectName("timetableTime")
         time_lbl.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         row.addWidget(time_lbl)
@@ -5611,7 +5847,7 @@ class TimetablePreviewComponent(DraggableContainer):
     def _build_empty_row(self):
         """空行"""
         row = _TimetableRow(is_current=False, is_break=False, parent=self)
-        lbl = QLabel("今天没有课程")
+        lbl = BodyLabel("今天没有课程")
         lbl.setObjectName("timetableEmpty")
         lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         row.addWidget(lbl, 1)
@@ -5825,6 +6061,13 @@ class TimetablePreviewComponent(DraggableContainer):
     def showEvent(self, e):
         super().showEvent(e)
         self._apply_style()
+        self._refresh_timer.start(5000)
+        self._progress_timer.start(1000)
+
+    def hideEvent(self, e):
+        self._refresh_timer.stop()
+        self._progress_timer.stop()
+        super().hideEvent(e)
 
 
 
@@ -5851,7 +6094,6 @@ class TimetableNowLessonComponent(DraggableContainer):
 
         self._timer = QTimer(self)
         self._timer.timeout.connect(self._refresh)
-        self._timer.start(1000)
         self._refresh()
 
     def apply_config(self, config):
@@ -5890,19 +6132,19 @@ class TimetableNowLessonComponent(DraggableContainer):
         left_layout.setContentsMargins(0, 0, 0, 0)
         left_layout.setSpacing(4)
 
-        self._subject_label = QLabel("--")
+        self._subject_label = BodyLabel("--")
         self._subject_label.setObjectName("miniSubject")
         self._subject_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         self._subject_label.setWordWrap(True)
         self._subject_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         left_layout.addWidget(self._subject_label, 3)
 
-        self._countdown_label = QLabel("")
+        self._countdown_label = CaptionLabel("")
         self._countdown_label.setObjectName("miniCountdown")
         self._countdown_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         left_layout.addWidget(self._countdown_label, 1)
 
-        self._time_progress_label = QLabel("-- min / -- min")
+        self._time_progress_label = CaptionLabel("-- min / -- min")
         self._time_progress_label.setObjectName("miniTimeLabel")
         self._time_progress_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         left_layout.addWidget(self._time_progress_label, 1)
@@ -5916,19 +6158,19 @@ class TimetableNowLessonComponent(DraggableContainer):
         right_layout.setContentsMargins(0, 0, 0, 0)
         right_layout.setSpacing(8)
 
-        self._teacher_label = QLabel("--")
+        self._teacher_label = CaptionLabel("--")
         self._teacher_label.setObjectName("miniTeacher")
         self._teacher_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         self._teacher_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         right_layout.addWidget(self._teacher_label, 1)
 
-        self._time_label = QLabel("--:-- ~ --:--")
+        self._time_label = CaptionLabel("--:-- ~ --:--")
         self._time_label.setObjectName("miniTime")
         self._time_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         self._time_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         right_layout.addWidget(self._time_label, 1)
 
-        self._next_label = QLabel("下节课：--")
+        self._next_label = CaptionLabel("下节课：--")
         self._next_label.setObjectName("miniNext")
         self._next_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         self._next_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
@@ -5940,7 +6182,7 @@ class TimetableNowLessonComponent(DraggableContainer):
         layout.addWidget(main, 1)
 
         # 进度条
-        self._bottom_progress = QProgressBar(self)
+        self._bottom_progress = ProgressBar(self)
         self._bottom_progress.setFixedHeight(self._scaled_px(6))
         self._bottom_progress.setRange(0, 100)
         self._bottom_progress.setValue(0)
@@ -6246,6 +6488,11 @@ class TimetableNowLessonComponent(DraggableContainer):
     def showEvent(self, e):
         super().showEvent(e)
         self._apply_style()
+        self._timer.start(1000)
+
+    def hideEvent(self, e):
+        self._timer.stop()
+        super().hideEvent(e)
 
 
 class CalculatorComponent(DraggableContainer):
@@ -6263,7 +6510,7 @@ class CalculatorComponent(DraggableContainer):
 
     def _setup_ui(self):
         # 历史表达式行
-        self.history_display = QLabel("")
+        self.history_display = CaptionLabel("")
         self.history_display.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         self.history_display.setWordWrap(False)
         self.history_display.setTextFormat(Qt.TextFormat.RichText)
@@ -6274,7 +6521,7 @@ class CalculatorComponent(DraggableContainer):
         self.history_display.setStyleSheet("color: rgba(255, 255, 255, 0.5); font-size: 14px; background: transparent; border: none; padding: 0 8px;")
 
         # 显示区
-        self.display = QLabel("0")
+        self.display = BodyLabel("0")
         self.display.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         self.display.setWordWrap(False)
         self.display.setTextFormat(Qt.TextFormat.RichText)
@@ -6298,7 +6545,7 @@ class CalculatorComponent(DraggableContainer):
 
         self.buttons = {}
         for text, row, col in button_specs:
-            btn = QPushButton(text)
+            btn = PushButton(text)
             btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
             btn.setObjectName(f"calcBtn_{text}")
             btn.clicked.connect(lambda _, t=text: self._on_button_click(t))
@@ -6462,7 +6709,7 @@ class CalculatorComponent(DraggableContainer):
         for text, btn in self.buttons.items():
             if text in operator_keys:
                 btn.setStyleSheet(f"""
-                    QPushButton {{
+                    PushButton {{
                         color: {btn_op_text};
                         font-size: {sz_op}px;
                         font-family: {FONT_FAMILY};
@@ -6470,13 +6717,13 @@ class CalculatorComponent(DraggableContainer):
                         border: none;
                         border-radius: {radius}px;
                     }}
-                    QPushButton:pressed {{
+                    PushButton:pressed {{
                         background-color: rgba(255, 159, 10, 0.7);
                     }}
                 """)
             else:
                 btn.setStyleSheet(f"""
-                    QPushButton {{
+                    PushButton {{
                         color: #ffffff;
                         font-size: {sz_num}px;
                         font-family: {FONT_FAMILY};
@@ -6484,7 +6731,7 @@ class CalculatorComponent(DraggableContainer):
                         border: none;
                         border-radius: {radius}px;
                     }}
-                    QPushButton:pressed {{
+                    PushButton:pressed {{
                         background-color: {btn_num_press};
                     }}
                 """)
@@ -6637,7 +6884,8 @@ class CalculatorComponent(DraggableContainer):
 
         try:
             expr = re.sub(r'(-?\d+\.?\d*)%', r'(\1/100)', expr)
-            result = eval(expr)
+            # 限制命名空间
+            result = eval(expr, {"__builtins__": {}}, {})
 
             if isinstance(result, float) and result.is_integer():
                 result = int(result)
@@ -6690,43 +6938,50 @@ class CalculatorComponent(DraggableContainer):
 
 
 class _OverToolBtn(QWidget):
-    """按钮"""
+    """悬浮工具栏按钮"""
 
     clicked = pyqtSignal()
+    doubleClicked = pyqtSignal()
 
-    def __init__(self, icon_pm: QPixmap, text: str, parent=None):
+    def __init__(self, icon, text: str, parent=None):
         super().__init__(parent)
-        self.setFixedSize(56, 72)
+        self.setFixedSize(52, 64)
         self._checked = False
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(2, 4, 2, 2)
-        layout.setSpacing(2)
+        layout.setContentsMargins(2, 6, 2, 4)
+        layout.setSpacing(3)
 
         self._icon_label = QLabel(self)
-        self._icon_label.setPixmap(icon_pm)
-        self._icon_label.setFixedSize(28, 28)
+        self._icon_label.setFixedSize(24, 24)
         self._icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self._icon_label, 0, Qt.AlignmentFlag.AlignCenter)
 
-        self._text_label = QLabel(text, self)
+        self._text_label = CaptionLabel(text, self)
         self._text_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._text_label.setStyleSheet("font-size:11px;color:#cccccc;border:none;background:transparent;")
+        self._text_label.setStyleSheet(
+            f"font-size:12px;font-family:{FONT_FAMILY};color:#aaaaaa;border:none;background:transparent;")
         layout.addWidget(self._text_label, 0, Qt.AlignmentFlag.AlignCenter)
 
+        self._icon = icon
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self._update_style()
 
     def _update_style(self):
         if self._checked:
             self.setStyleSheet(
-                "_OverToolBtn{background:rgba(0,95,184,180);border-radius:6px;}"
+                "_OverToolBtn{background:rgba(0,120,212,200);border-radius:6px;}"
             )
-            self._text_label.setStyleSheet("font-size:11px;color:#ffffff;border:none;background:transparent;")
+            self._text_label.setStyleSheet(
+                f"font-size:12px;font-weight:600;font-family:{FONT_FAMILY};color:#ffffff;border:none;background:transparent;")
+            self._icon_label.setPixmap(self._icon.icon().pixmap(24, 24))
         else:
             self.setStyleSheet(
-                "_OverToolBtn{background:rgba(60,60,60,160);border-radius:6px;}"
+                "_OverToolBtn{background:transparent;border-radius:6px;}"
+                "_OverToolBtn:hover{background:rgba(255,255,255,25);}"
             )
-            self._text_label.setStyleSheet("font-size:11px;color:#aaaaaa;border:none;background:transparent;")
+            self._text_label.setStyleSheet(
+                f"font-size:12px;font-family:{FONT_FAMILY};color:#aaaaaa;border:none;background:transparent;")
+            self._icon_label.setPixmap(self._icon.icon().pixmap(24, 24))
 
     def setChecked(self, v: bool):
         self._checked = v
@@ -6739,626 +6994,37 @@ class _OverToolBtn(QWidget):
         self.clicked.emit()
         super().mousePressEvent(event)
 
+    def mouseDoubleClickEvent(self, event):
+        self.doubleClicked.emit()
+        super().mouseDoubleClickEvent(event)
 
-# RealTimeStylus COM 定义
 
-# RTS CLSID & IIDs
-CLSID_RealTimeStylus = GUID("{E5757EA0-CEFB-11D2-A5D7-0000F8054F0C}")
-IID_IRealTimeStylus = GUID("{A3DC27C8-269D-4E43-B0F9-78F5C114FE4B}")
-IID_IRealTimeStylus2 = GUID("{A64CB03D-8E2E-4A4B-BD5C-6A9C90B99474}")
-IID_IRealTimeStylus3 = GUID("{B9F17D8A-DD08-4E22-B0B0-D5905F7CF82C}")
-IID_IStylusSyncPlugin = GUID("{D67A9CDA-C2D9-4C8D-BF6F-560DB4254E40}")
+# WM_POINTER
 
-# 数据包属性 GUID
-GUID_X = GUID("{598A6A85-3C4F-4E50-AF0E-9C42B42A4888}")
-GUID_Y = GUID("{B9F0B728-BF01-45F4-91CC-3640C02B059A}")
-GUID_NORMAL_PRESSURE = GUID("{4B2F21EA-0DF3-4E43-9F6B-C6D41DEB0C1A}")
-GUID_WIDTH = GUID("{7359E68C-0C0D-4392-B2F1-9D17CF61ECF6}")
-GUID_HEIGHT = GUID("{4803AC82-FA13-4F5D-86B0-50591453E2AB}")
-
-# RealTimeStylus 数据兴趣标志
-RTSDI_StylusDown = 0x00000020
-RTSDI_Packets = 0x00000080
-RTSDI_StylusUp = 0x00000010
-
-# HRESULT 在部分中缺失
+# HRESULT 兼容定义
 if not hasattr(wintypes, 'HRESULT'):
     wintypes.HRESULT = wintypes.LONG
 
 S_OK = 0
-E_NOINTERFACE = 0x80004002
 
 # IID_IUnknown
 IID_IUnknown = GUID("{00000000-0000-0000-C000-000000000046}")
 
-# SUCCEEDED / FAILED 宏
-def SUCCEEDED(hr):
-    return hr >= 0
-def FAILED(hr):
-    return hr < 0
-
-# WM_POINTER 常量与结构──
+# WM_POINTER 消息
 WM_POINTERDOWN   = 0x0246
 WM_POINTERUPDATE = 0x0245
 WM_POINTERUP     = 0x0247
 
-POINTER_FLAG_NEW      = 0x00000001
-POINTER_FLAG_INRANGE  = 0x00000002
+# POINTER_FLAG 标志位（msg.wParam 高 16 位）
 POINTER_FLAG_INCONTACT = 0x00000004
-POINTER_FLAG_FIRSTBUTTON = 0x00000010
-POINTER_FLAG_SECONDBUTTON = 0x00000020
-POINTER_FLAG_PRIMARY  = 0x00000040
-POINTER_FLAG_CONFIDENCE = 0x00000080
-POINTER_FLAG_CANCELLED = 0x00000100
-POINTER_FLAG_DOWN     = 0x00010000
-POINTER_FLAG_UPDATE   = 0x00020000
-POINTER_FLAG_UP       = 0x00040000
 
-class _POINT(ctypes.Structure):
-    _fields_ = [("x", ctypes.c_long), ("y", ctypes.c_long)]
-
+# 指针类型
 PT_TOUCH = 2
 
+# GetPointerType 函数绑定
 _GetPointerType = ctypes.windll.user32.GetPointerType
 _GetPointerType.restype = wintypes.BOOL
 _GetPointerType.argtypes = [ctypes.c_uint32, ctypes.POINTER(ctypes.c_uint32)]
-
-# WM_POINTER 常量与结构
-
-# StylusInfo 结构
-class _StylusInfo(ctypes.Structure):
-    _fields_ = [
-        ("tcid", wintypes.UINT),
-        ("cid", wintypes.UINT),
-        ("bIsInvertedCursor", wintypes.BOOL),
-    ]
-
-class _PropertyMetrics(ctypes.Structure):
-    _fields_ = [
-        ("nLogicalMin", wintypes.UINT),
-        ("nLogicalMax", wintypes.UINT),
-        ("nUnits", wintypes.UINT),
-        ("fResolution", ctypes.c_float),
-    ]
-
-class _PacketProperty(ctypes.Structure):
-    _fields_ = [
-        ("guid", GUID),
-        ("metrics", _PropertyMetrics),
-    ]
-
-# IStylusSyncPlugin 回调
-
-# 注册表：COM 对象地址 到 _WritingOverlay 实例
-_rts_plugin_registry = {}
-_rts_plugin_lock = threading.Lock()
-
-# 事件队列：RTS 线程 到 Qt 主线程
-_rts_event_queue = deque()
-_rts_event_lock = threading.Lock()
-
-def _rts_push_event(ev_type, x, y, cid):
-    """推送触控事件到队列"""
-    with _rts_event_lock:
-        _rts_event_queue.append((ev_type, x, y, cid))
-
-# IStylusSyncPlugin 回调函数
-
-# StylusInfo 指针解引用辅助
-def _rts_read_stylus_info(p_stylus_info):
-    si = ctypes.cast(p_stylus_info, ctypes.POINTER(_StylusInfo))
-    return si.contents
-
-# 从 LONG* 包数据中提取第 nth 个 LONG
-def _rts_packet_long(packet, index):
-    arr = ctypes.cast(packet, ctypes.POINTER(wintypes.LONG))
-    return arr[index]
-
-@ctypes.WINFUNCTYPE(wintypes.HRESULT, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p)
-def _plugin_QueryInterface(self_ptr, riid, ppv_out):
-    """IUnknown::QueryInterface — 只暴露 IStylusSyncPlugin 和 IUnknown"""
-    ppv = ctypes.cast(ppv_out, ctypes.POINTER(ctypes.c_void_p))
-    with _rts_plugin_lock:
-        ctx = _rts_plugin_registry.get(self_ptr)
-        if not ctx:
-            ppv[0] = None
-            return 0x80004003  # E_POINTER
-    riid_buf = ctypes.string_at(riid, 16)
-    riid_g = GUID(bytes=riid_buf)
-    if riid_g == IID_IStylusSyncPlugin or riid_g == IID_IUnknown:
-        obj = ctypes.cast(self_ptr, ctypes.POINTER(_RtsPluginObject))
-        obj.contents.refcount += 1
-        ppv[0] = self_ptr
-        return S_OK
-    ppv[0] = None
-    return E_NOINTERFACE
-
-@ctypes.WINFUNCTYPE(wintypes.ULONG, ctypes.c_void_p)
-def _plugin_AddRef(self_ptr):
-    obj = ctypes.cast(self_ptr, ctypes.POINTER(_RtsPluginObject))
-    obj.contents.refcount += 1
-    return obj.contents.refcount
-
-@ctypes.WINFUNCTYPE(wintypes.ULONG, ctypes.c_void_p)
-def _plugin_Release(self_ptr):
-    obj = ctypes.cast(self_ptr, ctypes.POINTER(_RtsPluginObject))
-    obj.contents.refcount -= 1
-    ref = obj.contents.refcount
-    if ref == 0:
-        with _rts_plugin_lock:
-            _rts_plugin_registry.pop(self_ptr, None)
-    return ref
-
-@ctypes.WINFUNCTYPE(wintypes.HRESULT, ctypes.c_void_p, ctypes.c_void_p, wintypes.UINT, ctypes.c_void_p)
-def _plugin_RealTimeStylusEnabled(self_ptr, piRtsSrc, cTcid, pTcids):
-    return S_OK
-
-@ctypes.WINFUNCTYPE(wintypes.HRESULT, ctypes.c_void_p, ctypes.c_void_p, wintypes.UINT, ctypes.c_void_p)
-def _plugin_RealTimeStylusDisabled(self_ptr, piRtsSrc, cTcid, pTcids):
-    return S_OK
-
-@ctypes.WINFUNCTYPE(wintypes.HRESULT, ctypes.c_void_p, ctypes.c_void_p, wintypes.UINT, wintypes.UINT)
-def _plugin_StylusInRange(self_ptr, piRtsSrc, tcid, cid):
-    return S_OK
-
-@ctypes.WINFUNCTYPE(wintypes.HRESULT, ctypes.c_void_p, ctypes.c_void_p, wintypes.UINT, wintypes.UINT)
-def _plugin_StylusOutOfRange(self_ptr, piRtsSrc, tcid, cid):
-    return S_OK
-
-@ctypes.WINFUNCTYPE(wintypes.HRESULT, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, wintypes.UINT, ctypes.c_void_p, ctypes.c_void_p)
-def _plugin_StylusDown(self_ptr, piRtsSrc, pStylusInfo, cPktCount, pPacket, ppInOutPkts):
-    """StylusDown — 触摸按下"""
-    si = _rts_read_stylus_info(pStylusInfo)
-    with _rts_plugin_lock:
-        ctx = _rts_plugin_registry.get(self_ptr)
-    if ctx is None:
-        return S_OK
-    
-    overlay = ctx[0]  # ctx = (overlay, obj)
-    scale_x = ctypes.c_float(1.0)
-    scale_y = ctypes.c_float(1.0)
-    try:
-        # 获取 inkToDeviceScale 缓存在 overlay 上
-        rts = overlay._rts
-        if rts:
-            cProps = wintypes.UINT(0)
-            ppProps = ctypes.c_void_p(0)
-            hr = rts.GetPacketDescriptionData(si.tcid,
-                ctypes.byref(scale_x), ctypes.byref(scale_y),
-                ctypes.byref(cProps), ctypes.byref(ppProps))
-            if SUCCEEDED(hr):
-                overlay._rts_scale_x = scale_x.value
-                overlay._rts_scale_y = scale_y.value
-                if ppProps.value:
-                    ctypes.windll.ole32.CoTaskMemFree(ppProps.value)
-    except Exception:
-        pass
-    
-    x = _rts_packet_long(pPacket, 0) * scale_x.value
-    y = _rts_packet_long(pPacket, 1) * scale_y.value
-    _rts_push_event("down", x, y, si.cid)
-    return S_OK
-
-@ctypes.WINFUNCTYPE(wintypes.HRESULT, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, wintypes.UINT, ctypes.c_void_p, ctypes.c_void_p)
-def _plugin_StylusUp(self_ptr, piRtsSrc, pStylusInfo, cPktCount, pPacket, ppInOutPkts):
-    """StylusUp — 触摸抬起"""
-    si = _rts_read_stylus_info(pStylusInfo)
-    with _rts_plugin_lock:
-        ctx = _rts_plugin_registry.get(self_ptr)
-    if ctx is None:
-        return S_OK
-    _rts_push_event("up", 0.0, 0.0, si.cid)
-    return S_OK
-
-@ctypes.WINFUNCTYPE(wintypes.HRESULT, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, wintypes.UINT, wintypes.UINT, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p)
-def _plugin_Packets(self_ptr, piRtsSrc, pStylusInfo, cPktCount, cPktBuffLength, pPacket, pcInOutPkts, ppInOutPkts):
-    """Packets — 触摸移动"""
-    si = _rts_read_stylus_info(pStylusInfo)
-    with _rts_plugin_lock:
-        ctx = _rts_plugin_registry.get(self_ptr)
-    if ctx is None:
-        return S_OK
-    
-    overlay = ctx[0]
-    try:
-        sx = overlay._rts_scale_x if hasattr(overlay, '_rts_scale_x') else 1.0
-        sy = overlay._rts_scale_y if hasattr(overlay, '_rts_scale_y') else 1.0
-    except Exception:
-        sx = sy = 1.0
-    
-    x = _rts_packet_long(pPacket, 0) * sx
-    y = _rts_packet_long(pPacket, 1) * sy
-    _rts_push_event("move", x, y, si.cid)
-    return S_OK
-
-# 其余 IStylusSyncPlugin 返回 S_OK
-@ctypes.WINFUNCTYPE(wintypes.HRESULT, ctypes.c_void_p, ctypes.c_void_p, wintypes.UINT, ctypes.c_void_p, ctypes.c_void_p)
-def _plugin_StylusButtonUp(self_ptr, piRtsSrc, stylusId, pGuid, pPt):
-    return S_OK
-
-@ctypes.WINFUNCTYPE(wintypes.HRESULT, ctypes.c_void_p, ctypes.c_void_p, wintypes.UINT, ctypes.c_void_p, ctypes.c_void_p)
-def _plugin_StylusButtonDown(self_ptr, piRtsSrc, stylusId, pGuid, pPt):
-    return S_OK
-
-@ctypes.WINFUNCTYPE(wintypes.HRESULT, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, wintypes.UINT, wintypes.UINT, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p)
-def _plugin_InAirPackets(self_ptr, piRtsSrc, pStylusInfo, cPktCount, cPktBuffLength, pPacket, pcInOutPkts, ppInOutPkts):
-    return S_OK
-
-@ctypes.WINFUNCTYPE(wintypes.HRESULT, ctypes.c_void_p, ctypes.c_void_p, wintypes.UINT, wintypes.UINT, wintypes.UINT, ctypes.c_void_p)
-def _plugin_SystemEvent(self_ptr, piRtsSrc, tcid, cid, event, data):
-    return S_OK
-
-@ctypes.WINFUNCTYPE(wintypes.HRESULT, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p)
-def _plugin_TabletAdded(self_ptr, piRtsSrc, pTablet):
-    return S_OK
-
-@ctypes.WINFUNCTYPE(wintypes.HRESULT, ctypes.c_void_p, ctypes.c_void_p, wintypes.LONG)
-def _plugin_TabletRemoved(self_ptr, piRtsSrc, lid):
-    return S_OK
-
-@ctypes.WINFUNCTYPE(wintypes.HRESULT, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, wintypes.UINT, ctypes.c_void_p)
-def _plugin_CustomStylusDataAdded(self_ptr, piRtsSrc, pGuid, data, pData):
-    return S_OK
-
-@ctypes.WINFUNCTYPE(wintypes.HRESULT, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, wintypes.HRESULT, ctypes.c_void_p)
-def _plugin_Error(self_ptr, piRtsSrc, pPlugin, dataInterest, hrError, ptr):
-    return S_OK
-
-@ctypes.WINFUNCTYPE(wintypes.HRESULT, ctypes.c_void_p, ctypes.c_void_p)
-def _plugin_UpdateMapping(self_ptr, piRtsSrc):
-    return S_OK
-
-@ctypes.WINFUNCTYPE(wintypes.HRESULT, ctypes.c_void_p, ctypes.c_void_p)
-def _plugin_DataInterest(self_ptr, pDataInterest):
-    """DataInterest — 声明感兴趣的事件类型"""
-    di = ctypes.cast(pDataInterest, ctypes.POINTER(wintypes.UINT))
-    di[0] = RTSDI_StylusDown | RTSDI_Packets | RTSDI_StylusUp
-    return S_OK
-
-# IStylusSyncPlugin vtable 表
-_rts_plugin_vtable = (ctypes.c_void_p * 20)(
-    ctypes.cast(_plugin_QueryInterface, ctypes.c_void_p),
-    ctypes.cast(_plugin_AddRef, ctypes.c_void_p),
-    ctypes.cast(_plugin_Release, ctypes.c_void_p),
-    ctypes.cast(_plugin_RealTimeStylusEnabled, ctypes.c_void_p),
-    ctypes.cast(_plugin_RealTimeStylusDisabled, ctypes.c_void_p),
-    ctypes.cast(_plugin_StylusInRange, ctypes.c_void_p),
-    ctypes.cast(_plugin_StylusOutOfRange, ctypes.c_void_p),
-    ctypes.cast(_plugin_StylusDown, ctypes.c_void_p),
-    ctypes.cast(_plugin_StylusUp, ctypes.c_void_p),
-    ctypes.cast(_plugin_StylusButtonUp, ctypes.c_void_p),
-    ctypes.cast(_plugin_StylusButtonDown, ctypes.c_void_p),
-    ctypes.cast(_plugin_InAirPackets, ctypes.c_void_p),
-    ctypes.cast(_plugin_Packets, ctypes.c_void_p),
-    ctypes.cast(_plugin_SystemEvent, ctypes.c_void_p),
-    ctypes.cast(_plugin_TabletAdded, ctypes.c_void_p),
-    ctypes.cast(_plugin_TabletRemoved, ctypes.c_void_p),
-    ctypes.cast(_plugin_CustomStylusDataAdded, ctypes.c_void_p),
-    ctypes.cast(_plugin_Error, ctypes.c_void_p),
-    ctypes.cast(_plugin_UpdateMapping, ctypes.c_void_p),
-    ctypes.cast(_plugin_DataInterest, ctypes.c_void_p),
-)
-
-class _RtsPluginObject(ctypes.Structure):
-    """COM 对象布局：vtable 指针 refcount"""
-    _fields_ = [
-        ("lpVtbl", ctypes.POINTER(ctypes.c_void_p)),
-        ("refcount", ctypes.c_long),
-    ]
-
-def _rts_create_plugin(overlay):
-    """创建IStylusSyncPlugin COM 对象返回其地址指针值"""
-    obj = _RtsPluginObject()
-    obj.lpVtbl = ctypes.pointer(_rts_plugin_vtable)
-    obj.refcount = 1
-    addr = ctypes.addressof(obj)
-    # obj 保存在注册表中
-    with _rts_plugin_lock:
-        _rts_plugin_registry[addr] = (overlay, obj)
-    return addr
-
-# IRealTimeStylus COM 接口辅助
-
-# IClassFactory IID
-_ICLASS_FACTORY_IID = GUID("{00000001-0000-0000-C000-000000000046}")
-# RTS WinSxS 搜索模式（64-bit）
-_WIN32_WINNT_RTS_WXSXS = "C:\\Windows\\WinSxS\\amd64_microsoft-windows-t..platform-comruntime*\\rtscom.dll"
-
-def _find_rtscom():
-    """查找rtscom.dll"""
-    try:
-        import glob as _glob
-        paths = [p for p in _glob.glob(_WIN32_WINNT_RTS_WXSXS)
-                 if '\\r\\' not in p and '\\r\\' not in p]
-        if paths:
-            # 按版本号排序取最新
-            paths.sort(key=lambda p: _extract_version(p), reverse=True)
-            logger.info("[RTS] 选择 rtscom.dll: %s", paths[0])
-            return paths[0]
-        logger.warning("[RTS] 未找到非-stub 的 rtscom.dll, 全部路径: %s",
-                       _glob.glob(_WIN32_WINNT_RTS_WXSXS))
-    except Exception as e:
-        logger.warning("[RTS] _find_rtscom 异常: %s", e)
-    return None
-
-def _extract_version(path):
-    """取版本号"""
-    import re as _re
-    m = _re.search(r'_10\.(\d+\.\d+\.\d+)_', path)
-    if m:
-        parts = m.group(1).split('.')
-        return tuple(int(x) for x in parts)
-    return (0, 0, 0)
-
-def _find_manifest(dll_path):
-    """根据 rtscom.dll 找WinSxS manifest"""
-    try:
-        # 路径格式: ...\amd64_..._<hash>\rtscom.dll
-        import os as _os
-        dir_name = _os.path.basename(_os.path.dirname(dll_path))
-        manifest_name = dir_name + ".manifest"
-        manifest_path = _os.path.join(
-            r"C:\Windows\WinSxS\Manifests", manifest_name)
-        if _os.path.exists(manifest_path):
-            return manifest_path
-    except Exception:
-        pass
-    return None
-
-
-def _rts_create(hwnd):
-    """加载 rtscom.dll 创建 IRealTimeStylus"""
-    try:
-        # 在 WinSxS 中找到 rtscom.dll
-        dll_path = _find_rtscom()
-        if not dll_path:
-            logger.warning("[RTS] 未在 WinSxS 中找到 rtscom.dll")
-            return None
-
-        kernel32 = ctypes.windll.kernel32
-
-        # 创建 Activation Context 让 WinSxS assembly 注册 COM 类
-        manifest_path = _find_manifest(dll_path)
-        act_ctx = None
-        cookie = None
-        if manifest_path:
-            class ACTCTX(ctypes.Structure):
-                _fields_ = [
-                    ("cbSize", wintypes.DWORD),
-                    ("dwFlags", wintypes.DWORD),
-                    ("lpSource", wintypes.LPCWSTR),
-                    ("wProcessorArchitecture", wintypes.WORD),
-                    ("wLangId", wintypes.WORD),
-                    ("lpAssemblyDirectory", wintypes.LPCWSTR),
-                    ("lpResourceName", wintypes.LPCWSTR),
-                    ("lpApplicationName", wintypes.LPCWSTR),
-                    ("hModule", wintypes.HMODULE),
-                ]
-            actctx = ACTCTX()
-            actctx.cbSize = ctypes.sizeof(ACTCTX)
-            actctx.dwFlags = 0
-            actctx.lpSource = manifest_path
-
-            kernel32.CreateActCtxW.restype = ctypes.c_void_p
-            kernel32.CreateActCtxW.argtypes = [ctypes.POINTER(ACTCTX)]
-            act_ctx = kernel32.CreateActCtxW(ctypes.byref(actctx))
-            if act_ctx and act_ctx != ctypes.c_void_p(-1).value:
-                # ActivateActCtx 返回 cookie 用于后续 DeactivateActCtx
-                cookie = ctypes.c_ulong_ptr(0)
-                kernel32.ActivateActCtx.restype = wintypes.BOOL
-                kernel32.ActivateActCtx.argtypes = [
-                    ctypes.c_void_p, ctypes.POINTER(ctypes.c_ulong_ptr)]
-                if not kernel32.ActivateActCtx(act_ctx, ctypes.byref(cookie)):
-                    cookie = None
-            else:
-                act_ctx = None
-        else:
-            logger.warning("[RTS] 未找到匹配的 manifest 文件")
-
-        # 加载 rtscom.dll
-        kernel32.LoadLibraryExW.restype = wintypes.HMODULE
-        kernel32.LoadLibraryExW.argtypes = [wintypes.LPCWSTR, wintypes.HANDLE, wintypes.DWORD]
-        hmod = kernel32.LoadLibraryExW(dll_path, None, 0)
-        if not hmod:
-            logger.warning("[RTS] LoadLibraryExW 失败, err=%d",
-                          ctypes.windll.kernel32.GetLastError())
-            if cookie:
-                kernel32.DeactivateActCtx.restype = wintypes.BOOL
-                kernel32.DeactivateActCtx.argtypes = [wintypes.DWORD, ctypes.c_ulong_ptr]
-                kernel32.DeactivateActCtx(0, cookie)
-            if act_ctx:
-                kernel32.ReleaseActCtx(ctypes.c_void_p(act_ctx))
-            return None
-
-        # 获取 DllGetClassObject
-        kernel32.GetProcAddress.restype = ctypes.c_void_p
-        kernel32.GetProcAddress.argtypes = [wintypes.HMODULE, ctypes.c_char_p]
-        dll_get_class_obj = kernel32.GetProcAddress(hmod, b"DllGetClassObject")
-        if not dll_get_class_obj:
-            logger.warning("[RTS] GetProcAddress(DllGetClassObject) 失败, err=%d",
-                          ctypes.windll.kernel32.GetLastError())
-            kernel32.FreeLibrary.restype = wintypes.BOOL
-            kernel32.FreeLibrary.argtypes = [wintypes.HMODULE]
-            kernel32.FreeLibrary(hmod)
-            if cookie:
-                kernel32.DeactivateActCtx(0, cookie)
-            if act_ctx:
-                kernel32.ReleaseActCtx(ctypes.c_void_p(act_ctx))
-            return None
-
-        # DllGetClassObject(rclsid, riid, ppv)
-        DllGetClassObjectType = ctypes.WINFUNCTYPE(
-            wintypes.HRESULT,
-            ctypes.POINTER(GUID),           # REFCLSID
-            ctypes.POINTER(GUID),           # REFIID
-            ctypes.POINTER(ctypes.c_void_p) # void**
-        )
-        fn_dll_get_class_obj = ctypes.cast(dll_get_class_obj, DllGetClassObjectType)
-
-        # 获取 IClassFactory
-        factory_ptr = ctypes.c_void_p(0)
-        hr = fn_dll_get_class_obj(
-            ctypes.byref(CLSID_RealTimeStylus),
-            ctypes.byref(_ICLASS_FACTORY_IID),
-            ctypes.byref(factory_ptr))
-
-        if hr != S_OK or not factory_ptr.value:
-            logger.warning("[RTS] DllGetClassObject 失败: HRESULT=0x%08X", hr & 0xFFFFFFFF)
-            kernel32.FreeLibrary.restype = wintypes.BOOL
-            kernel32.FreeLibrary.argtypes = [wintypes.HMODULE]
-            kernel32.FreeLibrary(hmod)
-            if cookie:
-                kernel32.DeactivateActCtx(0, cookie)
-            if act_ctx:
-                kernel32.ReleaseActCtx(ctypes.c_void_p(act_ctx))
-            return None
-
-        # IClassFactory::CreateInstance(pUnkOuter, riid, ppv) — vtable slot 3
-        factory_vtable = ctypes.cast(factory_ptr.value, ctypes.POINTER(ctypes.c_void_p))
-        CreateInstanceType = ctypes.WINFUNCTYPE(
-            wintypes.HRESULT,
-            ctypes.c_void_p,                # this
-            ctypes.c_void_p,                # pUnkOuter (NULL)
-            ctypes.POINTER(GUID),           # riid
-            ctypes.POINTER(ctypes.c_void_p) # ppv
-        )
-        fn_create_instance = ctypes.cast(factory_vtable[3], CreateInstanceType)
-
-        rts_ptr = ctypes.c_void_p(0)
-        hr = fn_create_instance(
-            factory_ptr.value,
-            None,                           # pUnkOuter = NULL
-            ctypes.byref(IID_IRealTimeStylus),
-            ctypes.byref(rts_ptr))
-
-        # 释放 IClassFactory
-        ReleaseType = ctypes.WINFUNCTYPE(wintypes.ULONG, ctypes.c_void_p)
-        fn_release = ctypes.cast(factory_vtable[2], ReleaseType)
-        fn_release(factory_ptr.value)
-
-        if hr != S_OK or not rts_ptr.value:
-            logger.warning("[RTS] CreateInstance 失败: HRESULT=0x%08X", hr & 0xFFFFFFFF)
-            kernel32.FreeLibrary.restype = wintypes.BOOL
-            kernel32.FreeLibrary.argtypes = [wintypes.HMODULE]
-            kernel32.FreeLibrary(hmod)
-            if cookie:
-                kernel32.DeactivateActCtx(0, cookie)
-            if act_ctx:
-                kernel32.ReleaseActCtx(ctypes.c_void_p(act_ctx))
-            return None
-
-        # 释放激活上下文（DLL 已加载，COM 服务器已运行，清理上下文）
-        if cookie:
-            kernel32.DeactivateActCtx.restype = wintypes.BOOL
-            kernel32.DeactivateActCtx.argtypes = [wintypes.DWORD, ctypes.c_ulong_ptr]
-            kernel32.DeactivateActCtx(0, cookie)
-        if act_ctx:
-            kernel32.ReleaseActCtx(ctypes.c_void_p(act_ctx))
-
-        wrapper = _RealTimeStylusWrapper(rts_ptr.value)
-        wrapper._hmod = hmod  # 保持 DLL 在内存中不卸载
-        logger.info("[RTS] 成功创建 RTS 对象 (WinSxS)")
-        return wrapper
-
-    except Exception as e:
-        logger.warning("[RTS] 创建异常: %s", e)
-        import traceback
-        logger.warning("[RTS] traceback: %s", traceback.format_exc())
-        return None
-
-class _RealTimeStylusWrapper:
-    """IRealTimeStylus 的轻量级 ctypes 包装"""
-    def __init__(self, ptr):
-        self.ptr = ptr
-        ppv = ctypes.cast(ptr, ctypes.POINTER(ctypes.c_void_p))
-        self.vtable = ctypes.cast(ppv[0], ctypes.POINTER(ctypes.c_void_p))
-
-    def put_HWND(self, hwnd):
-        func_type = ctypes.WINFUNCTYPE(wintypes.HRESULT, ctypes.c_void_p, wintypes.HANDLE)
-        func = ctypes.cast(self.vtable[6], func_type)
-        return func(self.ptr, hwnd)
-
-    def put_Enabled(self, enabled):
-        func_type = ctypes.WINFUNCTYPE(wintypes.HRESULT, ctypes.c_void_p, wintypes.BOOL)
-        func = ctypes.cast(self.vtable[8], func_type)
-        return func(self.ptr, enabled)
-
-    def AddStylusSyncPlugin(self, index, plugin_ptr):
-        func_type = ctypes.WINFUNCTYPE(wintypes.HRESULT, ctypes.c_void_p, wintypes.UINT, ctypes.c_void_p)
-        func = ctypes.cast(self.vtable[10], func_type)
-        return func(self.ptr, index, plugin_ptr)
-
-    def SetDesiredPacketDescription(self, count, guids_ptr):
-        func_type = ctypes.WINFUNCTYPE(wintypes.HRESULT, ctypes.c_void_p, wintypes.UINT, ctypes.c_void_p)
-        func = ctypes.cast(self.vtable[26], func_type)
-        return func(self.ptr, count, guids_ptr)
-
-    def GetPacketDescriptionData(self, tcid, pScaleX, pScaleY, pPropCount, ppProps):
-        func_type = ctypes.WINFUNCTYPE(wintypes.HRESULT, ctypes.c_void_p, wintypes.UINT,
-            ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p)
-        func = ctypes.cast(self.vtable[25], func_type)
-        return func(self.ptr, tcid, pScaleX, pScaleY, pPropCount, ppProps)
-
-    def GetAllTabletContextIds(self, pCount, ppTcids):
-        func_type = ctypes.WINFUNCTYPE(wintypes.HRESULT, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p)
-        func = ctypes.cast(self.vtable[24], func_type)
-        return func(self.ptr, pCount, ppTcids)
-
-    def GetTabletFromTabletContextId(self, tcid, ppTablet):
-        func_type = ctypes.WINFUNCTYPE(wintypes.HRESULT, ctypes.c_void_p, wintypes.UINT, ctypes.c_void_p)
-        func = ctypes.cast(self.vtable[22], func_type)
-        return func(self.ptr, tcid, ppTablet)
-
-    def QueryInterface(self, riid, ppv):
-        func_type = ctypes.WINFUNCTYPE(wintypes.HRESULT, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p)
-        func = ctypes.cast(self.vtable[0], func_type)
-        return func(self.ptr, riid, ppv)
-
-    def Release(self):
-        func_type = ctypes.WINFUNCTYPE(wintypes.ULONG, ctypes.c_void_p)
-        func = ctypes.cast(self.vtable[2], func_type)
-        return func(self.ptr)
-
-    def get_ptr(self):
-        return self.ptr
-
-def _rts_query_interface(rts_ptr, iid):
-    """在 IRealTimeStylus 指针上执行 QueryInterface"""
-    ppv = ctypes.c_void_p(0)
-    wrapper = _RealTimeStylusWrapper(rts_ptr)
-    hr = wrapper.QueryInterface(ctypes.byref(iid), ctypes.byref(ppv))
-    if hr == S_OK and ppv.value:
-        return ppv.value
-    return 0
-
-def _rts_is2_put_flicks_enabled(rts2_ptr, enabled):
-    """通过 IRealTimeStylus2 vtable 调用 put_FlicksEnabled"""
-    ppv = ctypes.cast(rts2_ptr, ctypes.POINTER(ctypes.c_void_p))
-    vtable = ctypes.cast(ppv[0], ctypes.POINTER(ctypes.c_void_p))
-    func_type = ctypes.WINFUNCTYPE(wintypes.HRESULT, ctypes.c_void_p, wintypes.BOOL)
-    func = ctypes.cast(vtable[31], func_type)
-    return func(rts2_ptr, enabled)
-
-def _rts_is3_put_multi_touch_enabled(rts3_ptr, enabled):
-    """通过 IRealTimeStylus3 vtable 调用 put_MultiTouchEnabled"""
-    ppv = ctypes.cast(rts3_ptr, ctypes.POINTER(ctypes.c_void_p))
-    vtable = ctypes.cast(ppv[0], ctypes.POINTER(ctypes.c_void_p))
-    func_type = ctypes.WINFUNCTYPE(wintypes.HRESULT, ctypes.c_void_p, wintypes.BOOL)
-    func = ctypes.cast(vtable[31], func_type)
-    return func(rts3_ptr, enabled)
-
-def _rts_com_release(ptr):
-    """通过 IUnknown::Release 释放 COM 接口指针"""
-    if not ptr:
-        return
-    try:
-        ppv = ctypes.cast(ptr, ctypes.POINTER(ctypes.c_void_p))
-        vtable = ctypes.cast(ppv[0], ctypes.POINTER(ctypes.c_void_p))
-        func_type = ctypes.WINFUNCTYPE(wintypes.ULONG, ctypes.c_void_p)
-        func = ctypes.cast(vtable[2], func_type)
-        func(ptr)
-    except Exception:
-        pass
 
 def _disable_edge_gestures(hwnd):
     """通过 SHGetPropertyStoreForWindow 禁用边缘手势"""
@@ -7414,82 +7080,116 @@ def _disable_edge_gestures(hwnd):
 
 
 class _WritingOverlay(QWidget):
-    """书写覆盖层"""
+    """书写覆盖层（参考项目Inkeys）"""
 
     STROKE_TOLERANCE = 15.0
+    ERASE_BASE_MIN = 25.0
+    ERASE_BASE_MAX = 200.0
+    ERASE_INIT = 20.0
 
     def __init__(self, component):
-        """component: WritingPadComponent that owns this overlay"""
         super().__init__()
         self._component = component
-        # 默认窗透明模式 TODO
         self.setWindowFlags(
-            Qt.WindowType.FramelessWindowHint | Qt.WindowType.Tool | Qt.WindowType.WindowStaysOnTopHint
+            Qt.WindowType.FramelessWindowHint | Qt.WindowType.Tool
         )
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
         self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating, True)
+        self.setAutoFillBackground(False)
         self.setMouseTracking(True)
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
 
-        # 计算全屏区域
         screen_rect = QRect()
         for screen in QApplication.screens():
             screen_rect = screen_rect.united(screen.geometry())
         self._screen_rect = screen_rect
         self.setGeometry(screen_rect)
 
-        # 绘图状态
         self._buffer = QPixmap(screen_rect.size())
         self._buffer.fill(Qt.GlobalColor.transparent)
-        self._temp_pixmap = QPixmap(screen_rect.size())
-        self._temp_pixmap.fill(Qt.GlobalColor.transparent)
-        self._temp_pixmaps = {} 
+        self._temp_pixmaps = {}
         self._strokes = []
         self._current_strokes = {}
         self._whiteboard = False
-        self._mode = 1  # 0=mouse, 1=pen, 2=eraser
-        self._painting = False 
-        self._touch_active = False  
-        self._active_touch_ids = set() 
+        self._mode = 1  # 0=mouse 1=pen 2=eraser
+        self._active_touch_ids = set()
 
-        # 笔设置
         self._pen_color = QColor(component._pen_color)
         self._pen_width = component._pen_width
         self._draw_mode = component._draw_mode
 
-        # 悬浮工具栏
+        self._history = []
+        self._erase_session = []
+
+        prim = QApplication.primaryScreen()
+        pw = prim.geometry().width() if prim else 1920
+        ph = prim.geometry().height() if prim else 1080
+        self._drawing_scale = min(pw / 1920.0, ph / 1080.0)
+
+        # 擦除状态: tid - value
+        self._erase_prev_pos = {}
+        self._erase_speed = {}
+        self._erase_rubber = {}
+        self._erase_trubber = {}
+        self._erase_cursors = {}
+
+        self._mouse_down = False
+
         self._float_bar = None
         self._create_floating_toolbar()
 
-        # 主窗口位置追踪
-        self._main_win = None
-
-        # WM_POINTER 多点触控
-        self._rts = None
-
-        # 触控事件队列
+        # 触控事件队
         self._touch_queue = deque()
         self._touch_queue_lock = threading.Lock()
         self._touch_timer = QTimer(self)
-        self._touch_timer.setInterval(8)  # ~120fps，降低延迟
+        self._touch_timer.setInterval(0)
         self._touch_timer.timeout.connect(self._process_touch_queue)
         self._touch_timer.start()
 
+        # 速度采样 20fps
+        self._erase_live_pos = {}
+        self._erase_prev_sample = {}
+        self._erase_speed_timer = QTimer(self)
+        self._erase_speed_timer.setInterval(50)
+        self._erase_speed_timer.timeout.connect(self._sample_erase_speed)
+        self._erase_speed_timer.start()
+
+        # 擦除循环 16ms
+        self._erase_loop_timer = QTimer(self)
+        self._erase_loop_timer.setInterval(16)
+        self._erase_loop_timer.timeout.connect(self._erase_loop_tick)
+
     def _push_touch_event(self, ev_type, tid, pos):
-        """将触控事件推入队列"""
         with self._touch_queue_lock:
             self._touch_queue.append((ev_type, tid, pos.x(), pos.y()))
 
+    def _sample_erase_speed(self):
+        for tid, cur in list(self._erase_live_pos.items()):
+            prev = self._erase_prev_sample.get(tid)
+            if prev is None:
+                self._erase_prev_sample[tid] = QPointF(cur)
+                self._erase_speed[tid] = 1.0
+            else:
+                dx = cur.x() - prev.x()
+                dy = cur.y() - prev.y()
+                dist = (dx * dx + dy * dy) ** 0.5
+                # 欧氏距离 EMA 50/50
+                self._erase_speed[tid] = (self._erase_speed.get(tid, 0.0) + dist) * 0.5
+                self._erase_prev_sample[tid] = QPointF(cur)
+
     def _process_touch_queue(self):
-        """在主事件循环中异步处理触控事件队列"""
-        if self._painting:
-            return
-        # 取出所有待处理事件
+        """异步处理触控队列"""
         batch = []
         with self._touch_queue_lock:
             while self._touch_queue:
                 batch.append(self._touch_queue.popleft())
         if not batch:
             return
+
+        if self._mode == 1 and self._draw_mode == "free":
+            self._process_free_batch(batch)
+            return
+
         for ev_type, tid, x, y in batch:
             pos = QPointF(x, y)
             if ev_type == 0:  # DOWN
@@ -7505,6 +7205,75 @@ class _WritingOverlay(QWidget):
             elif ev_type == 2:  # UP
                 if self._mode == 1:
                     self._end_stroke(pos, tid)
+                elif self._mode == 2:
+                    self._erase_prev_pos.pop(tid, None)
+                    self._erase_speed.pop(tid, None)
+                    self._erase_rubber.pop(tid, None)
+                    self._erase_trubber.pop(tid, None)
+                    self._erase_cursors.pop(tid, None)
+                    self._erase_live_pos.pop(tid, None)
+                    self._erase_prev_sample.pop(tid, None)
+                    if not self._erase_rubber and not self._mouse_down:
+                        self._erase_loop_timer.stop()
+                        self._end_erase_session()
+                        self.update()
+
+    def _process_free_batch(self, batch):
+        """free 模式按 tid 分组"""
+        tid_events = {}
+        order = []
+        for ev_type, tid, x, y in batch:
+            if tid not in tid_events:
+                tid_events[tid] = []
+                order.append(tid)
+            tid_events[tid].append((ev_type, QPointF(x, y)))
+
+        for tid in order:
+            events = tid_events[tid]
+            up_pos = None
+            move_points = []
+            for ev_type, pos in events:
+                if ev_type == 0:
+                    self._start_stroke(pos, tid)
+                elif ev_type == 1:
+                    move_points.append(pos)
+                elif ev_type == 2:
+                    up_pos = pos
+
+            if move_points:
+                self._draw_free_path(tid, move_points)
+
+            if up_pos is not None:
+                self._end_stroke(up_pos, tid)
+
+        self.update()
+
+    def _draw_free_path(self, tid, points):
+        """free 模式连续线段"""
+        stroke = self._current_strokes.get(tid)
+        if not stroke:
+            return
+        pts = stroke["points"]
+        if not pts:
+            for p in points:
+                pts.append(p)
+            return
+
+        painter = QPainter(self._buffer)
+        try:
+            painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+            painter.setPen(QPen(stroke["color"], stroke["width"],
+                                Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap,
+                                Qt.PenJoinStyle.RoundJoin))
+            prev = pts[-1]
+            for pos in points:
+                painter.drawLine(prev, pos)
+                pts.append(pos)
+                prev = pos
+        except Exception:
+            pass
+        finally:
+            painter.end()
 
     def nativeEvent(self, eventType, message):
         """WM_POINTER 只读采集"""
@@ -7515,48 +7284,41 @@ class _WritingOverlay(QWidget):
         try:
             msg = ctypes.wintypes.MSG.from_address(int(message))
 
-            # WM_POINTER 触控
             if msg.message in (WM_POINTERDOWN, WM_POINTERUPDATE, WM_POINTERUP):
                 pointerId = msg.wParam & 0xFFFF
-
-                # WM_POINTER 的 HIWORD(wParam) 包含 pointer flags
                 ptr_flags = (msg.wParam >> 16) & 0xFFFF
 
-                # PT_TOUCH=2
                 ptrType = ctypes.c_uint32(0)
                 if not _GetPointerType(pointerId, ctypes.byref(ptrType)):
                     return False, 0
                 if ptrType.value != PT_TOUCH:
                     return False, 0
 
-                # 从 WM_POINTER 消息提取坐标
                 x = ctypes.c_short(msg.lParam & 0xFFFF).value
                 y = ctypes.c_short((msg.lParam >> 16) & 0xFFFF).value
                 pos = QPoint(x, y)
                 if pos.x() < -10000 or pos.x() > 100000 or pos.y() < -10000 or pos.y() > 100000:
                     return False, 0
 
-                # 确定事件类型
+                if self._float_bar and self._float_bar.isVisible():
+                    if self._float_bar.geometry().contains(pos):
+                        return False, 0
+
                 if msg.message == WM_POINTERDOWN:
-                    ev_type = 0  # DOWN
+                    ev_type = 0
                     self._active_touch_ids.add(pointerId)
                 elif msg.message == WM_POINTERUP:
-                    ev_type = 2  # UP
+                    ev_type = 2
                     self._active_touch_ids.discard(pointerId)
-                else:  # WM_POINTERUPDATE
-                    # 过滤悬停
+                else:
                     if not (ptr_flags & POINTER_FLAG_INCONTACT):
                         return False, 0
-                    ev_type = 1  # MOVE
+                    ev_type = 1
 
-                self._touch_active = True
                 self._push_touch_event(ev_type, int(pointerId), pos)
 
-                # 抬起延迟清除 _touch_active
-                if not self._active_touch_ids:
-                    QTimer.singleShot(300, self._maybe_clear_touch_active)
-
-                return False, 0
+                # 拦截触控消息 阻止 Qt 重复 mouse event
+                return True, 0
 
             return False, 0
 
@@ -7565,93 +7327,60 @@ class _WritingOverlay(QWidget):
             traceback.print_exc()
             return False, 0
 
-    def _make_icon_pm(self, draw_func, size=24):
-        pm = QPixmap(size, size)
-        pm.fill(Qt.GlobalColor.transparent)
-        p = QPainter(pm)
-        p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        draw_func(p)
-        p.end()
-        return pm
-
-    # 图标绘制函数
-    @staticmethod
-    def _draw_cursor(p):
-        p.setPen(QPen(QColor(200, 200, 200), 2))
-        p.drawLine(12, 17, 12, 5); p.drawLine(12, 5, 8, 10); p.drawLine(12, 5, 16, 10)
-        p.drawLine(12, 12, 18, 18)
-
-    @staticmethod
-    def _draw_pen(p):
-        p.setPen(QPen(QColor(200, 200, 200), 2))
-        p.drawLine(5, 19, 14, 5); p.drawLine(14, 5, 19, 10); p.drawLine(5, 19, 5, 22)
-
-    @staticmethod
-    def _draw_eraser(p):
-        p.setPen(QPen(QColor(200, 200, 200), 2))
-        p.drawRect(4, 7, 18, 12)
-
-    @staticmethod
-    def _draw_trans(p):
-        p.fillRect(2, 2, 20, 20, QColor(80, 80, 80, 120))
-
-    @staticmethod
-    def _draw_white(p):
-        p.fillRect(2, 2, 20, 20, Qt.GlobalColor.white)
-
-    # 悬浮工具栏
     def _create_floating_toolbar(self):
+        """悬浮工具栏"""
         self._float_bar = QWidget(self)
         self._float_bar.setObjectName("writingFloatBar")
         self._float_bar.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self._float_bar.setStyleSheet(
-            "#writingFloatBar{background:rgba(30,30,30,210);border-radius:10px;}"
+            f"#writingFloatBar{{background:rgba(32,32,32,220);border-radius:12px;"
+            f"font-family:{FONT_FAMILY};}}"
         )
 
         layout = QHBoxLayout(self._float_bar)
-        layout.setContentsMargins(8, 4, 8, 4)
-        layout.setSpacing(6)
+        layout.setContentsMargins(10, 6, 10, 6)
+        layout.setSpacing(4)
 
-        def make_btn(draw_func, text):
-            pm = self._make_icon_pm(draw_func, 24)
-            btn = _OverToolBtn(pm, text, self._float_bar)
+        def make_btn(icon, text):
+            btn = _OverToolBtn(icon, text, self._float_bar)
             return btn
 
-        self._f_mouse = make_btn(self._draw_cursor, "鼠标")
-        self._f_pen = make_btn(self._draw_pen, "画笔")
-        self._f_eraser = make_btn(self._draw_eraser, "擦除")
+        self._f_mouse = make_btn(FUI.CURSOR, "鼠标")
+        self._f_pen = make_btn(FUI.PEN, "画笔")
+        self._f_eraser = make_btn(FUI.ERASER, "擦除")
+        self._f_undo = make_btn(FUI.UNDO, "撤回")
 
         self._f_mouse.clicked.connect(lambda: self._set_tool_mode(0))
         self._f_pen.clicked.connect(self._on_float_pen_clicked)
         self._f_eraser.clicked.connect(lambda: self._set_tool_mode(2))
+        self._f_eraser.doubleClicked.connect(self.clear_all)
+        self._f_undo.clicked.connect(self._undo_last_stroke)
 
         layout.addWidget(self._f_mouse)
         layout.addWidget(self._f_pen)
         layout.addWidget(self._f_eraser)
+        layout.addWidget(self._f_undo)
 
         # 分隔
-        sep = QLabel("│", self._float_bar)
-        sep.setStyleSheet("color:#555;font-size:18px;border:none;background:transparent;")
-        sep.setFixedWidth(16)
-        sep.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        sep = QLabel(self._float_bar)
+        sep.setFixedSize(1, 36)
+        sep.setStyleSheet("background:rgba(255,255,255,40);border:none;")
         layout.addWidget(sep)
 
-        self._f_trans = make_btn(self._draw_trans, "透明")
-        self._f_white = make_btn(self._draw_white, "白板")
+        self._f_trans = make_btn(FUI.BLUR, "透明")
+        self._f_white = make_btn(FUI.BOARD, "白板")
         self._f_trans.clicked.connect(lambda: self._set_float_whiteboard(False))
         self._f_white.clicked.connect(lambda: self._set_float_whiteboard(True))
         layout.addWidget(self._f_trans)
         layout.addWidget(self._f_white)
 
-        # 关闭
-        close_btn = QLabel("✕", self._float_bar)
-        close_btn.setFixedSize(40, 40)
-        close_btn.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        close_btn.setStyleSheet(
-            "color:#ff6666;font-size:20px;border:none;background:transparent;"
-            "font-weight:bold;"
-        )
-        close_btn.mousePressEvent = lambda ev: self._close_overlay()
+        sep2 = QLabel(self._float_bar)
+        sep2.setFixedSize(1, 36)
+        sep2.setStyleSheet("background:rgba(255,255,255,40);border:none;")
+        layout.addWidget(sep2)
+
+        close_btn = _OverToolBtn(FUI.CLOSE, "关闭", self._float_bar)
+        close_btn.clicked.connect(self._close_overlay)
         layout.addWidget(close_btn)
 
         self._float_bar.adjustSize()
@@ -7664,25 +7393,62 @@ class _WritingOverlay(QWidget):
         self._f_trans.setChecked(not self._whiteboard)
         self._f_white.setChecked(self._whiteboard)
 
+    def _is_in_blacklist(self, pos):
+        """是否在工具栏等不可绘制区域"""
+        if self._float_bar and self._float_bar.isVisible():
+            p = pos.toPoint() if isinstance(pos, QPointF) else pos
+            if self._float_bar.geometry().contains(p):
+                return True
+        return False
+
+    def _end_all_strokes(self):
+        for tid in list(self._current_strokes.keys()):
+            stroke = self._current_strokes.get(tid)
+            if stroke and stroke.get("mode") == "free" and stroke.get("points"):
+                self._strokes.append(stroke)
+            self._temp_pixmaps.pop(tid, None)
+        self._current_strokes.clear()
+        self.update()
+
+    def _undo_last_stroke(self):
+        """撤回最后一次操作"""
+        if not self._history:
+            return
+        self._history.pop()
+        self._rebuild_buffer()
+
     def _set_tool_mode(self, mode):
+        self._end_all_strokes()
         self._mode = mode
+        # 切出擦除模式时清除状态
+        if mode != 2:
+            self._erase_loop_timer.stop()
+            self._erase_cursors.clear()
+            self._erase_prev_pos.clear()
+            self._erase_speed.clear()
+            self._erase_rubber.clear()
+            self._erase_trubber.clear()
+            self._erase_live_pos.clear()
+            self._erase_prev_sample.clear()
+            self.update()
         self._update_float_buttons()
         self._component._set_mode(mode, from_overlay=True)
 
     def _on_float_pen_clicked(self):
+        self._end_all_strokes()
         if self._mode == 1:
-            self._component._show_pen_settings(overlay=self)
+            self._component._show_pen_settings(overlay=self, src=self._f_pen)
         else:
             self._set_tool_mode(1)
 
     def _set_float_whiteboard(self, on):
+        self._end_all_strokes()
         self.show_overlay(on)
         self._component._set_whiteboard(on, from_overlay=True)
 
     def _cleanup_state(self):
-        """清理触控和绘制状态"""
-        self._touch_active = False
         self._active_touch_ids.clear()
+        self._mouse_down = False
         with self._touch_queue_lock:
             self._touch_queue.clear()
         self._current_strokes.clear()
@@ -7690,19 +7456,19 @@ class _WritingOverlay(QWidget):
             tp.fill(Qt.GlobalColor.transparent)
         self._temp_pixmaps.clear()
         self._strokes.clear()
-
-    def _maybe_clear_touch_active(self):
-        """无新触控清除 _touch_active 恢复鼠标事件"""
-        if not self._active_touch_ids and not self._current_strokes:
-            self._touch_active = False
+        self._history.clear()
+        self._erase_session.clear()
+        self._erase_loop_timer.stop()
+        self._erase_speed_timer.stop()
+        self._erase_prev_pos.clear()
+        self._erase_speed.clear()
+        self._erase_rubber.clear()
+        self._erase_trubber.clear()
+        self._erase_cursors.clear()
+        self._erase_live_pos.clear()
+        self._erase_prev_sample.clear()
 
     def _close_overlay(self):
-        if self._main_win:
-            try:
-                self._main_win.removeEventFilter(self)
-            except:
-                pass
-            self._main_win = None
         self._cleanup_state()
         self._component._close_overlay()
 
@@ -7712,69 +7478,40 @@ class _WritingOverlay(QWidget):
 
     def closeEvent(self, event):
         self._touch_timer.stop()
+        self._erase_speed_timer.stop()
         self._cleanup_state()
         super().closeEvent(event)
 
-    # 覆盖层显示/隐藏
+    # 覆盖层显示
     def show_overlay(self, whiteboard):
-        self.hide()  # 切换窗口标志前隐藏
+        self.hide()
+
+        self.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint, True)
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
         self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating, True)
+        self.setAutoFillBackground(False)
 
-        if whiteboard:
-            # 白板模式
-            self.setWindowFlags(
-                Qt.WindowType.FramelessWindowHint | Qt.WindowType.Tool
-            )
-            self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, False)
-            # 移除旧过滤器
-            if self._main_win:
-                try:
-                    self._main_win.removeEventFilter(self)
-                except:
-                    pass
-            self._main_win = self._component.window()
-            if self._main_win:
-                self.setGeometry(self._main_win.geometry())
-                self._main_win.installEventFilter(self)
-        else:
-            # 透明模式：全屏置顶
-            self.setWindowFlags(
-                Qt.WindowType.FramelessWindowHint | Qt.WindowType.Tool | Qt.WindowType.WindowStaysOnTopHint
-            )
-            self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
-            self.setGeometry(self._screen_rect)
-            if self._main_win:
-                try:
-                    self._main_win.removeEventFilter(self)
-                except:
-                    pass
-                self._main_win = None
-
+        self.setGeometry(self._screen_rect)
         self._whiteboard = whiteboard
         self._update_float_buttons()
-        # 定位工具栏顶部居中
         fb_w = self._float_bar.width()
+        fb_h = self._float_bar.height()
         x = (self.width() - fb_w) // 2
-        self._float_bar.move(max(0, x), 10)
+        y = self.height() - fb_h - 30
+        self._float_bar.move(max(0, x), max(0, y))
         self._float_bar.raise_()
         self.show()
-        # 窗口显示后禁用边缘手势
         hwnd = int(self.winId())
         if hwnd:
             _disable_edge_gestures(hwnd)
-            logger.info("[WM_POINTER] 触控准备完成 (hwnd=%s)", hwnd)
-
-    def eventFilter(self, obj, event):
-        if self._whiteboard and obj is self._main_win:
-            if event.type() in (QEvent.Type.Move, QEvent.Type.Resize):
-                self.setGeometry(self._main_win.geometry())
-        return super().eventFilter(obj, event)
+            # logger.info("[WM_POINTER] 触控准备完成 (hwnd=%s)", hwnd)
 
     def clear_all(self):
         self._strokes.clear()
         self._current_strokes.clear()
+        self._history.clear()
+        self._erase_session.clear()
         self._buffer.fill(Qt.GlobalColor.transparent)
-        self._temp_pixmap.fill(Qt.GlobalColor.transparent)
         for tp in self._temp_pixmaps.values():
             tp.fill(Qt.GlobalColor.transparent)
         self._temp_pixmaps.clear()
@@ -7791,32 +7528,24 @@ class _WritingOverlay(QWidget):
         self._draw_mode = mode
 
     def _safe_paint(self, pixmap, callback):
-        """QPixmap绘制操作"""
-        if self._painting:
-            return
-        self._painting = True
+        painter = QPainter(pixmap)
         try:
-            painter = QPainter(pixmap)
             callback(painter)
-            painter.end()
         except Exception:
             pass
         finally:
-            self._painting = False
+            painter.end()
 
-    # 绘图
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         if self._whiteboard:
             painter.fillRect(self.rect(), Qt.GlobalColor.white)
         painter.drawPixmap(0, 0, self._buffer)
-        if not self._temp_pixmap.isNull():
-            painter.drawPixmap(0, 0, self._temp_pixmap)
-        # 绘制各 touch tid 的独立临时预览
         for tid, tp in list(self._temp_pixmaps.items()):
             if tp and not tp.isNull():
                 painter.drawPixmap(0, 0, tp)
+        self._render_erase_cursor(painter)
 
     def _paint_stroke(self, painter, s):
         pts = s["points"]
@@ -7837,6 +7566,16 @@ class _WritingOverlay(QWidget):
     def _start_stroke(self, pos, tid=0):
         if self._mode != 1:
             return
+        if self._is_in_blacklist(pos):
+            return
+        # 清理残留资源
+        if tid in self._current_strokes:
+            old = self._current_strokes.pop(tid)
+            if old and old.get("points") and old.get("mode") == "free":
+                self._strokes.append(old)
+                self._history.append(("draw", old))
+            self.update()
+        self._temp_pixmaps.pop(tid, None)
         stroke = {
             "points": [pos],
             "color": QColor(self._pen_color),
@@ -7859,20 +7598,17 @@ class _WritingOverlay(QWidget):
 
         if mode == "free":
             if len(pts) >= 1:
-                # 绘制到 buffer
                 self._safe_paint(self._buffer, lambda painter: (
                     painter.setRenderHint(QPainter.RenderHint.Antialiasing),
                     painter.setPen(QPen(stroke["color"], stroke["width"],
                                         Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin)),
                     painter.drawLine(pts[-1], pos),
                 ))
-                # 保存所有点
                 pts.append(pos)
                 self.update()
         else:
             pts.append(pos)
             if len(pts) >= 2:
-                # 每个 tid 使用临时绘图面
                 if tid not in self._temp_pixmaps:
                     tp = QPixmap(self._screen_rect.size())
                     tp.fill(Qt.GlobalColor.transparent)
@@ -7901,6 +7637,7 @@ class _WritingOverlay(QWidget):
             if pts:
                 pts.append(pos)
             self._strokes.append(stroke)
+            self._history.append(("draw", stroke))
         else:
             if len(pts) >= 2:
                 self._safe_paint(self._buffer, lambda painter: (
@@ -7912,43 +7649,166 @@ class _WritingOverlay(QWidget):
                 ))
                 stroke["points"] = [pts[0], pts[-1]]
                 self._strokes.append(stroke)
-        # 清理该 tid 的独立绘制表面
+                self._history.append(("draw", stroke))
         self._temp_pixmaps.pop(tid, None)
-        self._temp_pixmap.fill(Qt.GlobalColor.transparent)
         self.update()
+
+    @staticmethod
+    def _segment_dist2(a, b, p):
+        """点 p 到线段 (a,b) 的距离平方"""
+        abx = b.x() - a.x()
+        aby = b.y() - a.y()
+        apx = p.x() - a.x()
+        apy = p.y() - a.y()
+        ab2 = abx * abx + aby * aby
+        if ab2 < 1e-9:
+            return apx * apx + apy * apy
+        t = (apx * abx + apy * aby) / ab2
+        t = max(0.0, min(1.0, t))
+        cx = a.x() + t * abx
+        cy = a.y() + t * aby
+        dx = p.x() - cx
+        dy = p.y() - cy
+        return dx * dx + dy * dy
+
+    def _erase_on_buffer(self, prev_pos, cur_pos, diameter):
+        radius = diameter / 2.0
+        painter = QPainter(self._buffer)
+        try:
+            painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+            painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_DestinationOut)
+            if prev_pos != cur_pos:
+                pen = QPen(QColor(0, 0, 0, 255), diameter)
+                pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+                pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+                painter.setPen(pen)
+                painter.setBrush(Qt.BrushStyle.NoBrush)
+                painter.drawLine(prev_pos, cur_pos)
+            else:
+                painter.setPen(Qt.PenStyle.NoPen)
+                painter.setBrush(QBrush(QColor(0, 0, 0, 255)))
+                painter.drawEllipse(cur_pos, radius, radius)
+        finally:
+            painter.end()
+
+    def _render_erase_cursor(self, painter):
+        """橡皮光标"""
+        if self._mode != 2 or not self._erase_cursors:
+            return
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setPen(QPen(QColor(130, 130, 130, 200), 3))
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        for pos, diameter in self._erase_cursors.values():
+            painter.drawEllipse(pos, diameter / 2.0, diameter / 2.0)
 
     def _erase_at(self, pos, tid=0):
         if self._mode != 2:
             return
-        tol = self.STROKE_TOLERANCE
-        to_remove = []
-        for s in self._strokes:
-            for pt in s["points"]:
-                if (pt - pos).manhattanLength() < tol:
-                    to_remove.append(s)
-                    break
-        if not to_remove:
+        if self._is_in_blacklist(pos):
             return
-        for s in to_remove:
-            self._strokes.remove(s)
+
+        cur = QPointF(pos)
+        ds = self._drawing_scale
+
+        # 首次按下初始化
+        if tid not in self._erase_prev_pos:
+            self._erase_prev_pos[tid] = QPointF(cur)
+            self._erase_live_pos[tid] = QPointF(cur)
+            self._erase_prev_sample[tid] = QPointF(cur)
+            self._erase_speed[tid] = 1.0
+            self._erase_rubber[tid] = ds * self.ERASE_INIT
+            self._erase_trubber[tid] = -1.0
+            rubber = self._erase_rubber[tid]
+            self._erase_on_buffer(cur, cur, rubber)
+            self._erase_session.append((QPointF(cur), rubber))
+            self._erase_cursors[tid] = (QPointF(cur), rubber)
+            self.update()
+            if not self._erase_loop_timer.isActive():
+                self._erase_loop_timer.start()
+            return
+
+        self._erase_live_pos[tid] = cur
+        if not self._erase_loop_timer.isActive():
+            self._erase_loop_timer.start()
+
+    def _erase_loop_tick(self):
+        if self._mode != 2 or not self._erase_live_pos:
+            self._erase_loop_timer.stop()
+            return
+        ds = self._drawing_scale
+        for tid in list(self._erase_live_pos.keys()):
+            cur = self._erase_live_pos.get(tid)
+            if cur is None:
+                continue
+            prev = self._erase_prev_pos.get(tid)
+            if prev is None:
+                continue
+
+            speed = self._erase_speed.get(tid, 0.0)
+
+            # 目标直径
+            if tid == 0:
+                if speed <= 30:
+                    t_size = max(self.ERASE_BASE_MIN, speed * 2.33 + 2.33)
+                else:
+                    t_size = min(self.ERASE_BASE_MAX, speed + 30)
+            else:
+                if speed <= 20:
+                    t_size = max(self.ERASE_BASE_MIN, speed * 2.33 + 13.33)
+                else:
+                    t_size = min(self.ERASE_BASE_MAX, 3.0 * speed)
+            trubber = t_size * ds
+            self._erase_trubber[tid] = trubber
+
+            # 当前直径追随目标
+            rubber = self._erase_rubber[tid]
+            if rubber < trubber:
+                rubber = rubber + max(0.1, (trubber - rubber) / 50.0)
+            elif rubber > trubber:
+                rubber = rubber + min(-0.1, (trubber - rubber) / 50.0)
+            self._erase_rubber[tid] = rubber
+
+            self._erase_on_buffer(prev, cur, rubber)
+            self._erase_prev_pos[tid] = QPointF(cur)
+            self._erase_session.append((QPointF(cur), rubber))
+            self._erase_cursors[tid] = (QPointF(cur), rubber)
+        self.update()
+
+    def _end_erase_session(self):
+        """所有擦除手指抬起后记录到历史"""
+        if self._erase_session:
+            self._history.append(("erase", self._erase_session))
+            self._erase_session = []
+
+    def _rebuild_buffer(self):
+        """从历史重建 buffer"""
         self._buffer.fill(Qt.GlobalColor.transparent)
-        self._safe_paint(self._buffer, lambda painter: (
-            painter.setRenderHint(QPainter.RenderHint.Antialiasing),
-            [self._paint_stroke(painter, s) for s in self._strokes],
-        ))
+        self._strokes.clear()
+        for op_type, op_data in self._history:
+            if op_type == "draw":
+                stroke = op_data
+                self._strokes.append(stroke)
+                self._safe_paint(self._buffer, lambda p, s=stroke: (
+                    p.setRenderHint(QPainter.RenderHint.Antialiasing),
+                    self._paint_stroke(p, s),
+                ))
+            elif op_type == "erase":
+                for pos, diameter in op_data:
+                    self._erase_on_buffer(pos, pos, diameter)
         self.update()
 
     # 鼠标事件
     def mousePressEvent(self, event):
-        if self._touch_active or self._current_strokes:
+        if self._mouse_down:
             return
+        self._mouse_down = True
         if self._mode == 2:
             self._erase_at(event.position())
         elif self._mode == 1:
             self._start_stroke(event.position())
 
     def mouseMoveEvent(self, event):
-        if self._touch_active or self._current_strokes:
+        if not self._mouse_down:
             return
         if self._mode == 2:
             self._erase_at(event.position())
@@ -7956,10 +7816,23 @@ class _WritingOverlay(QWidget):
             self._update_stroke(event.position())
 
     def mouseReleaseEvent(self, event):
-        if self._touch_active or self._current_strokes:
+        if not self._mouse_down:
             return
+        self._mouse_down = False
         if self._mode == 1:
             self._end_stroke(event.position())
+        elif self._mode == 2:
+            self._erase_prev_pos.pop(0, None)
+            self._erase_speed.pop(0, None)
+            self._erase_rubber.pop(0, None)
+            self._erase_trubber.pop(0, None)
+            self._erase_cursors.pop(0, None)
+            self._erase_live_pos.pop(0, None)
+            self._erase_prev_sample.pop(0, None)
+            if not self._erase_rubber:
+                self._erase_loop_timer.stop()
+                self._end_erase_session()
+            self.update()
 
     def keyPressEvent(self, event):
         if event.key() == Qt.Key.Key_Escape:
@@ -7988,23 +7861,25 @@ class _PenSettingsPopup(QWidget):
 
     def _setup_ui(self):
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(14, 12, 14, 12)
+        layout.setContentsMargins(16, 14, 16, 14)
         layout.setSpacing(10)
 
+        label_style = f"font-size:13px;font-weight:600;font-family:{FONT_FAMILY};color:#cccccc;border:none;background:transparent;"
+
         # 颜色
-        cl = QLabel("颜色")
-        cl.setStyleSheet("font-size:13px;color:#cccccc;border:none;background:transparent;")
+        cl = CaptionLabel("颜色")
+        cl.setStyleSheet(label_style)
         layout.addWidget(cl)
         cr = QHBoxLayout()
         cr.setSpacing(6)
         for hex_c, _ in self.COLORS:
-            btn = QPushButton()
+            btn = PushButton()
             btn.setFixedSize(30, 30)
             c = QColor(hex_c)
             border = "2px solid #555" if c.lightness() > 200 else "2px solid #888"
             btn.setStyleSheet(
-                f"QPushButton{{background:{hex_c};border:{border};border-radius:15px;}}"
-                f"QPushButton:hover{{border:2px solid white;}}"
+                f"PushButton{{background:{hex_c};border:{border};border-radius:15px;}}"
+                f"PushButton:hover{{border:2px solid white;}}"
             )
             btn.clicked.connect(lambda _, h=hex_c: self._pick_color(h))
             cr.addWidget(btn)
@@ -8012,30 +7887,31 @@ class _PenSettingsPopup(QWidget):
         layout.addLayout(cr)
 
         # 粗细
-        tl = QLabel("粗细")
-        tl.setStyleSheet("font-size:13px;color:#cccccc;border:none;background:transparent;")
+        tl = CaptionLabel("粗细")
+        tl.setStyleSheet(label_style)
         layout.addWidget(tl)
-        self._slider = QSlider(Qt.Orientation.Horizontal)
+        self._slider = Slider(Qt.Orientation.Horizontal)
         self._slider.setRange(1, 12)
         self._slider.setValue(self._component._pen_width)
         self._slider.valueChanged.connect(self._pick_width)
         layout.addWidget(self._slider)
 
         # 模式
-        ml = QLabel("模式")
-        ml.setStyleSheet("font-size:13px;color:#cccccc;border:none;background:transparent;")
+        ml = CaptionLabel("模式")
+        ml.setStyleSheet(label_style)
         layout.addWidget(ml)
         mr = QHBoxLayout()
         mr.setSpacing(8)
         self._mode_btns = {}
         for name, display in [("free", "自由"), ("line", "直线"), ("rect", "矩形")]:
-            btn = QPushButton(display)
+            btn = PushButton(display)
             btn.setCheckable(True)
             btn.setFixedHeight(32)
             btn.setStyleSheet(
-                "QPushButton{background:#333;color:#fff;border-radius:6px;padding:0 14px;font-size:13px;}"
-                "QPushButton:checked{background:#005fb8;}"
-                "QPushButton:hover{background:#444;}"
+                f"PushButton{{background:#333;color:#fff;border-radius:6px;padding:0 14px;"
+                f"font-size:13px;font-family:{FONT_FAMILY};}}"
+                f"PushButton:checked{{background:#005fb8;}}"
+                f"PushButton:hover{{background:#444;}}"
             )
             btn.clicked.connect(lambda _, n=name: self._pick_mode(n))
             mr.addWidget(btn)
@@ -8051,11 +7927,13 @@ class _PenSettingsPopup(QWidget):
     def _pick_color(self, hex_c):
         self._component._pen_color = hex_c
         if self._overlay:
+            self._overlay._end_all_strokes()
             self._overlay.setPenColor(hex_c)
 
     def _pick_width(self, w):
         self._component._pen_width = w
         if self._overlay:
+            self._overlay._end_all_strokes()
             self._overlay.setPenWidth(w)
 
     def _pick_mode(self, mode):
@@ -8063,6 +7941,7 @@ class _PenSettingsPopup(QWidget):
             btn.setChecked(n == mode)
         self._component._draw_mode = mode
         if self._overlay:
+            self._overlay._end_all_strokes()
             self._overlay.setDrawMode(mode)
 
     def paintEvent(self, event):
@@ -8074,14 +7953,15 @@ class _PenSettingsPopup(QWidget):
 
 
 class WritingPadComponent(DraggableContainer):
-    """书写板组件"""
+    """书写板组件(擦除相关参考项目Inkeys)
+    """
 
     MODE_MOUSE = 0
     MODE_PEN = 1
     MODE_ERASER = 2
 
-    BTN_W = 60
-    BTN_H = 88
+    BTN_W = 52
+    BTN_H = 64
 
     def __init__(self, parent, component_data: dict):
         super().__init__(parent, component_id=component_data["id"], layout_direction="horizontal")
@@ -8097,64 +7977,27 @@ class WritingPadComponent(DraggableContainer):
         self._setup_ui()
         self._apply_style()
 
-    # 图标绘制
-    @staticmethod
-    def _make_icon_pm(draw_func, size=28):
-        pm = QPixmap(size, size)
-        pm.fill(Qt.GlobalColor.transparent)
-        p = QPainter(pm)
-        p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        draw_func(p)
-        p.end()
-        return pm
-
-    @staticmethod
-    def _draw_cursor(p):
-        p.setPen(QPen(QColor(200, 200, 200), 2))
-        p.drawLine(14, 20, 14, 6); p.drawLine(14, 6, 10, 11); p.drawLine(14, 6, 18, 11)
-        p.drawLine(14, 14, 21, 21)
-
-    @staticmethod
-    def _draw_pen(p):
-        p.setPen(QPen(QColor(200, 200, 200), 2))
-        p.drawLine(6, 22, 16, 6); p.drawLine(16, 6, 22, 12); p.drawLine(6, 22, 6, 26)
-
-    @staticmethod
-    def _draw_eraser(p):
-        p.setPen(QPen(QColor(200, 200, 200), 2))
-        p.drawRect(5, 8, 20, 14)
-
-    @staticmethod
-    def _draw_trans(p):
-        p.fillRect(3, 3, 22, 22, QColor(80, 80, 80, 120))
-
-    @staticmethod
-    def _draw_white(p):
-        p.fillRect(3, 3, 22, 22, Qt.GlobalColor.white)
-
     # 按钮
-    def _build_tool_btn(self, icon_func, text, checkable=True, checked=False):
-        """返回 (QWidget, clicked_signal)"""
+    def _build_tool_btn(self, icon, text, checked=False):
+        """构建工具按钮"""
         container = QWidget(self)
         container.setFixedSize(self.BTN_W, self.BTN_H)
         container.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         layout = QVBoxLayout(container)
-        layout.setContentsMargins(2, 4, 2, 2)
-        layout.setSpacing(2)
+        layout.setContentsMargins(2, 6, 2, 4)
+        layout.setSpacing(3)
 
         icon_lb = QLabel(container)
-        icon_lb.setPixmap(self._make_icon_pm(icon_func, 28))
-        icon_lb.setFixedSize(32, 32)
+        icon_lb.setFixedSize(24, 24)
         icon_lb.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(icon_lb, 0, Qt.AlignmentFlag.AlignCenter)
 
-        text_lb = QLabel(text, container)
+        text_lb = CaptionLabel(text, container)
         text_lb.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        text_lb.setObjectName("_toolBtnText")
         layout.addWidget(text_lb, 0, Qt.AlignmentFlag.AlignCenter)
 
         container._checked = checked
-        container._checkable = checkable
+        container._icon = icon
         container._icon_lb = icon_lb
         container._text_lb = text_lb
         container._update_style = lambda: self._style_tool_btn(container)
@@ -8164,71 +8007,77 @@ class WritingPadComponent(DraggableContainer):
         return container
 
     def _style_tool_btn(self, container):
-        sz_text = self._scaled_px(11)
+        sz_text = self._scaled_px(12)
         if container._checked:
             container.setStyleSheet(
-                "QWidget{background:rgba(0,95,184,100);border-radius:8px;}"
+                "QWidget{background:rgba(0,120,212,180);border-radius:6px;}"
             )
-            container._icon_lb.setStyleSheet("border:none;background:transparent;")
+            container._icon_lb.setPixmap(container._icon.icon().pixmap(24, 24))
             container._text_lb.setStyleSheet(
-                f"font-size:{sz_text}px;color:#ffffff;border:none;background:transparent;"
+                f"font-size:{sz_text}px;font-weight:600;font-family:{FONT_FAMILY};"
+                f"color:#ffffff;border:none;background:transparent;"
             )
         else:
             container.setStyleSheet(
-                "QWidget{background:transparent;border-radius:8px;}"
-                "QWidget:hover{background:rgba(255,255,255,20);}"
+                "QWidget{background:transparent;border-radius:6px;}"
+                "QWidget:hover{background:rgba(255,255,255,25);}"
             )
-            container._icon_lb.setStyleSheet("border:none;background:transparent;")
+            container._icon_lb.setPixmap(container._icon.icon().pixmap(24, 24))
             container._text_lb.setStyleSheet(
-                f"font-size:{sz_text}px;color:#aaaaaa;border:none;background:transparent;"
+                f"font-size:{sz_text}px;font-family:{FONT_FAMILY};"
+                f"color:#aaaaaa;border:none;background:transparent;"
             )
 
     def _setup_ui(self):
         layout = self.inner_layout
-        layout.setContentsMargins(8, 4, 8, 4)
-        layout.setSpacing(8)
+        layout.setContentsMargins(10, 6, 10, 6)
+        layout.setSpacing(6)
         layout.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
 
         # 鼠标
-        self._mouse_box = self._build_tool_btn(self._draw_cursor, "鼠标")
+        self._mouse_box = self._build_tool_btn(FUI.CURSOR, "鼠标")
         layout.addWidget(self._mouse_box)
         self._mouse_box.mousePressEvent = lambda ev: self._set_mode(self.MODE_MOUSE)
 
         # 画笔
-        self._pen_box = self._build_tool_btn(self._draw_pen, "画笔")
+        self._pen_box = self._build_tool_btn(FUI.PEN, "画笔")
         self._pen_box.setCheckState(True)
         layout.addWidget(self._pen_box)
         self._pen_box.mousePressEvent = lambda ev: self._on_pen_clicked()
 
         # 擦除
-        self._eraser_box = self._build_tool_btn(self._draw_eraser, "擦除")
+        self._eraser_box = self._build_tool_btn(FUI.ERASER, "擦除")
         layout.addWidget(self._eraser_box)
         self._eraser_box.mousePressEvent = lambda ev: self._set_mode(self.MODE_ERASER)
+        self._eraser_box.mouseDoubleClickEvent = lambda ev: self._clear_all()
+
+        self._undo_box = self._build_tool_btn(FUI.UNDO, "撤回")
+        layout.addWidget(self._undo_box)
+        self._undo_box.mousePressEvent = lambda ev: self._undo_last_stroke()
 
         # 分隔
-        sep = QLabel("│", self)
-        sep.setStyleSheet("color:#444;font-size:20px;border:none;background:transparent;")
-        sep.setFixedWidth(20)
-        sep.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        sep = QLabel(self)
+        sep.setFixedSize(1, 36)
+        sep.setStyleSheet("background:rgba(128,128,128,80);border:none;")
         layout.addWidget(sep)
 
         # 透明
-        self._trans_box = self._build_tool_btn(self._draw_trans, "透明")
+        self._trans_box = self._build_tool_btn(FUI.BLUR, "透明")
         self._trans_box.setCheckState(True)
         layout.addWidget(self._trans_box)
         self._trans_box.mousePressEvent = lambda ev: self._set_whiteboard(False)
 
         # 白板
-        self._white_box = self._build_tool_btn(self._draw_white, "白板")
+        self._white_box = self._build_tool_btn(FUI.BOARD, "白板")
         layout.addWidget(self._white_box)
         self._white_box.mousePressEvent = lambda ev: self._set_whiteboard(True)
 
         layout.addStretch()
 
-        self._set_natural_size(400, 100)
-        self.setMinimumSize(200, 60)
+        self._set_natural_size(420, 80)
+        self.setMinimumSize(240, 56)
         self._size_explicitly_set = True
-        self.resize(400, 100)
+        self.resize(420, 80)
         self._update_button_states()
 
     # 按钮状态
@@ -8257,15 +8106,33 @@ class WritingPadComponent(DraggableContainer):
         else:
             self._set_mode(self.MODE_PEN)
 
-    def _show_pen_settings(self, overlay=None):
+    def _show_pen_settings(self, overlay=None, src=None):
         if self._pen_popup is None:
             self._pen_popup = _PenSettingsPopup(self, overlay)
         else:
             self._pen_popup._overlay = overlay or self._overlay
-        src = self._pen_box
-        pos = src.mapToGlobal(QPoint(src.width() + 4, 0))
+        # 默认源为主窗口组件的画笔按钮
+        if src is None:
+            src = self._pen_box
+        if overlay is not None:
+            # 从悬浮工具栏触发：在按钮上方打开
+            popup_h = self._pen_popup.height()
+            pos = src.mapToGlobal(QPoint(0, -popup_h - 4))
+        else:
+            # 从主窗口组件触发：在按钮右侧打开
+            pos = src.mapToGlobal(QPoint(src.width() + 4, 0))
         self._pen_popup.move(pos)
         self._pen_popup.show()
+
+    def _undo_last_stroke(self):
+        """撤回最后一笔"""
+        if self._overlay and self._overlay.isVisible():
+            self._overlay._undo_last_stroke()
+
+    def _clear_all(self):
+        """清屏"""
+        if self._overlay and self._overlay.isVisible():
+            self._overlay.clear_all()
 
     def _set_whiteboard(self, on, from_overlay=False):
         self._whiteboard = on
@@ -8305,13 +8172,13 @@ class WritingPadComponent(DraggableContainer):
 
     def apply_scale(self, factor):
         for box in (self._mouse_box, self._pen_box, self._eraser_box,
-                    self._trans_box, self._white_box):
+                    self._undo_box, self._trans_box, self._white_box):
             if hasattr(box, '_update_style'):
                 box._update_style()
 
 
 class ClassAlbumBaseComponent(DraggableContainer):
-    """班级相册基类：横向/纵向共用逻辑，子类通过类属性配置方向和尺寸。"""
+    """班级相册基类"""
 
     SUPPORTED_EXTS = {'.png', '.jpg', '.jpeg', '.bmp', '.gif', '.webp'}
     MAX_IMAGE_DIMENSION = 4096
@@ -8583,7 +8450,7 @@ class StickyNoteComponent(DraggableContainer):
         self._color_dot.setPixmap(dot_pm)
         self._color_dot.setStyleSheet("border-radius: 5px;")
 
-        self._date_label = QLabel(QDate.currentDate().toString("yyyy-MM-dd"))
+        self._date_label = CaptionLabel(QDate.currentDate().toString("yyyy-MM-dd"))
 
         header_layout.addWidget(self._color_dot)
         header_layout.addSpacing(6)
@@ -8591,7 +8458,7 @@ class StickyNoteComponent(DraggableContainer):
         header_layout.addStretch()
 
         # 编辑区
-        self._editor = QTextEdit()
+        self._editor = TextEdit()
         self._editor.setPlaceholderText(tr("sticky_note.placeholder"))
         self._editor.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         self._editor.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
@@ -8623,7 +8490,7 @@ class StickyNoteComponent(DraggableContainer):
         """)
         self._date_label.setStyleSheet(f"color: {colors['text']}; font-size: {sz_date}px; font-family: 'HarmonyOS Sans'; background: transparent;")
         self._editor.setStyleSheet(f"""
-            QTextEdit {{
+            TextEdit {{
                 background-color: transparent;
                 border: none;
                 color: {colors['text']};
@@ -8632,7 +8499,7 @@ class StickyNoteComponent(DraggableContainer):
                 padding: 4px 12px 12px 12px;
                 selection-background-color: {colors['header']};
             }}
-            QTextEdit:focus {{
+            TextEdit:focus {{
                 outline: none;
             }}
         """)
@@ -8721,9 +8588,9 @@ class ComponentCard(CardWidget):
         
         # 预览图
         self.preview_label = QLabel()
+        self.preview_label.setObjectName("preview_label")
         self.preview_label.setFixedSize(164, 80)
         self.preview_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.preview_label.setStyleSheet("background: transparent; border-radius: 6px;")
         layout.addWidget(self.preview_label)
         
         # 名称
@@ -8864,7 +8731,7 @@ class CategoryPage(ScrollArea):
 
 class ComponentLibraryWindow(FluentWindow):
     """组件库窗口"""
-    
+
     def __init__(self, registry, parent=None):
         super().__init__(parent)
         self.registry = registry
@@ -8872,36 +8739,39 @@ class ComponentLibraryWindow(FluentWindow):
 
         self._setup_navigation()
         self.setWindowTitle(tr("component_library.title"))
-        self.resize(600, 400)
-
-        if isDarkTheme():
-            setTheme(cfg.themeMode.value)
+        self.resize(500, 550)
+        self.setWindowIcon(QIcon(get_resPath(APP_ICON)))
+        self.setWindowFlags(self.windowFlags() | Qt.WindowType.WindowStaysOnTopHint)
 
         self.setStyleSheet(load_qss('component.qss'))
-    
+        cfg.themeChanged.connect(self._on_theme_changed)
+
+    def _on_theme_changed(self):
+        self.setStyleSheet(load_qss('component.qss'))
+
     def _setup_navigation(self):
         """设置导航"""
         # 获取分类
         categories = self.registry.get_categories()
 
         icon_map = {
-            "Clock": FUI.SYNC,        # 时钟
-            "Weather": FUI.PHOTO,     # 天气
-            "Info": FUI.INFO,         # 信息
-            "Media": FUI.ALBUM,       # 媒体
-            "Launcher": FUI.APPLICATION,  # 启动器
+            "Clock": FUI.SYNC,
+            "Weather": FUI.PHOTO,
+            "Info": FUI.INFO,
+            "Media": FUI.ALBUM,
+            "Launcher": FUI.APPLICATION,
         }
-        
+
         for category in categories:
             page = CategoryPage(category, self.registry, self)
             icon = icon_map.get(category, FUI.HOME)
-            self.addSubInterface(page, icon, category)
+            localized = tr(f"component_library.category_{category.lower()}")
+            self.addSubInterface(page, icon, localized)
 
         #  展开导航栏
         self.navigationInterface.expand()
         self.navigationInterface.setReturnButtonVisible(False)
 class TimeColumnWidget(QWidget):
-    """时间列选择器"""
     valueChanged = pyqtSignal(int)
 
     def __init__(self, label: str, min_val: int = 0, max_val: int = 59, default: int = 0, parent=None):
@@ -8913,41 +8783,33 @@ class TimeColumnWidget(QWidget):
         self._init_ui(label)
 
     def _init_ui(self, label: str):
-        layout = QVBoxLayout(self)
-        layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.setSpacing(2)
-        layout.setContentsMargins(2, 2, 2, 2)
+        lay = QVBoxLayout(self)
+        lay.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        lay.setSpacing(2)
+        lay.setContentsMargins(2, 2, 2, 2)
 
         self._label_widget = BodyLabel(label, self)
         self._label_widget.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        label_font = QFont(FONT_FAMILY, 12)
-        self._label_widget.setFont(label_font)
-        layout.addWidget(self._label_widget)
+        self._label_widget.setFont(QFont(FONT_FAMILY, 12))
+        lay.addWidget(self._label_widget)
 
         self._up_btn = ToolButton(FUI.CHEVRON_UP, self)
         self._up_btn.setFixedSize(40, 28)
-        self._up_btn.clicked.connect(self._step_up)
-        layout.addWidget(self._up_btn, 0, Qt.AlignmentFlag.AlignCenter)
+        self._up_btn.clicked.connect(lambda: self.set_value(self._value + 1))
+        lay.addWidget(self._up_btn, 0, Qt.AlignmentFlag.AlignCenter)
 
         self._value_label = StrongBodyLabel(f"{self._value:02d}", self)
         self._value_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        val_font = QFont(FONT_FAMILY, 28, QFont.Weight.Bold)
-        self._value_label.setFont(val_font)
+        self._value_label.setFont(QFont(FONT_FAMILY, 28, QFont.Weight.Bold))
         self._value_label.setFixedHeight(44)
-        layout.addWidget(self._value_label, 0, Qt.AlignmentFlag.AlignCenter)
+        lay.addWidget(self._value_label, 0, Qt.AlignmentFlag.AlignCenter)
 
         self._down_btn = ToolButton(FUI.CHEVRON_DOWN, self)
         self._down_btn.setFixedSize(40, 28)
-        self._down_btn.clicked.connect(self._step_down)
-        layout.addWidget(self._down_btn, 0, Qt.AlignmentFlag.AlignCenter)
+        self._down_btn.clicked.connect(lambda: self.set_value(self._value - 1))
+        lay.addWidget(self._down_btn, 0, Qt.AlignmentFlag.AlignCenter)
 
         self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
-
-    def _step_up(self):
-        self.set_value(self._value + 1)
-
-    def _step_down(self):
-        self.set_value(self._value - 1)
 
     def set_value(self, val: int):
         old = self._value
@@ -8960,43 +8822,33 @@ class TimeColumnWidget(QWidget):
         return self._value
 
     def wheelEvent(self, event):
-        delta = event.angleDelta().y()
-        if delta > 0:
-            self._step_up()
-        elif delta < 0:
-            self._step_down()
+        if event.angleDelta().y() > 0:
+            self.set_value(self._value + 1)
+        else:
+            self.set_value(self._value - 1)
         super().wheelEvent(event)
 
 
 class TimerTimeDisplayWidget(QWidget):
-    """HH:MM:SS组件"""
     def __init__(self, parent=None):
         super().__init__(parent)
-        layout = QHBoxLayout(self)
-        layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.setSpacing(6)
-        layout.setContentsMargins(0, 0, 0, 0)
-
+        lay = QHBoxLayout(self)
+        lay.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        lay.setContentsMargins(0, 0, 0, 0)
         self._label = StrongBodyLabel("00:00:00", self)
-        font = QFont(FONT_FAMILY, 48, QFont.Weight.Bold)
-        self._label.setFont(font)
+        self._label.setFont(QFont(FONT_FAMILY, 48, QFont.Weight.Bold))
         self._label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._label.setStyleSheet("color: %s;" % (
-            "#ffffff" if isDarkTheme() else "#000000"
-        ))
-        layout.addWidget(self._label)
+        lay.addWidget(self._label)
 
     def set_time(self, h: int, m: int, s: int):
         self._label.setText(f"{h:02d}:{m:02d}:{s:02d}")
 
 
 class TimerCountdownComponent(DraggableContainer):
-    """Pivot分栏"""
 
     def __init__(self, parent, component_data: dict):
         super().__init__(parent, component_id=component_data["id"], layout_direction="vertical")
         self.setObjectName("timerCountdownContainer")
-        self._home = parent
         self._running = False
         self._paused = False
         self._elapsed_seconds = 0
@@ -9008,82 +8860,63 @@ class TimerCountdownComponent(DraggableContainer):
         self._init_ui()
 
     def _init_ui(self):
-        # Pivot
         self._pivot = Pivot(self)
         self._pivot.setFixedHeight(self._scaled_px(32))
-        self._pivot.addItem(
-            "timer",
-            tr("timer_countdown.timer"),
-            onClick=lambda: self._switch_mode(False),
-        )
-        self._pivot.addItem(
-            "countdown",
-            tr("timer_countdown.countdown"),
-            onClick=lambda: self._switch_mode(True),
-        )
+        self._pivot.addItem("timer", tr("timer_countdown.timer"), onClick=lambda: self._switch_mode(False))
+        self._pivot.addItem("countdown", tr("timer_countdown.countdown"), onClick=lambda: self._switch_mode(True))
 
         self._mode_stack = QStackedWidget(self)
 
-        #             计时
+        # 计时页
         self._timer_page = QWidget()
-        tp_layout = QVBoxLayout(self._timer_page)
-        tp_layout.setContentsMargins(0, 12, 0, 0)
-        tp_layout.setSpacing(4)
+        tp = QVBoxLayout(self._timer_page)
+        tp.setContentsMargins(0, 12, 0, 0)
+        tp.setSpacing(4)
 
-        # 计时时间
         self._timer_display = TimerTimeDisplayWidget(self._timer_page)
-        tp_layout.addWidget(self._timer_display, 0, Qt.AlignmentFlag.AlignHCenter)
+        tp.addWidget(self._timer_display, 0, Qt.AlignmentFlag.AlignHCenter)
 
-        # 计时按钮
         self._timer_btn_stack = QStackedWidget(self._timer_page)
-        self._timer_btn_stack.setFixedHeight(self._scaled_px(60))
+        self._timer_btn_stack.setFixedHeight(self._scaled_px(40))
 
-        # 开始
-        ts_btn = QWidget()
-        ts_lay = QVBoxLayout(ts_btn)
-        ts_lay.setContentsMargins(0, 0, 0, 0)
-        ts_lay.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._ts_start = PrimaryPushButton(FUI.PLAY, tr("timer_countdown.start"), ts_btn)
-        self._ts_start.setFixedSize(self._scaled_px(160), self._scaled_px(44))
+        self._ts_start = PrimaryPushButton(FUI.PLAY, tr("timer_countdown.start"))
+        self._ts_start.setFixedSize(self._scaled_px(120), self._scaled_px(32))
         self._ts_start.clicked.connect(self._on_timer_start)
-        ts_lay.addWidget(self._ts_start)
-        self._timer_btn_stack.addWidget(ts_btn)  # index 0
+        self._timer_btn_stack.addWidget(self._ts_start)
 
-        # 暂停 取消
-        tr_btn = QWidget()
-        tr_lay = QHBoxLayout(tr_btn)
-        tr_lay.setContentsMargins(0, 0, 0, 0)
-        tr_lay.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        tr_lay.setSpacing(16)
-        self._ts_pause = PushButton(tr("timer_countdown.pause"), tr_btn)
-        self._ts_pause.setFixedSize(self._scaled_px(100), self._scaled_px(40))
+        tr_w = QWidget()
+        tr_l = QHBoxLayout(tr_w)
+        tr_l.setContentsMargins(0, 0, 0, 0)
+        tr_l.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        tr_l.setSpacing(12)
+        self._ts_pause = PushButton(tr("timer_countdown.pause"))
+        self._ts_pause.setFixedSize(self._scaled_px(80), self._scaled_px(30))
         self._ts_pause.clicked.connect(self._on_timer_pause)
-        tr_lay.addWidget(self._ts_pause)
-        self._ts_cancel = PushButton(tr("timer_countdown.cancel"), tr_btn)
-        self._ts_cancel.setFixedSize(self._scaled_px(100), self._scaled_px(40))
+        self._ts_cancel = PushButton(tr("timer_countdown.cancel"))
+        self._ts_cancel.setFixedSize(self._scaled_px(80), self._scaled_px(30))
         self._ts_cancel.clicked.connect(self._on_timer_cancel)
-        tr_lay.addWidget(self._ts_cancel)
-        self._timer_btn_stack.addWidget(tr_btn)  # index 1
+        tr_l.addWidget(self._ts_pause)
+        tr_l.addWidget(self._ts_cancel)
+        self._timer_btn_stack.addWidget(tr_w)
 
-        tp_layout.addWidget(self._timer_btn_stack, 0, Qt.AlignmentFlag.AlignHCenter)
-        tp_layout.addStretch(1)
-        self._mode_stack.addWidget(self._timer_page)  # index 0
+        tp.addWidget(self._timer_btn_stack, 0, Qt.AlignmentFlag.AlignHCenter)
+        tp.addStretch(1)
+        self._mode_stack.addWidget(self._timer_page)
 
-        # 倒计时 
+        # 倒计时页
         self._cd_page = QWidget()
-        cp_layout = QVBoxLayout(self._cd_page)
-        cp_layout.setContentsMargins(0, 12, 0, 0)
-        cp_layout.setSpacing(4)
+        cp = QVBoxLayout(self._cd_page)
+        cp.setContentsMargins(0, 12, 0, 0)
+        cp.setSpacing(4)
 
         self._cd_content_stack = QStackedWidget(self._cd_page)
 
-        # 时间 按钮
+        # 设置：三列 开始
         cd_setup = QWidget()
-        cds_lay = QVBoxLayout(cd_setup)
-        cds_lay.setContentsMargins(0, 0, 0, 0)
-        cds_lay.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        cds_lay.setSpacing(8)
-
+        cds = QVBoxLayout(cd_setup)
+        cds.setContentsMargins(0, 0, 0, 0)
+        cds.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        cds.setSpacing(8)
         cols = QHBoxLayout()
         cols.setAlignment(Qt.AlignmentFlag.AlignCenter)
         cols.setSpacing(8)
@@ -9093,68 +8926,65 @@ class TimerCountdownComponent(DraggableContainer):
         cols.addWidget(self._hh_col)
         cols.addWidget(self._mm_col)
         cols.addWidget(self._ss_col)
-        cds_lay.addLayout(cols)
-
-        self._cd_start = PrimaryPushButton(FUI.PLAY, tr("timer_countdown.start"), cd_setup)
-        self._cd_start.setFixedSize(self._scaled_px(160), self._scaled_px(40))
+        cds.addLayout(cols)
+        self._cd_start = PrimaryPushButton(FUI.PLAY, tr("timer_countdown.start"))
+        self._cd_start.setFixedSize(self._scaled_px(120), self._scaled_px(32))
         self._cd_start.clicked.connect(self._on_countdown_start)
-        cds_lay.addWidget(self._cd_start, 0, Qt.AlignmentFlag.AlignCenter)
-        self._cd_content_stack.addWidget(cd_setup)  # index 0
+        cds.addWidget(self._cd_start, 0, Qt.AlignmentFlag.AlignCenter)
+        self._cd_content_stack.addWidget(cd_setup)
 
-        # 时间显示 暂停 取消
+        # 运行：时间 暂停/取消
         cd_run = QWidget()
-        cdr_lay = QVBoxLayout(cd_run)
-        cdr_lay.setContentsMargins(0, 0, 0, 0)
-        cdr_lay.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        cdr_lay.setSpacing(10)
-
+        cdr = QVBoxLayout(cd_run)
+        cdr.setContentsMargins(0, 0, 0, 0)
+        cdr.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        cdr.setSpacing(8)
         self._cd_display = TimerTimeDisplayWidget(cd_run)
-        cdr_lay.addWidget(self._cd_display, 0, Qt.AlignmentFlag.AlignCenter)
-
+        cdr.addWidget(self._cd_display, 0, Qt.AlignmentFlag.AlignCenter)
         cdr_btns = QHBoxLayout()
         cdr_btns.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        cdr_btns.setSpacing(16)
-        self._cd_pause = PushButton(tr("timer_countdown.pause"), cd_run)
-        self._cd_pause.setFixedSize(self._scaled_px(100), self._scaled_px(40))
+        cdr_btns.setSpacing(12)
+        self._cd_pause = PushButton(tr("timer_countdown.pause"))
+        self._cd_pause.setFixedSize(self._scaled_px(80), self._scaled_px(30))
         self._cd_pause.clicked.connect(self._on_countdown_pause)
-        cdr_btns.addWidget(self._cd_pause)
-        self._cd_cancel = PushButton(tr("timer_countdown.cancel"), cd_run)
-        self._cd_cancel.setFixedSize(self._scaled_px(100), self._scaled_px(40))
+        self._cd_cancel = PushButton(tr("timer_countdown.cancel"))
+        self._cd_cancel.setFixedSize(self._scaled_px(80), self._scaled_px(30))
         self._cd_cancel.clicked.connect(self._on_countdown_cancel)
+        cdr_btns.addWidget(self._cd_pause)
         cdr_btns.addWidget(self._cd_cancel)
-        cdr_lay.addLayout(cdr_btns)
-        self._cd_content_stack.addWidget(cd_run)  # index 1
+        cdr.addLayout(cdr_btns)
+        self._cd_content_stack.addWidget(cd_run)
 
-        cp_layout.addWidget(self._cd_content_stack, 0, Qt.AlignmentFlag.AlignHCenter)
-        cp_layout.addStretch(1)
-        self._mode_stack.addWidget(self._cd_page)  # index 1
+        cp.addWidget(self._cd_content_stack, 0, Qt.AlignmentFlag.AlignHCenter)
+        cp.addStretch(1)
+        self._mode_stack.addWidget(self._cd_page)
 
-        main_layout = self.inner_layout
-        main_layout.setContentsMargins(0, 0, 0, 0)
-        main_layout.setSpacing(0)
-        main_layout.addWidget(self._pivot)
-        main_layout.addWidget(self._mode_stack, 1)
+        ml = self.inner_layout
+        ml.setContentsMargins(0, 0, 0, 0)
+        ml.setSpacing(0)
+        ml.addWidget(self._pivot)
+        ml.addWidget(self._mode_stack, 1)
 
-        self._set_natural_size(240, 200)
-        self.setMinimumSize(140, 120)
+        self._set_natural_size(220, 170)
+        self.setMinimumSize(130, 100)
         self._size_explicitly_set = True
-        self.resize(240, 200)
-        self._apply_style()
+        self.resize(220, 170)
+        self._apply_card_style()
         self._switch_mode(False)
 
-    # 模式切换
+    def _reset_state(self):
+        self._timer.stop()
+        self._running = False
+        self._paused = False
+        self._elapsed_seconds = 0
+        self._remaining_seconds = 0
 
     def _switch_mode(self, countdown: bool):
         if self._running:
-            self._timer.stop()
-            self._running = False
-            self._paused = False
-            self._elapsed_seconds = 0
-            self._remaining_seconds = 0
+            self._reset_state()
         self._is_countdown = countdown
         self._pivot.setCurrentItem("countdown" if countdown else "timer")
         self._mode_stack.setCurrentIndex(1 if countdown else 0)
-        # 重置到设置
         if countdown:
             self._cd_content_stack.setCurrentIndex(0)
             self._cd_display.set_time(0, 0, 0)
@@ -9162,77 +8992,44 @@ class TimerCountdownComponent(DraggableContainer):
             self._timer_btn_stack.setCurrentIndex(0)
             self._timer_display.set_time(0, 0, 0)
 
-    # 计时回调
-
     def _on_timer_start(self):
         self._elapsed_seconds = 0
-        self._remaining_seconds = 0
-        self._timer_btn_stack.setCurrentIndex(1)  # 暂停 取消
+        self._timer_btn_stack.setCurrentIndex(1)
         self._ts_pause.setText(tr("timer_countdown.pause"))
         self._running = True
         self._paused = False
         self._timer.start()
 
     def _on_timer_pause(self):
-        self._running = True  # keep running
-        if self._paused:
-            self._paused = False
-            self._ts_pause.setText(tr("timer_countdown.pause"))
-        else:
-            self._paused = True
-            self._ts_pause.setText(tr("timer_countdown.resume"))
+        self._paused = not self._paused
+        self._ts_pause.setText(tr("timer_countdown.resume" if self._paused else "timer_countdown.pause"))
 
     def _on_timer_cancel(self):
-        self._timer.stop()
-        self._running = False
-        self._paused = False
-        self._elapsed_seconds = 0
-        self._remaining_seconds = 0
+        self._reset_state()
         self._timer_btn_stack.setCurrentIndex(0)
         self._timer_display.set_time(0, 0, 0)
 
-    # 倒计时回调
-
     def _on_countdown_start(self):
-        h = self._hh_col.value()
-        m = self._mm_col.value()
-        s = self._ss_col.value()
-        total = h * 3600 + m * 60 + s
+        total = self._hh_col.value() * 3600 + self._mm_col.value() * 60 + self._ss_col.value()
         if total <= 0:
-            InfoBar.warning(
-                title=tr("common.info"),
-                content=tr("timer_countdown.set_time_hint"),
-                parent=self,
-                duration=2000,
-            )
+            InfoBar.warning(title=tr("common.info"), content=tr("timer_countdown.set_time_hint"), parent=self, duration=2000)
             return
         self._remaining_seconds = total
-        self._elapsed_seconds = total
         self._cd_pause.setText(tr("timer_countdown.pause"))
-        self._cd_content_stack.setCurrentIndex(1)  # 显示运行页
+        self._cd_content_stack.setCurrentIndex(1)
         self._update_display()
         self._running = True
         self._paused = False
         self._timer.start()
 
     def _on_countdown_pause(self):
-        if self._paused:
-            self._paused = False
-            self._cd_pause.setText(tr("timer_countdown.pause"))
-        else:
-            self._paused = True
-            self._cd_pause.setText(tr("timer_countdown.resume"))
+        self._paused = not self._paused
+        self._cd_pause.setText(tr("timer_countdown.resume" if self._paused else "timer_countdown.pause"))
 
     def _on_countdown_cancel(self):
-        self._timer.stop()
-        self._running = False
-        self._paused = False
-        self._elapsed_seconds = 0
-        self._remaining_seconds = 0
+        self._reset_state()
         self._cd_content_stack.setCurrentIndex(0)
         self._cd_display.set_time(0, 0, 0)
-
-    # 共享定时器
 
     def _on_tick(self):
         if not self._running or self._paused:
@@ -9244,12 +9041,7 @@ class TimerCountdownComponent(DraggableContainer):
                 self._update_display()
                 self._timer.stop()
                 self._running = False
-                InfoBar.success(
-                    title=tr("timer_countdown.finished_title"),
-                    content=tr("timer_countdown.finished_body"),
-                    parent=self,
-                    duration=3000,
-                )
+                InfoBar.success(title=tr("timer_countdown.finished_title"), content=tr("timer_countdown.finished_body"), parent=self, duration=3000)
                 self._cd_content_stack.setCurrentIndex(0)
                 self._cd_display.set_time(0, 0, 0)
                 return
@@ -9259,29 +9051,474 @@ class TimerCountdownComponent(DraggableContainer):
 
     def _update_display(self):
         secs = self._remaining_seconds if self._is_countdown else self._elapsed_seconds
-        h = secs // 3600
-        m = (secs % 3600) // 60
-        s = secs % 60
-        if self._is_countdown:
-            self._cd_display.set_time(h, m, s)
-        else:
-            self._timer_display.set_time(h, m, s)
-
-    def _apply_style(self):
-        self._apply_card_style()
+        h, m, s = secs // 3600, (secs % 3600) // 60, secs % 60
+        display = self._cd_display if self._is_countdown else self._timer_display
+        display.set_time(h, m, s)
 
     def apply_scale(self, factor):
         self._pivot.setFixedHeight(self._scaled_px(32))
-        self._timer_btn_stack.setFixedHeight(self._scaled_px(60))
-        self._ts_start.setFixedSize(self._scaled_px(160), self._scaled_px(44))
-        self._ts_pause.setFixedSize(self._scaled_px(100), self._scaled_px(40))
-        self._ts_cancel.setFixedSize(self._scaled_px(100), self._scaled_px(40))
-        self._cd_start.setFixedSize(self._scaled_px(160), self._scaled_px(40))
-        self._cd_pause.setFixedSize(self._scaled_px(100), self._scaled_px(40))
-        self._cd_cancel.setFixedSize(self._scaled_px(100), self._scaled_px(40))
+        self._timer_btn_stack.setFixedHeight(self._scaled_px(40))
+        for btn in (self._ts_start, self._cd_start):
+            btn.setFixedSize(self._scaled_px(120), self._scaled_px(32))
+        for btn in (self._ts_pause, self._ts_cancel, self._cd_pause, self._cd_cancel):
+            btn.setFixedSize(self._scaled_px(80), self._scaled_px(30))
 
     def cleanup(self):
         self._timer.stop()
 
 
 COMPONENT_STYLES["timer"]["countdown"]["class"] = TimerCountdownComponent
+
+
+# 导航页（NavigationPage）
+
+
+class NavItemCell(QWidget):
+    """导航页单个格子"""
+
+    clicked = pyqtSignal(int)
+    requestMenu = pyqtSignal(int, QPoint)
+
+    def __init__(self, index: int, item: dict, parent=None):
+        super().__init__(parent)
+        self._index = index
+        self._item = item or {}
+        self.setObjectName("navItemCell")
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        self.setMouseTracking(True)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+
+        # 统一字体，避免宋体
+        self._font = QFont("HarmonyOS Sans", 9)
+        self._font.setStyleHint(QFont.StyleHint.SansSerif)
+        self.setFont(self._font)
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(8, 10, 8, 8)
+        layout.setSpacing(4)
+
+        self.iconLabel = QLabel(self)
+        self.iconLabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.iconLabel.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        layout.addWidget(self.iconLabel, 1)
+
+        self.textLabel = BodyLabel(self)
+        self.textLabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.textLabel.setWordWrap(True)
+        self.textLabel.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        # 固定文字区域高度，保证图标位置一致
+        self._text_fixed_h = 32
+        self.textLabel.setFixedHeight(self._text_fixed_h)
+        layout.addWidget(self.textLabel, 0)
+
+        self._hovered = False
+        self._refresh()
+
+    def _refresh(self):
+        name = self._item.get("name", "")
+        self.textLabel.setText(name)
+        icon_filename = self._item.get("icon", "exe.ico")
+        p = get_ql_icon_path(icon_filename)
+        pm = QPixmap(p) if p and os.path.exists(p) else QPixmap()
+        if pm.isNull():
+            fallback = get_ql_icon_path("exe.ico")
+            if fallback and os.path.exists(fallback):
+                pm = QPixmap(fallback)
+        # iconSize 在 resizeEvent 中按 cell 大小动态设置
+        self.iconLabel.setPixmap(pm)
+
+    def setItem(self, item: dict):
+        self._item = item or {}
+        self._refresh()
+
+    def item(self) -> dict:
+        return self._item
+
+    def setIndex(self, index: int):
+        self._index = index
+
+    def setIconSize(self, px: int):
+        pm = self.iconLabel.pixmap()
+        if pm is None or pm.isNull():
+            return
+        self.iconLabel.setPixmap(pm.scaled(
+            px, px,
+            Qt.AspectRatioMode.KeepAspectRatio,
+            Qt.TransformationMode.SmoothTransformation,
+        ))
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        # 图标按格子宽高较小者的 55%
+        side = min(self.width(), self.height())
+        icon_px = max(24, int(side * 0.55))
+        self.setIconSize(icon_px)
+        # 文字区域固定高度（2 行）
+        text_h = max(28, int(side * 0.22))
+        self.textLabel.setFixedHeight(text_h)
+        font = QFont("HarmonyOS Sans", max(8, int(side / 16)))
+        font.setStyleHint(QFont.StyleHint.SansSerif)
+        self.textLabel.setFont(font)
+
+    def enterEvent(self, event):
+        self._hovered = True
+        self.update()
+        super().enterEvent(event)
+
+    def leaveEvent(self, event):
+        self._hovered = False
+        self.update()
+        super().leaveEvent(event)
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._press_pos = event.position().toPoint()
+            self._drag_moved = False
+            event.accept()
+            return
+        elif event.button() == Qt.MouseButton.RightButton:
+            self.requestMenu.emit(self._index, event.globalPosition().toPoint())
+            return
+        super().mousePressEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            if not getattr(self, "_drag_moved", False):
+                self.clicked.emit(self._index)
+            self._press_pos = None
+            event.accept()
+            return
+        super().mouseReleaseEvent(event)
+
+    def mouseMoveEvent(self, event):
+        if hasattr(self, "_press_pos") and self._press_pos is not None:
+            moved = (event.position().toPoint() - self._press_pos).manhattanLength()
+            if moved > 6:
+                self._drag_moved = True
+            event.accept()
+            return
+        super().mouseMoveEvent(event)
+
+    def contextMenuEvent(self, event):
+        self.requestMenu.emit(self._index, event.globalPos())
+        event.accept()
+
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        if self._hovered:
+            painter = QPainter(self)
+            painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+            theme_color = cfg.themeColor.value
+            if isinstance(theme_color, str):
+                c = QColor(theme_color)
+            else:
+                c = theme_color
+            pen = QPen(QColor(c.red(), c.green(), c.blue(), 180))
+            pen.setWidthF(1.6)
+            painter.setPen(pen)
+            painter.setBrush(Qt.BrushStyle.NoBrush)
+            painter.drawRoundedRect(self.rect().adjusted(1, 1, -1, -1), 10, 10)
+
+
+class NavigationPage(QWidget):
+    """导航页"""
+
+    def __init__(self, parent=None, page_index: int = 0, page_manager=None):
+        super().__init__(parent)
+        self._page_index = page_index
+        self._page_manager = page_manager
+        self.setObjectName("navigationPage")
+        self.setAcceptDrops(True)
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+
+        self._items = []
+        self._cells = []  # NavItemCell 列表
+        self._executor = ThreadPoolExecutor(max_workers=1)
+        self._margin = 24
+        self._gap = 12
+        self._min_cell = 96
+        self._max_cell = 160
+
+        self._placeholder = BodyLabel(self)
+        self._placeholder.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._placeholder.setText(tr("nav_page.empty_hint"))
+        ph_font = QFont("HarmonyOS Sans", 10)
+        ph_font.setStyleHint(QFont.StyleHint.SansSerif)
+        self._placeholder.setFont(ph_font)
+        self._updatePlaceholderColor()
+        self._placeholder.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        self._placeholder.hide()
+        try:
+            cfg.themeChanged.connect(self._updatePlaceholderColor)
+        except Exception:
+            pass
+
+        self.load()
+        self._buildCells()
+        self._relayout()
+
+    def _updatePlaceholderColor(self):
+        dark = isDarkTheme()
+        color = "rgba(230,230,230,0.95)" if dark else "rgba(60,60,60,1.0)"
+        self._placeholder.setStyleSheet(
+            f"color: {color}; font-size: 16px; background: transparent;"
+        )
+
+    def load(self):
+        """从 PageManager 加载导航项"""
+        if self._page_manager is not None:
+            self._items = self._page_manager.get_page_items(self._page_index)
+        else:
+            self._items = []
+
+    def save(self):
+        """保存到 PageManager"""
+        if self._page_manager is not None:
+            self._page_manager.set_page_items(self._page_index, self._items)
+
+    def items(self):
+        return list(self._items)
+
+    def _buildCells(self):
+        for c in self._cells:
+            c.setParent(None)
+            c.deleteLater()
+        self._cells = []
+        for i, item in enumerate(self._items):
+            cell = NavItemCell(i, item, self)
+            cell.clicked.connect(self._onCellClick)
+            cell.requestMenu.connect(self._onCellMenu)
+            cell.show()
+            self._cells.append(cell)
+
+    def _relayout(self):
+        w = max(1, self.width())
+        h = max(1, self.height())
+        avail_w = w - self._margin * 2 + self._gap
+        # 列数：每格在 [min_cell, max_cell] 之间
+        cols = max(1, int(avail_w / (self._min_cell + self._gap)))
+        cell_w = (avail_w - self._gap * (cols - 1)) / cols
+        if cell_w > self._max_cell:
+            cols = max(1, int(avail_w / (self._max_cell + self._gap)))
+            cell_w = (avail_w - self._gap * (cols - 1)) / cols
+        cell_size = int(max(self._min_cell * 0.8, cell_w))
+        avail_h = h - self._margin * 2 + self._gap
+        rows = max(1, int(avail_h / (cell_size + self._gap)))
+
+        total_w = cols * cell_size + (cols - 1) * self._gap
+        total_h = rows * cell_size + (rows - 1) * self._gap
+        start_x = int((w - total_w) / 2)
+        start_y = int((h - total_h) / 2)
+        if start_x < self._margin:
+            start_x = self._margin
+        if start_y < self._margin:
+            start_y = self._margin
+
+        for i, cell in enumerate(self._cells):
+            r = i // cols
+            c = i % cols
+            x = start_x + c * (cell_size + self._gap)
+            y = start_y + r * (cell_size + self._gap)
+            cell.setFixedSize(cell_size, cell_size)
+            cell.setIndex(i)
+            cell.move(x, y)
+
+        if not self._cells:
+            self._placeholder.setGeometry(self.rect())
+            self._placeholder.show()
+            self._placeholder.raise_()
+        else:
+            self._placeholder.hide()
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self._relayout()
+
+    def dragEnterEvent(self, event):
+        md = event.mimeData()
+        if md.hasUrls() or md.hasText():
+            event.acceptProposedAction()
+        else:
+            event.ignore()
+
+    def dragMoveEvent(self, event):
+        if event.mimeData().hasUrls() or event.mimeData().hasText():
+            event.acceptProposedAction()
+        else:
+            event.ignore()
+
+    def dropEvent(self, event):
+        md = event.mimeData()
+        added = False
+        if md.hasUrls():
+            for url in md.urls():
+                local = url.toLocalFile()
+                if local:
+                    self._addItemByPath(local)
+                    added = True
+                else:
+                    s = url.toString()
+                    if s.startswith(("http://", "https://")):
+                        self._addItemByUrl(s)
+                        added = True
+        elif md.hasText():
+            text = md.text().strip()
+            if text:
+                # 文本：判断是否网址
+                if text.startswith(("http://", "https://")) or "." in text and " " not in text:
+                    self._addItemByUrl(text)
+                    added = True
+                elif os.path.exists(text):
+                    self._addItemByPath(text)
+                    added = True
+        if added:
+            event.acceptProposedAction()
+        else:
+            event.ignore()
+
+    def _addItemByPath(self, file_path: str):
+        try:
+            info = resolve_app_from_path(file_path)
+            self._items.append(info)
+            self.save()
+            self._buildCells()
+            self._relayout()
+            self._notifyAdded(info.get("name", ""))
+        except Exception as e:
+            logger.error(f"[NavigationPage] 添加文件失败: {e}")
+
+    def _addItemByUrl(self, url: str, name: str = ""):
+        try:
+            info = resolve_url_from_string(url, name=name or None)
+            self._items.append(info)
+            self.save()
+            self._buildCells()
+            self._relayout()
+            self._notifyAdded(info.get("name", ""))
+        except Exception as e:
+            logger.error(f"[NavigationPage] 添加网址失败: {e}")
+
+    def _notifyAdded(self, name: str):
+        try:
+            InfoBar.success(
+                title=tr("nav_page.added"),
+                content=name,
+                parent=self.window(),
+                duration=1500,
+            )
+        except Exception:
+            pass
+
+    def _onCellClick(self, index: int):
+        if not (0 <= index < len(self._items)):
+            return
+        item = self._items[index]
+        path = item.get("path", "")
+        name = item.get("name", "")
+        app_type = item.get("type", "app")
+        if path:
+            self._executor.submit(self._launch_thread, path, name, app_type)
+
+    def _launch_thread(self, target, name, app_type):
+        try:
+            if not target:
+                return
+            if app_type == "url":
+                webbrowser.open(target)
+            elif os.path.exists(target):
+                os.startfile(target)
+            else:
+                logger.warning(f"[NavigationPage] 路径不存在: {target}")
+        except Exception as e:
+            logger.error(f"[NavigationPage] 启动失败: {e}")
+
+    def _onCellMenu(self, index: int, global_pos: QPoint):
+        if not (0 <= index < len(self._items)):
+            return
+        menu = RoundMenu(parent=self)
+        rename_act = Action(FUI.EDIT, tr("nav_page.rename"))
+        rename_act.triggered.connect(lambda: self._renameItem(index))
+        menu.addAction(rename_act)
+        menu.addSeparator()
+        del_act = Action(FUI.DELETE, tr("nav_page.delete"))
+        del_act.triggered.connect(lambda: self._deleteItem(index))
+        menu.addAction(del_act)
+        menu.exec(global_pos)
+
+    def _renameItem(self, index: int):
+        if not (0 <= index < len(self._items)):
+            return
+        old_name = self._items[index].get("name", "")
+        from qfluentwidgets import MessageBoxBase, LineEdit, SubtitleLabel
+        box = MessageBoxBase(self.window())
+        title = SubtitleLabel(tr("nav_page.rename_title"), box)
+        box.viewLayout.addWidget(title)
+        edit = LineEdit(box)
+        edit.setText(old_name)
+        edit.setClearButtonEnabled(True)
+        box.viewLayout.addWidget(edit)
+        if box.exec():
+            new_name = edit.text().strip()
+            if new_name:
+                self._items[index]["name"] = new_name
+                self.save()
+                self._cells[index].setItem(self._items[index])
+
+    def _deleteItem(self, index: int):
+        if not (0 <= index < len(self._items)):
+            return
+        item_name = self._items[index].get("name", "")
+        from qfluentwidgets import MessageBox
+        msg = MessageBox(
+            tr("nav_page.delete"),
+            tr("nav_page.delete_confirm", name=item_name),
+            self.window(),
+        )
+        if not msg.exec():
+            return
+        del self._items[index]
+        self.save()
+        self._buildCells()
+        self._relayout()
+
+    def mousePressEvent(self, event):
+        # 右键空白弹菜单m 左键忽略给HomeInterface
+        if event.button() == Qt.MouseButton.RightButton:
+            self._showAddMenu(event.globalPosition().toPoint())
+            event.accept()
+        else:
+            super().mousePressEvent(event)
+
+    def _showAddMenu(self, global_pos: QPoint):
+        menu = RoundMenu(parent=self)
+        add_file = Action(FUI.FOLDER, tr("nav_page.add_file"))
+        add_file.triggered.connect(self._addByDialog)
+        menu.addAction(add_file)
+        add_url = Action(FUI.LINK, tr("nav_page.add_url"))
+        add_url.triggered.connect(self._addUrlByDialog)
+        menu.addAction(add_url)
+        menu.exec(global_pos)
+
+    def _addByDialog(self):
+        path, _ = QFileDialog.getOpenFileName(self, tr("nav_page.select_file"), "", "所有文件 (*.*)")
+        if path:
+            self._addItemByPath(path)
+            return
+        # 如果用户取消文件选择 再问是否选文件夹
+        folder = QFileDialog.getExistingDirectory(self, tr("nav_page.select_folder"))
+        if folder:
+            self._addItemByPath(folder)
+
+    def _addUrlByDialog(self):
+        from qfluentwidgets import MessageBoxBase, LineEdit, SubtitleLabel
+        box = MessageBoxBase(self.window())
+        title = SubtitleLabel(tr("nav_page.add_url_title"), box)
+        box.viewLayout.addWidget(title)
+        edit = LineEdit(box)
+        edit.setPlaceholderText("https://")
+        edit.setClearButtonEnabled(True)
+        box.viewLayout.addWidget(edit)
+        if box.exec():
+            url = edit.text().strip()
+            if url:
+                self._addItemByUrl(url)

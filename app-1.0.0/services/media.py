@@ -346,21 +346,18 @@ class NeteaseCloudMusic:
                 self._pm.close_process()
             except Exception as e:
                 logger.debug(f"关闭 pymem 进程失败: {e}")
-                pass
             self._pm = None
         if self._session:
             try:
                 self._session.close()
             except Exception as e:
                 logger.debug(f"关闭 session 失败: {e}")
-                pass
             self._session = None
         if self._executor:
             try:
                 self._executor.shutdown(wait=False)
             except Exception as e:
                 logger.debug(f"关闭 executor 失败: {e}")
-                pass
             self._executor = None
         self._api_cache.clear()
         self._cache_order.clear()
@@ -379,7 +376,6 @@ class NeteaseCloudMusic:
                     pid = self._pm.process_id
                 except Exception as e:
                     logger.debug(f"获取进程ID失败: {e}")
-                    pass
 
             if not pid or not psutil.pid_exists(pid):
                 if self._pm:
@@ -387,7 +383,6 @@ class NeteaseCloudMusic:
                         self._pm.close_process()
                     except Exception as e:
                         logger.debug(f"关闭 pymem 进程失败: {e}")
-                        pass
                     self._pm = None
                 self._first = True
                 self._pid, self._version = self._find_process()
@@ -583,22 +578,6 @@ class NeteaseCloudMusic:
 
     def _parse_lrc(self, lrc: str) -> List[LyricLine]:
         return parse_lrc(lrc)
-        # lines = []
-        # pat = re.compile(r'\[(\d{1,2}):(\d{1,2})(?:\.(\d{1,3}))?\]')
-        # for line in lrc.split('\n'):
-        #     text = pat.sub('', line).strip()
-        #     if not text:
-        #         continue
-        #     for m in pat.findall(line):
-        #         try:
-        #             mins, secs, ms = int(m[0]), int(m[1]), int(m[2]) if m[2] else 0
-        #             if len(m[2]) == 2: ms *= 10
-        #             elif len(m[2]) == 1: ms *= 100
-        #             lines.append(LyricLine(time_ms=mins * 60000 + secs * 1000 + ms, text=text))
-        #         except ValueError:
-        #             continue
-        # lines.sort()
-        # return lines
 
 
 class GSMTCReader:
@@ -772,7 +751,6 @@ class GSMTCReader:
                 self._loop.close()
             except Exception as e:
                 logger.debug(f"关闭事件循环失败: {e}")
-                pass
         self._manager = None
         self._initialized = False
 
@@ -817,13 +795,6 @@ class KugouMemoryReader:
 
             # 酷狗没法获取播放进度 没法监测暂停
             is_playing = True
-            # if is_playing and not self._was_playing:
-            #     if self._pause_start > 0:
-            #         self._paused_time += now - self._pause_start
-            #         self._pause_start = 0.0
-            # elif not is_playing and self._was_playing:
-            #     self._pause_start = now
-            # self._was_playing = is_playing
 
             dur_ms = self._get_duration(title, artist)
 
@@ -868,7 +839,7 @@ class KugouMemoryReader:
             return "", ""
         except Exception as e:
             logger.debug(f"枚举窗口失败: {e}")
-            return ""
+            return "", ""
 
     @staticmethod
     def _fix_kugou_title(raw: str) -> Tuple[str, str]:
@@ -908,7 +879,6 @@ class KugouMemoryReader:
                         return dur_ms
         except Exception as e:
             logger.debug(f"获取酷狗时长失败: {e}")
-            pass
         return 0
 
     def get_lyrics(self, title: str, artist: str, duration_ms: int = 0):
@@ -922,7 +892,7 @@ class KugouMemoryReader:
                           f"ver=1&man=yes&client=pc&keyword={keyword}"
                           f"&duration={duration_ms}&hash=")
             resp = requests.get(search_url, timeout=5,
-                                headers={'User-Agent': DEFAULT_USER_AGENT})  # 'Mozilla/5.0'
+                                headers={'User-Agent': DEFAULT_USER_AGENT})
             if resp.status_code != 200:
                 return None
             data = resp.json()
@@ -937,7 +907,7 @@ class KugouMemoryReader:
             dl_url = (f"http://lyrics.kugou.com/download?"
                      f"ver=1&client=pc&id={lyric_id}&accesskey={accesskey}&fmt=lrc&charset=utf8")
             dl_resp = requests.get(dl_url, timeout=5,
-                                   headers={'User-Agent': DEFAULT_USER_AGENT})  # 'Mozilla/5.0'
+                                   headers={'User-Agent': DEFAULT_USER_AGENT})
             if dl_resp.status_code != 200:
                 return None
             dl_data = dl_resp.json()
@@ -986,26 +956,8 @@ class KugouMemoryReader:
     @staticmethod
     def _parse_lrc(lrc: str):
         return parse_lrc(lrc)
-        # import re
-        # lines = []
-        # pat = re.compile(r'\[(\d{1,2}):(\d{1,2})(?:\.(\d{1,3}))?\]')
-        # for line in lrc.split('\n'):
-        #     text = pat.sub('', line).strip()
-        #     if not text:
-        #         continue
-        #     for m in pat.findall(line):
-        #         try:
-        #             mins, secs, ms = int(m[0]), int(m[1]), int(m[2]) if m[2] else 0
-        #             if len(m[2]) == 2: ms *= 10
-        #             elif len(m[2]) == 1: ms *= 100
-        #             lines.append(LyricLine(time_ms=mins * 60000 + secs * 1000 + ms, text=text))
-        #         except ValueError:
-        #             continue
-        # lines.sort()
-        # return lines
 
     def get_detail(self, song_id): return None
-    def get_cover_legacy(self, url): return None
 
     def fetch_all(self, song_name, artist=""):
         result = {'song_id': None, 'detail': None, 'lyrics': None, 'cover': None}
@@ -1103,8 +1055,7 @@ class QQMusicReader:
                         scan(child, depth + 1)
                 except Exception as e:
                     logger.debug(f"UIA遍历控件失败: {e}")
-                    pass
-            
+
             scan(self._qq_win, 0)
             
             if len(results) >= 2:
@@ -1250,7 +1201,7 @@ class QQMusicReader:
                    f"songmid=&g_tk=5381&format=json&incharset=utf8&outcharset=utf-8"
                    f"&nobase64=0&keyword={keyword}")
             resp = requests.get(url, timeout=5,
-                                headers={'User-Agent': DEFAULT_USER_AGENT,  # 'Mozilla/5.0'
+                                headers={'User-Agent': DEFAULT_USER_AGENT,
                                          'Referer': 'https://y.qq.com/'})
             if resp.status_code != 200:
                 return None
@@ -1259,31 +1210,12 @@ class QQMusicReader:
             if not lyric_str:
                 return None
             lines = parse_lrc(lyric_str)
-            # import re
-            # pat = re.compile(r'\[(\d{1,2}):(\d{1,2})(?:\.(\d{1,3}))?\]')
-            # for line in lyric_str.split('\n'):
-            #     text = pat.sub('', line).strip()
-            #     if not text:
-            #         continue
-            #     for m in pat.findall(line):
-            #         # mins, secs, ms = int(m[0]), int(m[1]), int(m[2]) if m[2] else 0
-            #         # if len(ms) == 2: ms *= 10
-            #         # elif len(ms) == 1: ms *= 100
-            #         # lines.append(LyricLine(time_ms=mins * 60000 + secs * 1000 + ms, text=text))
-            #         mins, secs, ms_str = int(m[0]), int(m[1]), m[2]
-            #         ms_val = int(ms_str) if ms_str else 0
-            #         if len(ms_str) == 2: ms_val *= 10
-            #         elif len(ms_str) == 1: ms_val *= 100
-            #         lines.append(LyricLine(time_ms=mins * 60000 + secs * 1000 + ms_val, text=text))
-            # lines.sort()
             if lines:
-                # return Lyrics(lines=lines, raw_lrc=lyric_str, song_id=0)
                 lyrics = Lyrics(lines=lines, raw_lrc=lyric_str, song_id=0)
                 self._duration_cache[cache_key] = lyrics
                 return lyrics
         except Exception as e:
             logger.debug(f"解析QQ音乐歌词失败: {e}")
-            pass
         return None
 
     def _get_duration(self, title: str, artist: str) -> int:
@@ -1296,7 +1228,7 @@ class QQMusicReader:
                    f"cr=1&new_json=1&format=json&aggr=1&lossless=0"
                    f"&n=1&w={keyword}")
             resp = requests.get(url, timeout=5,
-                                headers={'User-Agent': DEFAULT_USER_AGENT,  # 'Mozilla/5.0'
+                                headers={'User-Agent': DEFAULT_USER_AGENT,
                                          'Referer': 'https://y.qq.com/'})
             if resp.status_code != 200:
                 return 0
@@ -1309,14 +1241,13 @@ class QQMusicReader:
                 return dur_ms
         except Exception as e:
             logger.debug(f"获取QQ音乐时长失败: {e}")
-            pass
         return 0
 
     def get_cover(self, title: str, artist: str):
         return None
 
     def get_detail(self, song_id): return None
-    def get_cover_legacy(self, url): return None
+
     def fetch_all(self, song_name, artist=""):
         result = {'song_id': None, 'detail': None, 'lyrics': None, 'cover': None}
         lyrics = self.get_lyrics(song_name, artist)

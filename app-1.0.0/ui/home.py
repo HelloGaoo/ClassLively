@@ -14,34 +14,26 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""
-主界面模块
-"""
+"""主界面模块"""
 
 import ctypes
 import datetime
 import json
 import os
 import re
-import subprocess
-import sys
 import time
 
-import cnlunar
-import win32gui
-import win32ui
-from PIL import Image
-from pycaw.pycaw import AudioUtilities
 from PyQt6.QtCore import (
     QByteArray,
     QDate,
     QEasingCurve,
     QEvent,
     QFileInfo,
-    QPoint,
     QPropertyAnimation,
     QRect,
     QRectF,
+    QPointF,
+    QPoint,
     QSize,
     Qt,
     QTime,
@@ -49,6 +41,7 @@ from PyQt6.QtCore import (
     pyqtSignal,
 )
 from PyQt6.QtGui import (
+    QBrush,
     QColor,
     QIcon,
     QImage,
@@ -58,9 +51,7 @@ from PyQt6.QtGui import (
     QPixmap,
 )
 from PyQt6.QtWidgets import (
-    QApplication,
     QFrame,
-    QGraphicsBlurEffect,
     QGridLayout,
     QHBoxLayout,
     QLabel,
@@ -94,13 +85,11 @@ from qfluentwidgets import (
 )
 
 from core.config import cfg, save_cfg
-from core.constants import APP_NAME, BASE_DIR, PACKAGE_ROOT, DATA_CONFIG, get_resPath, load_qss, RESOURCE_ICONS
+from core.constants import PACKAGE_ROOT, DATA_CONFIG, load_qss
 from core.logger import logger
-from core.utils import get_cached_content, save_cache, tr, TranslatableWidget, INTERVAL_MAP, precise_now, FUI, is_cache_expired
+from core.utils import tr, TranslatableWidget, precise_now, FUI
 from resource.software_list import get_software_icon_path
-from services.weather import WeatherService, RegionDatabase, RegionSelectorDialog
-from services.poetry import PoetryService
-from ui.component import DraggableContainer, DraggableWidget, MediaWidget, QuickLaunchDock, resolve_app_from_path
+from ui.component import DraggableContainer, QuickLaunchDock, resolve_app_from_path
 
 FONT_FAMILY = '"HarmonyOS Sans", "Microsoft YaHei", "SimHei", sans-serif'
 
@@ -154,10 +143,116 @@ class GuideLineOverlay(QWidget):
         painter.end()
 
 
+class PageIndicator(QWidget):
+    """底部条页面指示器：N 个圆点，当前页加粗+主题色，左/右键点击切页。"""
+
+    pageClicked = pyqtSignal(int)
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setObjectName("pageIndicator")
+        self.setMouseTracking(True)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._count = 0
+        self._current = 0
+        self._dot_radius = 4
+        self._dot_radius_active = 6
+        self._dot_gap = 10
+        self._press_pos = None
+        self._pressed_index = -1
+
+        theme_color = cfg.themeColor.value
+        if isinstance(theme_color, str):
+            self._active_color = QColor(theme_color)
+        else:
+            self._active_color = theme_color
+        try:
+            cfg.themeColor.valueChanged.connect(self._onThemeColorChanged)
+        except Exception:
+            pass
+
+    def _onThemeColorChanged(self):
+        c = cfg.themeColor.value
+        if isinstance(c, str):
+            self._active_color = QColor(c)
+        else:
+            self._active_color = c
+        self.update()
+
+    def set_count(self, count: int):
+        self._count = max(0, count)
+        if self._current >= self._count:
+            self._current = max(0, self._count - 1)
+        self._updateGeometry()
+        self.update()
+
+    def set_current(self, index: int):
+        if 0 <= index < self._count:
+            self._current = index
+            self.update()
+
+    def _updateGeometry(self):
+        w = self._count * (self._dot_radius * 2) + max(0, self._count - 1) * self._dot_gap
+        h = self._dot_radius_active * 2 + 4
+        self.setFixedSize(max(w + 8, 16), h)
+
+    def sizeHint(self):
+        w = self._count * (self._dot_radius * 2) + max(0, self._count - 1) * self._dot_gap
+        h = self._dot_radius_active * 2 + 4
+        return QSize(max(w + 8, 16), h)
+
+    def _dotRect(self, i: int) -> QRectF:
+        r = self._dot_radius
+        r_active = self._dot_radius_active
+        total_w = self._count * (r * 2) + max(0, self._count - 1) * self._dot_gap
+        start_x = (self.width() - total_w) / 2
+        x = start_x + i * (r * 2 + self._dot_gap) + r
+        y = self.height() / 2
+        radius = r_active if i == self._current else r
+        return QRectF(x - radius, y - radius, radius * 2, radius * 2)
+
+    def _hitTest(self, pos: QPoint) -> int:
+        for i in range(self._count):
+            if self._dotRect(i).contains(QPointF(pos)):
+                return i
+        return -1
+
+    def mousePressEvent(self, event):
+        if event.button() in (Qt.MouseButton.LeftButton, Qt.MouseButton.RightButton):
+            self._press_pos = event.position().toPoint()
+            idx = self._hitTest(self._press_pos)
+            self._pressed_index = idx
+            if idx >= 0:
+                self.pageClicked.emit(idx)
+                event.accept()
+                return
+        super().mousePressEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        self._press_pos = None
+        self._pressed_index = -1
+        super().mouseReleaseEvent(event)
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        is_dark = isDarkTheme()
+        inactive = QColor(180, 180, 180, 200) if not is_dark else QColor(160, 160, 160, 200)
+        for i in range(self._count):
+            r = self._dotRect(i)
+            if i == self._current:
+                painter.setBrush(QBrush(self._active_color))
+                painter.setPen(Qt.PenStyle.NoPen)
+            else:
+                painter.setBrush(QBrush(inactive))
+                painter.setPen(Qt.PenStyle.NoPen)
+            painter.drawEllipse(r)
+        painter.end()
+
+
 class HomeInterface(QWidget, TranslatableWidget):
     """主界面"""
 
-    # 数据更新信号
     weather_updated = pyqtSignal(dict)
     poetry_updated = pyqtSignal(str)
 
@@ -169,38 +264,56 @@ class HomeInterface(QWidget, TranslatableWidget):
         self._guideOverlay = None
         self._snapThreshold = 8
 
-        # 拖拽预览状态
-        self._drag_preview_visible = False  # 是否显示拖拽预览
-        self._drag_preview_component_id = None  # 正在拖拽的组件ID
-        self._drag_preview_def = None  # 组件定义
-        # 格子坐标模式（旧）
-        # 像素坐标模式
-        self._drag_preview_x = 0  # 预览x（像素）
-        self._drag_preview_y = 0  # 预览y（像素）
-        self._drag_preview_width = 0  # 预览宽
-        self._drag_preview_height = 0  # 预览高
-        self._drag_preview_collision = False  # 是否碰撞
-        self._drag_preview_size = (200, 80)  # 预览尺寸缓存
+        # 拖拽预览
+        self._drag_preview_visible = False
+        self._drag_preview_component_id = None
+        self._drag_preview_def = None
+        self._drag_preview_x = 0
+        self._drag_preview_y = 0
+        self._drag_preview_width = 0
+        self._drag_preview_height = 0
+        self._drag_preview_collision = False
+        self._drag_preview_size = (200, 80)
 
-        # 编辑模式状态
-        self._edit_mode_active = False  # 是否编辑
-        self._edit_selected_placement_id = None  # 选中的放置ID
+        # 编辑模式
+        self._edit_mode_active = False
+        self._edit_selected_placement_id = None
         self.current_weather_code = None
+
+        # 翻页相关
+        self._page_anim = None
+        self._swipe_start_x = None
+        self._swipe_start_y = None
+        self._swipe_dragging = False
+        self._swipe_moved = False
+        self._swipe_last_dx = 0
+        # 检测 pagesStack 是否卡在两页中间
+        self._page_safety_timer = QTimer(self)
+        self._page_safety_timer.setSingleShot(True)
+        self._page_safety_timer.timeout.connect(self._checkPagePosition)
+        # 周期性检查鼠标是否还按着
+        self._swipe_watchdog = QTimer(self)
+        self._swipe_watchdog.setSingleShot(False)
+        self._swipe_watchdog.setInterval(100)
+        self._swipe_watchdog.timeout.connect(self._swipeWatchdog)
 
         self.setAcceptDrops(True)
 
         self._initBackground()
+
+        # PageManager 必须在 _initLayout 之前
+        from core.component import PageManager
+        self.page_manager = PageManager(DATA_CONFIG)
+
         self._initLayout()
-        
-        # 数据缓存
+        self._initPages()
+
         self._cached_poetry = None
         self._last_lunar_date = None
         self._cached_lunar_string = ""
-        
-        # 网格系统服务
+
         from core.component import GridLayoutService, GridSettings, ComponentRegistry, BUILTIN_COMPONENT_DEFINITIONS
         self.grid_service = GridLayoutService()
-        # 从配置加载网格设置
         short_side_cells = cfg.gridShortSideCells.value if hasattr(cfg, 'gridShortSideCells') else 6
         inset_percent = cfg.gridInsetPercent.value if hasattr(cfg, 'gridInsetPercent') else 5
         self.grid_settings = GridSettings(
@@ -209,26 +322,24 @@ class HomeInterface(QWidget, TranslatableWidget):
             inset_percent=inset_percent
         )
         self._grid_metrics = None
-        
-        # 组件注册
+
         self.component_registry = ComponentRegistry(self)
         self.component_registry.register_batch(BUILTIN_COMPONENT_DEFINITIONS)
-        
-        # 加载组件
+
         from ui.component import ComponentManager
         self.component_manager = ComponentManager(self)
         self.component_manager.load_components()
         self._draggable_widgets = self.component_manager.get_all_containers()
-        
-        self._initBottomBar()
+        # 组件加载完毕吗根据当前页显示/隐藏
+        self._applyPageVisibility()
 
+        self._initBottomBar()
 
         self.setStyleSheet(load_qss('home.qss'))
         cfg.themeChanged.connect(self._updateTheme)
         cfg.componentCardOpacity.valueChanged.connect(self._updateComponentCardStyle)
         cfg.componentCardRadius.valueChanged.connect(self._updateComponentCardStyle)
         cfg.backgroundBlurRadius.valueChanged.connect(self._computeBlurredBackground)
-        # 网格配置变化监听
         if hasattr(cfg, 'gridShortSideCells'):
             cfg.gridShortSideCells.valueChanged.connect(self._onGridSettingsChanged)
         if hasattr(cfg, 'gridInsetPercent'):
@@ -237,9 +348,7 @@ class HomeInterface(QWidget, TranslatableWidget):
 
         self.setup_translatable_ui()
 
-        #  _initTimers 延迟加载组件位置
-
-        logger.info(tr("home.init_complete"))  # 主界面初始化完成
+        logger.info(tr("home.init_complete"))
     
     def _update_grid_metrics(self):
         """更新网格尺寸计算"""
@@ -261,37 +370,6 @@ class HomeInterface(QWidget, TranslatableWidget):
         # 更新网格
         if hasattr(self, '_grid_overlay') and self._grid_overlay:
             self._grid_overlay.update_grid_metrics(self._grid_metrics)
-
-    def grid_cell_to_pos(self, row: int, column: int, width_cells: int = 1, height_cells: int = 1, widget_width: int = 200, widget_height: int = 80) -> tuple:
-        """网格格子坐标转百分比坐标"""
-        if not self._grid_metrics:
-            return (0.5, 0.5)
-
-        rect = self.grid_service.get_cell_rect(
-            self._grid_metrics, column, row, width_cells, height_cells
-        )
-
-        # setPositionPercent 语义: x = (parent_w - widget_w) * pct
-        # 所以: pct = x / (parent_w - widget_w)
-        available_width = self.width() - widget_width
-        available_height = self.height() - widget_height
-        x_pct = rect.x() / available_width if available_width > 0 else 0.5
-        y_pct = rect.y() / available_height if available_height > 0 else 0.5
-
-        return (max(0.0, min(1.0, x_pct)), max(0.0, min(1.0, y_pct)))
-
-    def pos_to_grid_cell(self, x_pct: float, y_pct: float, widget_width: int = 200, widget_height: int = 80) -> tuple:
-        """百分比坐标转网格格子坐标（与 setPositionPercent 语义一致）"""
-        if not self._grid_metrics:
-            return (0, 0)
-
-        # setPositionPercent 语义: x = (parent_w - widget_w) * pct
-        # 所以: pixel_x = x_pct * (parent_w - widget_w)
-        available_width = self.width() - widget_width
-        available_height = self.height() - widget_height
-        point = QPoint(int(x_pct * available_width), int(y_pct * available_height))
-        row, col = self.grid_service.point_to_cell(self._grid_metrics, point)
-        return (row, col)
 
     def paintEvent(self, event):
         """绘制"""
@@ -321,15 +399,191 @@ class HomeInterface(QWidget, TranslatableWidget):
         self.gridLayout.addWidget(self.homeBackgroundImage, 0, 0, 1, 1)
         self.gridLayout.addWidget(self.homeDimOverlay, 0, 0, 1, 1)
 
+        # 翻页容器
+        from PyQt6.QtWidgets import QFrame
+        self.pagesContainer = QFrame(self.homeContent)
+        self.pagesContainer.setObjectName("pagesContainer")
+        self.pagesContainer.setStyleSheet("background: transparent; border: none;")
+        self.pagesContainer.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, False)
+        self.pagesStack = QWidget(self.pagesContainer)
+        self.pagesStack.setObjectName("pagesStack")
+        self.pagesStack.setStyleSheet("background: transparent;")
+        self.pagesStack.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, False)
+        self.pagesStack.show()
+
         homeLayout = QVBoxLayout(self)
         homeLayout.setContentsMargins(0, 0, 0, 0)
         homeLayout.addWidget(self.homeContent)
 
-        # 网格覆盖层
         self._grid_overlay = _GridOverlay(self)
         self._grid_overlay.setObjectName("gridOverlay")
         self._grid_overlay.hide()
-        self._grid_overlay.setup(self)  # 传递 HomeInterface 引用
+        self._grid_overlay.setup(self)
+
+    def _initPages(self):
+        """根据 PageManager 创建所有页面 widget"""
+        # 用 dict 按 page_index 取对应 widget
+        self._page_widgets = {}        # page_index -> QWidget
+
+        from ui.component import NavigationPage
+        for i, meta in enumerate(self.page_manager.pages()):
+            if meta.type == "nav":
+                page = NavigationPage(self.pagesStack, page_index=i, page_manager=self.page_manager)
+            else:
+                page = QWidget(self.pagesStack)
+                page.setObjectName("infoPageWidget")
+                page.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, False)
+            self._page_widgets[i] = page
+            page.show()
+
+        self._currentPageIndex = self.page_manager.get_current_page()
+        if not (0 <= self._currentPageIndex < len(self._page_widgets)):
+            self._currentPageIndex = 0
+        self._layoutPages()
+        self._applyPageVisibility()
+
+    def _layoutPages(self):
+        """所有页面横向排列在 pagesStack 内 第 i 页 move(i*width, 0)
+        pagesStack 自身偏移到 -currentPage*width"""
+        if not hasattr(self, 'pagesContainer') or not self.pagesContainer:
+            return
+        w = self.pagesContainer.width()
+        h = self.pagesContainer.height()
+        n = max(1, len(self._page_widgets))
+        for i, page in self._page_widgets.items():
+            page.setFixedSize(w, h)
+            page.move(i * w, 0)
+        # pagesStack 宽度 = 页数 * 单页宽度
+        self.pagesStack.setFixedSize(n * w, h)
+        self.pagesStack.move(-self._currentPageIndex * w, 0)
+
+    def _applyPageOffset(self, offset_x: int):
+        """临时偏移 pagesStack"""
+        w = self.pagesContainer.width()
+        self.pagesStack.move(-self._currentPageIndex * w + offset_x, 0)
+
+    def _applyPageVisibility(self, visible_pages=None):
+        """根据当前页设置组件可见性"""
+        if not hasattr(self, 'component_manager') or not self.component_manager:
+            return
+        cur = self._currentPageIndex
+        if visible_pages is None:
+            visible_pages = set()
+        else:
+            visible_pages = set(visible_pages)
+        visible_pages.add(cur)
+        for comp_id, instance in self.component_manager.components.items():
+            try:
+                page_idx = self.component_manager.get_component_page(comp_id)
+                if page_idx in visible_pages:
+                    stored = self.component_manager._component_data.get(comp_id, {})
+                    if stored.get("enabled", True):
+                        instance.show()
+                    else:
+                        instance.hide()
+                else:
+                    instance.hide()
+            except Exception as e:
+                logger.warning(f"[_applyPageVisibility] {comp_id}: {e}")
+
+    def get_info_page_widget(self, page_index: int):
+        """返回指定信息页的 widget"""
+        if not hasattr(self, '_page_widgets'):
+            return None
+        meta = self.page_manager.get_page(page_index)
+        if meta is None or meta.type != "info":
+            return None
+        return self._page_widgets.get(page_index)
+
+    def _stopPageAnim(self):
+        """停止翻页动画：断开 finished 信号再 stop"""
+        if self._page_anim:
+            anim = self._page_anim
+            self._page_anim = None
+            try:
+                anim.finished.disconnect()
+            except Exception:
+                pass
+            anim.stop()
+
+    def _goToPage(self, index: int, animate: bool = True):
+        """切换到指定页面"""
+        if not (0 <= index < len(self._page_widgets)):
+            return
+        if hasattr(self, '_deselectAll'):
+            try:
+                self._deselectAll()
+            except Exception:
+                pass
+
+        self._stopPageAnim()
+
+        old_index = self._currentPageIndex
+        self._currentPageIndex = index
+        self.page_manager.set_current_page(index)
+
+        w = self.pagesContainer.width()
+        target_x = -index * w
+
+        # 翻页过渡
+        if animate and old_index != index:
+            self._applyPageVisibility(visible_pages={old_index, index})
+
+        if animate:
+            cur_x = self.pagesStack.x()
+            if cur_x == target_x:
+                self._onPageAnimFinished()
+            else:
+                # QPropertyAnimation 在 C++ 动画 pos 属性，
+                anim = QPropertyAnimation(self.pagesStack, b"pos", self)
+                anim.setStartValue(QPoint(cur_x, 0))
+                anim.setEndValue(QPoint(target_x, 0))
+                anim.setDuration(250)
+                anim.setEasingCurve(QEasingCurve.Type.OutCubic)
+                anim.finished.connect(self._onPageAnimFinished)
+                self._page_anim = anim
+                anim.start()
+        else:
+            self._applyRawOffset(target_x)
+            self._onPageAnimFinished()
+
+        if hasattr(self, 'pageIndicator'):
+            self.pageIndicator.set_current(index)
+
+    def _applyRawOffset(self, x0: int):
+        """设置 pagesStack 的 x"""
+        self.pagesStack.move(int(x0), 0)
+
+    def _onPageAnimFinished(self):
+        self._page_anim = None
+        # snap 到当前页的精确位置
+        w = self.pagesContainer.width()
+        if w > 0:
+            self.pagesStack.move(-self._currentPageIndex * w, 0)
+        self._applyPageVisibility()
+        if hasattr(self, 'pageIndicator'):
+            self.pageIndicator.set_current(self._currentPageIndex)
+        # 网格 overlay 只在信息页显示
+        if hasattr(self, '_grid_overlay') and self._grid_overlay:
+            if self._edit_mode_active and self.page_manager.get_page(self._currentPageIndex) and \
+               self.page_manager.get_page(self._currentPageIndex).type == "info":
+                self._grid_overlay.show()
+            else:
+                self._grid_overlay.hide()
+        self._page_safety_timer.start(300)
+
+    def _checkPagePosition(self):
+        """如果不在拖拽/动画中 pagesStack 不在页边界：强制 snap"""
+        if self._swipe_dragging or self._page_anim:
+            return
+        if not hasattr(self, 'pagesStack') or not self.pagesStack:
+            return
+        w = self.pagesContainer.width()
+        if w <= 0:
+            return
+        expected_x = -self._currentPageIndex * w
+        if self.pagesStack.x() != expected_x:
+            self.pagesStack.move(expected_x, 0)
 
     def _initBottomBar(self):
         """底部栏"""
@@ -349,14 +603,169 @@ class HomeInterface(QWidget, TranslatableWidget):
 
         barLayout.addStretch()
 
+        # 中间：页面指示器
+        self.pageIndicator = PageIndicator(self.bottomBar)
+        self.pageIndicator.set_count(self.page_manager.page_count())
+        self.pageIndicator.set_current(self._currentPageIndex)
+        self.pageIndicator.pageClicked.connect(lambda i: self._goToPage(i, animate=True))
+        barLayout.addWidget(self.pageIndicator)
+
+        barLayout.addStretch()
+
+        # 编辑模式显示：
+        # 添加页面按钮
+        self.addPageBtn = PushButton(self.bottomBar)
+        self.addPageBtn.setObjectName("addPageBtn")
+        self.addPageBtn.setIcon(FUI.ADD)
+        self._refreshAddPageBtn()
+        self.addPageBtn.clicked.connect(self._addNewPage)
+        self.addPageBtn.hide()
+        barLayout.addWidget(self.addPageBtn)
+
+        # 重命名页面按钮
+        self.renamePageBtn = PushButton(self.bottomBar)
+        self.renamePageBtn.setObjectName("renamePageBtn")
+        self.renamePageBtn.setIcon(FUI.EDIT)
+        self.renamePageBtn.setText(tr("home.rename_page"))
+        self.renamePageBtn.clicked.connect(lambda: self._renamePage(self._currentPageIndex))
+        self.renamePageBtn.hide()
+        barLayout.addWidget(self.renamePageBtn)
+
+        # 删除页面按钮
+        self.delPageBtn = PushButton(self.bottomBar)
+        self.delPageBtn.setObjectName("delPageBtn")
+        self.delPageBtn.setIcon(FUI.DELETE)
+        self.delPageBtn.setText(tr("home.delete_page"))
+        self.delPageBtn.clicked.connect(lambda: self._deletePage(self._currentPageIndex))
+        self.delPageBtn.hide()
+        barLayout.addWidget(self.delPageBtn)
+
         self.menuBtn = ToolButton(FUI.MENU, self.bottomBar)
         self.menuBtn.setObjectName("bottomMenuBtn")
         self.menuBtn.setFixedSize(36, 36)
-        self.menuBtn.setIconSize(QSize(28, 28))  # 设置图标尺寸
+        self.menuBtn.setIconSize(QSize(28, 28))
         self.menuBtn.clicked.connect(self._showBottomMenu)
         barLayout.addWidget(self.menuBtn)
 
         self._updateBottomBarPosition()
+
+    def _refreshAddPageBtn(self):
+        """刷新添加页面按钮文案"""
+        if not hasattr(self, 'addPageBtn') or not self.addPageBtn:
+            return
+        total = self.page_manager.page_count()
+        self.addPageBtn.setText(tr("home.add_page_with_count", count=total))
+
+    def _addNewPage(self):
+        """添加新信息页"""
+        new_index = self.page_manager.add_page(page_type="info")
+        if new_index < 0:
+            from qfluentwidgets import InfoBar
+            InfoBar.warning(title=tr("home.page_limit"),
+                            content="", parent=self, duration=2000)
+            return
+        # 新建对应页 widget
+        page = QWidget(self.pagesStack)
+        page.setObjectName("infoPageWidget")
+        page.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, False)
+        self._page_widgets[new_index] = page
+        page.show()
+        self._layoutPages()
+        self.pageIndicator.set_count(self.page_manager.page_count())
+        self._refreshAddPageBtn()
+        self._goToPage(new_index, animate=True)
+
+    def _renamePage(self, index: int):
+        from qfluentwidgets import MessageBoxBase, LineEdit, SubtitleLabel
+        meta = self.page_manager.get_page(index)
+        if meta is None:
+            return
+        box = MessageBoxBase(self.window())
+        title = SubtitleLabel(tr("home.rename_page_title"), box)
+        box.viewLayout.addWidget(title)
+        edit = LineEdit(box)
+        edit.setText(meta.name)
+        edit.setClearButtonEnabled(True)
+        box.viewLayout.addWidget(edit)
+        if box.exec():
+            new_name = edit.text().strip()
+            if new_name:
+                self.page_manager.rename_page(index, new_name)
+
+    def _deletePage(self, index: int):
+        """删除页面"""
+        from qfluentwidgets import MessageBox
+        meta = self.page_manager.get_page(index)
+        if meta is None or meta.type == "nav":
+            return
+        if self.page_manager.page_count() <= 1:
+            return
+
+        # 找一个信息页作为 fallback
+        fallback = -1
+        for i, m in enumerate(self.page_manager.pages()):
+            if i != index and m.type == "info":
+                fallback = i
+                break
+
+        # 确认
+        if fallback >= 0:
+            content = tr("home.delete_page_confirm", name=meta.name)
+        else:
+            content = tr("home.delete_page_no_fallback", name=meta.name)
+        msg_box = MessageBox(
+            tr("home.delete_page"),
+            content,
+            self.window(),
+        )
+        if not msg_box.exec():
+            return
+
+        # 迁移或删除被删页的组件
+        to_remove = []
+        for comp_id, instance in self.component_manager.components.items():
+            pi = self.component_manager.get_component_page(comp_id)
+            if pi == index:
+                if fallback >= 0:
+                    self.component_manager.set_component_page(comp_id, fallback)
+                    new_parent = self._page_widgets.get(fallback)
+                    if new_parent is not None:
+                        instance.setParent(new_parent)
+                else:
+                    to_remove.append(comp_id)
+        for cid in to_remove:
+            self.component_manager.remove_component(cid)
+
+        # 调整其他组件的 page_index
+        self.component_manager.shift_pages_after_delete(index, fallback_index=fallback if fallback >= 0 else 0)
+
+        self.page_manager.delete_page(index)
+
+        old_widget = self._page_widgets.pop(index, None)
+        if old_widget:
+            old_widget.setParent(None)
+            old_widget.deleteLater()
+
+        # 重建 _page_widgets 的 key
+        new_map = {}
+        for i in sorted(self._page_widgets.keys()):
+            new_map[len(new_map)] = self._page_widgets[i]
+        self._page_widgets = new_map
+
+        for i, page in self._page_widgets.items():
+            if hasattr(page, '_page_index'):
+                page._page_index = i
+
+        self.pageIndicator.set_count(self.page_manager.page_count())
+        self._refreshAddPageBtn()
+
+        # 跳到合适页
+        new_cur = self.page_manager.get_current_page()
+        self._currentPageIndex = new_cur
+        self._layoutPages()
+        self._applyPageVisibility()
+        if hasattr(self, 'pageIndicator'):
+            self.pageIndicator.set_current(new_cur)
 
     def _updateBottomBarPosition(self):
         """距底部25px"""
@@ -404,27 +813,28 @@ class HomeInterface(QWidget, TranslatableWidget):
         return super().eventFilter(obj, event)
 
     def dragEnterEvent(self, event):
-        """拖拽进入事件"""
+        """拖拽进入"""
         if event.mimeData().hasFormat("application/x-Glimpseon-component"):
+            # 当前页为导航页时不接受组件拖入
+            meta = self.page_manager.get_page(self._currentPageIndex) if hasattr(self, 'page_manager') else None
+            if meta is not None and meta.type == "nav":
+                event.ignore()
+                return
             event.acceptProposedAction()
             self._drag_hover = True
             self._drag_preview_visible = True
 
-            # 获取组件数据 
             data = event.mimeData().data("application/x-Glimpseon-component").data().decode('utf-8')
             self._drag_preview_component_id = data
 
             if "|" in data:
-                # 新格式: type|style (如 clock|digital)
                 comp_type, comp_style = data.split("|", 1)
                 self._drag_preview_def = self.component_registry.get_definition(f"{comp_type}_{comp_style}")
             else:
-                # 旧格式: definition.id (如 clock_digital)
                 self._drag_preview_def = self.component_registry.get_definition(data)
 
             logger.info(f"dragEnter: component={data}, def={self._drag_preview_def}")
 
-            # 缓存组件尺寸
             from ui.component import COMPONENT_STYLES
             comp_type, comp_style = self._resolve_component_type_style(data)
             style_info = COMPONENT_STYLES.get(comp_type, {}).get(comp_style, {})
@@ -451,16 +861,13 @@ class HomeInterface(QWidget, TranslatableWidget):
             else:
                 self._drag_preview_size = style_info.get("default_size", (200, 80))
 
-            # 更新网格度量
             self._update_grid_metrics()
             logger.info(f"grid_metrics cell_size={self._grid_metrics.cell_size if self._grid_metrics else 'None'}")
 
-            # 同步预览到 _width/_height
             if hasattr(self, '_drag_preview_size') and self._drag_preview_size:
                 self._drag_preview_width = self._drag_preview_size[0]
                 self._drag_preview_height = self._drag_preview_size[1]
 
-            # 显示覆盖层
             if hasattr(self, '_grid_overlay') and self._grid_overlay:
                 self._grid_overlay.update_grid_metrics(self._grid_metrics)
                 self._grid_overlay.show_preview(False)
@@ -471,44 +878,37 @@ class HomeInterface(QWidget, TranslatableWidget):
             event.ignore()
 
     def dragMoveEvent(self, event):
-        """拖拽移动事件"""
+        """拖拽移动"""
         if event.mimeData().hasFormat("application/x-Glimpseon-component"):
             event.acceptProposedAction()
 
             pos = event.position()
-            # 使用缓存尺寸
             default_size = getattr(self, '_drag_preview_size', (200, 80))
             comp_width, comp_height = default_size
 
-            # 原始位置
             raw_x = pos.x() - comp_width / 2
             raw_y = pos.y() - comp_height / 2
 
-            # 吸附
             if self._grid_metrics and self._drag_preview_def:
-                SNAP_THRESHOLD = 20  # 吸附阈值
+                SNAP_THRESHOLD = 20
                 snapped_x, snapped_y = self._snap_to_grid(
                     raw_x, raw_y, comp_width, comp_height, SNAP_THRESHOLD
                 )
             else:
                 snapped_x, snapped_y = raw_x, raw_y
 
-            # 限制界面范围
             snapped_x = max(0, min(snapped_x, self.width() - comp_width))
             snapped_y = max(0, min(snapped_y, self.height() - comp_height))
 
-            # 保存吸附后位置
             self._drag_preview_x = snapped_x
             self._drag_preview_y = snapped_y
             self._drag_preview_width = comp_width
             self._drag_preview_height = comp_height
 
-            # 检查碰撞
             self._drag_preview_collision = self._check_pixel_collision(
                 snapped_x, snapped_y, comp_width, comp_height
             )
 
-            # 更新覆盖层预览框
             if hasattr(self, '_grid_overlay') and self._grid_overlay:
                 self._grid_overlay.update_preview_pixel(
                     snapped_x, snapped_y, comp_width, comp_height,
@@ -524,59 +924,51 @@ class HomeInterface(QWidget, TranslatableWidget):
         inset = metrics.edge_inset_px
         pitch = metrics.pitch
 
-        # 计算组件四个边的位置
         left = x
         right = x + width
         top = y
         bottom = y + height
 
         def find_nearest_grid_line(pos, is_vertical: bool):
-            """找最近的线"""
             if is_vertical:
-                # x
                 for col in range(metrics.column_count + 1):
                     line_x = inset + col * pitch
                     if abs(pos - line_x) <= threshold:
                         return line_x
             else:
-                # y
                 for row in range(metrics.row_count + 1):
                     line_y = inset + row * pitch
                     if abs(pos - line_y) <= threshold:
                         return line_y
-            return pos  # 不吸附
+            return pos
 
         snapped_left = find_nearest_grid_line(left, True)
         snapped_right = find_nearest_grid_line(right, True)
         snapped_top = find_nearest_grid_line(top, False)
         snapped_bottom = find_nearest_grid_line(bottom, False)
 
-        # 优先用左边/上边吸附 其次右边/下边
         final_x = snapped_left if snapped_left != left else (snapped_right - width if snapped_right != right else x)
         final_y = snapped_top if snapped_top != top else (snapped_bottom - height if snapped_bottom != bottom else y)
 
         return (final_x, final_y)
 
     def _check_pixel_collision(self, x: float, y: float, width: float, height: float) -> bool:
-        """检查像素位置的碰撞"""
+        """像素位置碰撞检测"""
         if hasattr(self, 'component_manager') and self.component_manager:
             containers = self.component_manager.get_all_containers()
             for container in containers:
                 if container and container.isVisible():
-                    # 检查矩形重叠
                     cx = container.x()
                     cy = container.y()
                     cw = container.width()
                     ch = container.height()
-
-                    # 矩形重叠检测
                     if not (x + width < cx or x > cx + cw or
                             y + height < cy or y > cy + ch):
                         return True
         return False
 
     def dragLeaveEvent(self, event):
-        """拖拽离开事件"""
+        """拖拽离开"""
         self._drag_preview_visible = False
         self._drag_preview_component_id = None
         self._drag_preview_def = None
@@ -586,7 +978,6 @@ class HomeInterface(QWidget, TranslatableWidget):
         self._drag_preview_height = 0
         self._drag_preview_collision = False
 
-        # 隐藏覆盖层
         if hasattr(self, '_grid_overlay') and self._grid_overlay:
             if not self._edit_mode_active:
                 self._grid_overlay.hide()
@@ -597,20 +988,17 @@ class HomeInterface(QWidget, TranslatableWidget):
         event.accept()
 
     def dropEvent(self, event):
-        """放置事件"""
+        """放置"""
         if not event.mimeData().hasFormat("application/x-Glimpseon-component"):
             event.ignore()
             return
 
-        # 保存放置位置
         saved_x = self._drag_preview_x
         saved_y = self._drag_preview_y
         saved_w = self._drag_preview_width
         saved_h = self._drag_preview_height
-        # 是否有效的拖拽移动位置
         has_valid_preview = saved_w > 0 and saved_h > 0
 
-        # 清除拖拽预览
         self._drag_preview_visible = False
         self._drag_preview_component_id = None
         self._drag_preview_def = None
@@ -620,7 +1008,6 @@ class HomeInterface(QWidget, TranslatableWidget):
         self._drag_preview_height = 0
         self._drag_preview_collision = False
 
-        # 隐藏覆盖层预览框
         if hasattr(self, '_grid_overlay') and self._grid_overlay:
             if self._edit_mode_active:
                 self._grid_overlay.show_preview(False)
@@ -629,13 +1016,10 @@ class HomeInterface(QWidget, TranslatableWidget):
 
         data = event.mimeData().data("application/x-Glimpseon-component").data().decode('utf-8')
 
-        # 组件类型和样式
         component_type, component_style = self._resolve_component_type_style(data)
 
-        # 计算放置百分比位置
         drop_pos = event.position()
         if has_valid_preview:
-            # 使用预览框位置
             available_width = self.width() - saved_w
             available_height = self.height() - saved_h
             if available_width > 0 and available_height > 0:
@@ -645,16 +1029,15 @@ class HomeInterface(QWidget, TranslatableWidget):
                 pos_x_pct = drop_pos.x() / self.width() if self.width() > 0 else 0.5
                 pos_y_pct = drop_pos.y() / self.height() if self.height() > 0 else 0.5
         else:
-            # 没有就局长
             pos_x_pct = drop_pos.x() / self.width() if self.width() > 0 else 0.5
             pos_y_pct = drop_pos.y() / self.height() if self.height() > 0 else 0.5
 
         logger.info(f"dropEvent: saved=({saved_x},{saved_y},{saved_w},{saved_h}), "
                     f"has_valid_preview={has_valid_preview}, pct=({pos_x_pct:.3f},{pos_y_pct:.3f})")
 
-        # 添加组件
         if hasattr(self, 'component_manager') and self.component_manager:
-            comp_id = self.component_manager.add_component(component_type, component_style)
+            comp_id = self.component_manager.add_component(component_type, component_style,
+                                                            page_index=self._currentPageIndex)
             if comp_id:
                 comp = self.component_manager.components.get(comp_id)
                 if comp:
@@ -694,7 +1077,7 @@ class HomeInterface(QWidget, TranslatableWidget):
                 event.acceptProposedAction()
                 self.update()
 
-                from qfluentwidgets import InfoBar, InfoBarPosition
+                from qfluentwidgets import InfoBarPosition
                 InfoBar.success(
                     tr("component_edit.add_success"),
                     "",
@@ -765,12 +1148,22 @@ class HomeInterface(QWidget, TranslatableWidget):
         self._update_grid_metrics()
         logger.info(f"进入编辑模式: grid_metrics={self._grid_metrics}, "
                     f"cell_size={self._grid_metrics.cell_size if self._grid_metrics else 'None'}")
-        # 显示网格
+        # 显示网格（信息页）
+        meta = self.page_manager.get_page(self._currentPageIndex) if hasattr(self, 'page_manager') else None
         if hasattr(self, '_grid_overlay') and self._grid_overlay:
             self._grid_overlay.update_grid_metrics(self._grid_metrics)
             self._grid_overlay.show_preview(False)
-            self._grid_overlay.show()
-            self._grid_overlay.raise_()
+            if meta is None or meta.type == "info":
+                self._grid_overlay.show()
+                self._grid_overlay.raise_()
+            else:
+                self._grid_overlay.hide()
+        if hasattr(self, 'addPageBtn') and self.addPageBtn:
+            self.addPageBtn.show()
+        if hasattr(self, 'renamePageBtn') and self.renamePageBtn:
+            self.renamePageBtn.show()
+        if hasattr(self, 'delPageBtn') and self.delPageBtn:
+            self.delPageBtn.show()
         # 设置可拖动
         self._set_all_draggable(True)
 
@@ -802,17 +1195,136 @@ class HomeInterface(QWidget, TranslatableWidget):
         ]
 
     def mousePressEvent(self, event):
-        """点击空白取消选中"""
+        """点击空白取消选中 + 翻页拖拽起点"""
         if self.isEditMode and event.button() == Qt.MouseButton.LeftButton:
             self._deselectAll()
+        # 翻页拖拽：记录起点
+        if event.button() == Qt.MouseButton.LeftButton:
+            meta = self.page_manager.get_page(self._currentPageIndex) if hasattr(self, 'page_manager') else None
+            if not self._edit_mode_active or (meta and meta.type == "nav"):
+                self._stopPageAnim()
+                w = self.pagesContainer.width()
+                if w > 0:
+                    self.pagesStack.move(-self._currentPageIndex * w, 0)
+                self._swipe_start_x = event.position().x()
+                self._swipe_start_y = event.position().y()
+                self._swipe_dragging = True
+                self._swipe_moved = False
+                self._swipe_last_dx = 0
+                self.grabMouse()
+                self._swipe_watchdog.start()
+                event.accept()
+                return
         super().mousePressEvent(event)
 
+    def mouseMoveEvent(self, event):
+        """翻页跟手"""
+        if self._swipe_dragging and self._swipe_start_x is not None:
+            dx = event.position().x() - self._swipe_start_x
+            dy = event.position().y() - self._swipe_start_y
+            if abs(dx) > 10 and abs(dx) > abs(dy):
+                if not self._swipe_moved:
+                    self._swipe_moved = True
+                    # 首次移动时显示相邻页组件
+                    pages = {self._currentPageIndex}
+                    if self._currentPageIndex > 0:
+                        pages.add(self._currentPageIndex - 1)
+                    if self._currentPageIndex < len(self._page_widgets) - 1:
+                        pages.add(self._currentPageIndex + 1)
+                    self._applyPageVisibility(visible_pages=pages)
+                # 边缘阻尼
+                w = self.pagesContainer.width()
+                raw_dx = dx
+                if (self._currentPageIndex == 0 and raw_dx > 0) or \
+                   (self._currentPageIndex == len(self._page_widgets) - 1 and raw_dx < 0):
+                    raw_dx = int(raw_dx * 0.3)
+                self._swipe_last_dx = int(raw_dx)
+                self.pagesStack.move(-self._currentPageIndex * w + self._swipe_last_dx, 0)
+            event.accept()
+            return
+        super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        """翻页释放"""
+        if self._swipe_dragging and self._swipe_start_x is not None:
+            self._swipe_watchdog.stop()
+            try:
+                self.releaseMouse()
+            except Exception:
+                pass
+            dx = event.position().x() - self._swipe_start_x
+            w = self.pagesContainer.width()
+            threshold = max(60, w * 0.15)
+            target = self._currentPageIndex
+            if self._swipe_moved:
+                if dx > threshold and self._currentPageIndex > 0:
+                    target = self._currentPageIndex - 1
+                elif dx < -threshold and self._currentPageIndex < len(self._page_widgets) - 1:
+                    target = self._currentPageIndex + 1
+            self._swipe_dragging = False
+            self._swipe_start_x = None
+            self._swipe_moved = False
+            self._goToPage(target, animate=True)
+            event.accept()
+            return
+        super().mouseReleaseEvent(event)
+
+    def _swipeWatchdog(self):
+        """如果鼠标已释放但 releaseEvent 漏掉 手动处理"""
+        if not self._swipe_dragging:
+            self._swipe_watchdog.stop()
+            return
+        # 检查鼠标左键还按着
+        from PyQt6.QtWidgets import QApplication
+        if not (QApplication.mouseButtons() & Qt.MouseButton.LeftButton):
+            self._swipe_watchdog.stop()
+            try:
+                self.releaseMouse()
+            except Exception:
+                pass
+            w = self.pagesContainer.width()
+            threshold = max(60, w * 0.15)
+            target = self._currentPageIndex
+            if self._swipe_moved:
+                if self._swipe_last_dx > threshold and self._currentPageIndex > 0:
+                    target = self._currentPageIndex - 1
+                elif self._swipe_last_dx < -threshold and self._currentPageIndex < len(self._page_widgets) - 1:
+                    target = self._currentPageIndex + 1
+            self._swipe_dragging = False
+            self._swipe_start_x = None
+            self._swipe_moved = False
+            self._goToPage(target, animate=True)
+
+    def wheelEvent(self, event):
+        """水平滚轮翻页"""
+        if not self._edit_mode_active:
+            delta = event.angleDelta()
+            dx = delta.x()
+            dy = delta.y()
+            if abs(dx) < 1 and abs(dy) != 0:
+                dx = -dy
+            if abs(dx) > 30:
+                if dx > 0:
+                    self._goToPage(self._currentPageIndex - 1, animate=True)
+                else:
+                    self._goToPage(self._currentPageIndex + 1, animate=True)
+                event.accept()
+                return
+        super().wheelEvent(event)
+
     def keyPressEvent(self, event):
-        """Delete 键删除选中组件"""
+        """Delete 键删除选中组件 方向键翻页"""
         if self.isEditMode and self._edit_selected_placement_id:
             if event.key() == Qt.Key.Key_Delete:
                 self.deleteSelectedComponent(self._edit_selected_placement_id)
                 return
+        # 左右方向键翻页
+        if event.key() == Qt.Key.Key_Left:
+            self._goToPage(self._currentPageIndex - 1, animate=True)
+            return
+        if event.key() == Qt.Key.Key_Right:
+            self._goToPage(self._currentPageIndex + 1, animate=True)
+            return
         super().keyPressEvent(event)
 
     def _exitEditMode(self):
@@ -825,6 +1337,12 @@ class HomeInterface(QWidget, TranslatableWidget):
             self._grid_overlay.hide()
         # 隐藏辅助线
         self._hideGuideLines()
+        if hasattr(self, 'addPageBtn') and self.addPageBtn:
+            self.addPageBtn.hide()
+        if hasattr(self, 'renamePageBtn') and self.renamePageBtn:
+            self.renamePageBtn.hide()
+        if hasattr(self, 'delPageBtn') and self.delPageBtn:
+            self.delPageBtn.hide()
         # 设置不可拖动
         self._set_all_draggable(False)
 
@@ -873,6 +1391,13 @@ class HomeInterface(QWidget, TranslatableWidget):
 
         # 更新网格计算
         self._update_grid_metrics()
+
+        # 翻页容器跟随尺寸
+        if hasattr(self, 'pagesContainer') and self.pagesContainer and hasattr(self, 'homeContent') and self.homeContent:
+            self.pagesContainer.setGeometry(0, 0, self.homeContent.width(), self.homeContent.height())
+            if hasattr(self, '_page_widgets'):
+                self._stopPageAnim()
+                self._layoutPages()
 
         if hasattr(self, 'homeBackgroundImage') and self.homeBackgroundImage:
             try:
@@ -1026,6 +1551,15 @@ class HomeInterface(QWidget, TranslatableWidget):
     border-radius: {radius}px;
     border: 1px solid {border_color};
 }}
+#navItemCell {{
+    background-color: {bg_color};
+    border-radius: {radius}px;
+    border: 1px solid {border_color};
+    font-family: "HarmonyOS Sans", "Microsoft YaHei", "SimHei", sans-serif;
+}}
+#navItemCell:hover {{
+    background-color: {"rgba(255, 255, 255, 0.12)" if dark else "rgba(0, 0, 0, 0.10)"};
+}}
 """
 
     def _updateComponentCardStyle(self):
@@ -1062,42 +1596,24 @@ class HomeInterface(QWidget, TranslatableWidget):
         if self._guideOverlay:
             self._guideOverlay.setAlignLines([])
 
-    # 组件拖拽位置变更回调（预留，暂未持久化位置）
+    # 组件拖拽位置变更回调
     def saveComponentPositions(self):
         if not hasattr(self, '_draggable_widgets'):
             return
 
-        # 收集当前位置
-        current_positions = {}
-        for widget in self._draggable_widgets:
-            if widget and hasattr(widget, 'component_id') and hasattr(widget, 'getPositionPercent'):
-                comp_id = widget.component_id
-                x, y = widget.getPositionPercent()
-                current_positions[comp_id] = {"x": round(x, 4), "y": round(y, 4)}
+        if hasattr(self, 'page_manager'):
+            try:
+                self.page_manager.set_current_page(self._currentPageIndex)
+            except Exception as e:
+                logger.error(f"保存当前页失败: {e}")
 
-        try:
-            config_path = os.path.join(DATA_CONFIG, 'components.json')
-            os.makedirs(os.path.dirname(config_path), exist_ok=True)
+        if hasattr(self, 'component_manager') and self.component_manager:
+            try:
+                self.component_manager.save_components()
+            except Exception as e:
+                logger.error(f"保存组件位置失败: {e}")
 
-            # 读配置
-            existing_data = {"components": []}
-            if os.path.exists(config_path):
-                with open(config_path, 'r', encoding='utf-8') as f:
-                    existing_data = json.load(f)
 
-            # 更新位置
-            components_list = existing_data.get('components', [])
-            for comp in components_list:
-                comp_id = comp.get('id')
-                if comp_id in current_positions:
-                    comp['position'] = current_positions[comp_id]
-
-            # 写回
-            with open(config_path, 'w', encoding='utf-8') as f:
-                json.dump(existing_data, f, indent=2, ensure_ascii=False)
-            logger.info(f"组件位置已保存: {current_positions}")
-        except Exception as e:
-            logger.error(f"保存组件位置失败: {e}")
 class EditPanel(QWidget):
     """编辑面板"""
 
@@ -1109,11 +1625,10 @@ class EditPanel(QWidget):
         self.setFixedWidth(self._width)
         self.setObjectName('EditPanel')
         self.isLeftSide = False
-        self.updateTimer = QTimer()
+        self.updateTimer = QTimer(self)
         self.updateTimer.timeout.connect(self._updateCountdownList)
         self.updateTimer.start(1000)
 
-        # 设置不透明背景！！！！！！！
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self.setAutoFillBackground(True)
         self._updateTheme()
@@ -1333,9 +1848,9 @@ class EditPanel(QWidget):
         except TypeError:
             pass
         if value == 'https://api.imlcd.cn/yy/api.php':
-            self.poetryApiCombo.setCurrentText(tr("home.yiyan_api"))  # 一言 API  # 一言 API  # 一言 API  # 一言 API  # 一言 API  # 一言 API
+            self.poetryApiCombo.setCurrentText(tr("home.yiyan_api"))
         elif value == 'https://www.ffapi.cn/int/v1/shici':
-            self.poetryApiCombo.setCurrentText(tr("home.poetry_api"))  # 诗词 API  # 诗词 API  # 诗词 API  # 诗词 API  # 诗词 API
+            self.poetryApiCombo.setCurrentText(tr("home.poetry_api"))
         else:
             self.poetryApiCombo.setCurrentText(tr("home.yiyan_api"))
         self.poetryApiCombo.currentTextChanged.connect(self._onPoetryApiChanged)
@@ -1533,7 +2048,6 @@ class EditPanel(QWidget):
         cityLabel.setFixedWidth(100)
         cityLayout.addWidget(cityLabel)
         cityLayout.addStretch()
-        # self.cityButton = PushButton(cfg.city.value, self)
         self.cityButton = PushButton(self)
         self.cityButton.setFixedHeight(36)
         _city = cfg.city.value
@@ -1665,10 +2179,6 @@ class EditPanel(QWidget):
                 self.anim.finished.disconnect(self._onHideFinished)
             except Exception:
                 pass
-
-    def _onDelete(self):
-        """删除组件"""
-        if hasattr(self.mainWindow, 'deleteSelectedComponent'):self.mainWindow.deleteSelectedComponent()
 
     def _onShowClockChanged(self, checked: bool):
         """启用时钟开关变化"""
@@ -1838,7 +2348,7 @@ class EditPanel(QWidget):
 
         # 文字颜色
         textColorLayout = QHBoxLayout()
-        textColorLabel = BodyLabel(tr("home.text_color"), self)  # 文字颜色  # 文字颜色
+        textColorLabel = BodyLabel(tr("home.text_color"), self)
         textColorLabel.setFixedWidth(100)
         textColorLayout.addWidget(textColorLabel)
         textColorLayout.addStretch()
@@ -1866,7 +2376,7 @@ class EditPanel(QWidget):
 
         # 文字大小
         textSizeLayout = QHBoxLayout()
-        textSizeLabel = BodyLabel(tr("home.text_size"), self)  # 文字大小  # 文字大小
+        textSizeLabel = BodyLabel(tr("home.text_size"), self)
         textSizeLabel.setFixedWidth(100)
         textSizeLayout.addWidget(textSizeLabel)
         textSizeLayout.addStretch()
@@ -1900,7 +2410,7 @@ class EditPanel(QWidget):
         displayModeLayout.addStretch()
         self.countdownDisplayModeCombo = ComboBox(self)
         self.countdownDisplayModeCombo.addItems([tr("home.simultaneous"), tr("home.carousel")])  # 同时显示 / 轮播显示
-        self.countdownDisplayModeCombo.setCurrentText(tr("home.simultaneous") if cfg.countdownDisplayMode.value == 'simultaneous' else tr("home.carousel"))  # 同时显示 / 轮播显示  # 同时显示 / 轮播显示
+        self.countdownDisplayModeCombo.setCurrentText(tr("home.simultaneous") if cfg.countdownDisplayMode.value == 'simultaneous' else tr("home.carousel"))
         self.countdownDisplayModeCombo.setFixedWidth(120)
         self.countdownDisplayModeCombo.currentTextChanged.connect(self._onCountdownDisplayModeChanged)
         displayModeLayout.addWidget(self.countdownDisplayModeCombo)
@@ -2119,7 +2629,7 @@ class EditPanel(QWidget):
     def _onCountdownTextColorChanged(self, text: str):
         """倒计时文字颜色变化"""
 
-        if text == tr("color.red"):  # 红色  # 红色
+        if text == tr("color.red"):
             cfg.countdownTextColor.value = "#FF0000"
         elif text == tr("color.white"):  # 白色
             cfg.countdownTextColor.value = "#FFFFFF"
@@ -2668,15 +3178,6 @@ class QuickLaunchEditDialog(MessageBoxBase):
             InfoBar.warning(tr("common.tip"), tr("home.select_app_first"), parent=self, duration=2000)
             return
 
-        # deleted_app = self._apps.pop(self._selected_row)
-        # self._delete_app_icon(deleted_app)
-        # self._update_app_list()
-        # if self.appListWidget.count() > 0:
-        #     new_row = min(self._selected_row, self.appListWidget.count() - 1)
-        #     self.appListWidget.setCurrentRow(new_row)
-        #     self._selected_row = new_row
-        # self._refresh_dock()
-
         deleted_app = self._apps.pop(self._selected_row)
         self._deleted_apps.append(deleted_app)
         self._update_app_list()
@@ -2738,9 +3239,6 @@ class QuickLaunchEditDialog(MessageBoxBase):
                 self._refresh_dock()
 
     def accept(self):
-        # cfg.quickLaunchApps.value = self._apps
-        # save_cfg()
-        # super().accept()
         cfg.quickLaunchApps.value = self._apps
         save_cfg()
         for deleted_app in self._deleted_apps:
@@ -2902,18 +3400,6 @@ class AppEditDialog(MessageBoxBase):
             self.iconPathEdit.setText('')
             self._load_icon_preview(icon_path)
 
-    def _on_extract_icon(self):
-        path_text = self.pathEdit.text().strip()
-        if not path_text:
-            InfoBar.warning(tr("common.tip"), tr("home.select_app_first"), parent=self, duration=2000)
-            return
-
-        if not os.path.exists(path_text):
-            InfoBar.error(tr("dialog.error"), tr("home.path_not_exist"), parent=self, duration=2000)
-            return
-
-        self._do_extract_icon(path_text)
-
     def _on_icon_path_changed(self, path):
         if path:
             self._icon_filename = path
@@ -3026,19 +3512,7 @@ class _GridOverlay(QWidget):
             self._preview_y = 0
         self.update()
 
-    def update_preview(self, row, col, width_cells, height_cells, collision=False):
-        """更新预览框位置和大小（格子坐标）"""
-        self._preview_visible = True
-        self._use_pixel_mode = False
-        self._preview_row = row
-        self._preview_col = col
-        self._preview_width_cells = width_cells
-        self._preview_height_cells = height_cells
-        self._preview_collision = collision
-        self.update()
-
     def update_preview_pixel(self, x: float, y: float, width: float, height: float, collision=False):
-        """更新预览框位置和大小（像素坐标）"""
         self._preview_visible = True
         self._use_pixel_mode = True
         self._preview_x = x

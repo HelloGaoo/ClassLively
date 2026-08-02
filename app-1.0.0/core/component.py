@@ -20,13 +20,14 @@
 
 import json
 import logging
+import os
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Dict, List, Optional, Type, Any
 
 from PyQt6.QtCore import QObject, pyqtSignal, QPoint, QRect
 
-logger = logging.getLogger("Glimpseon")
+logger = logging.getLogger("Glimpseon.core.component")
 
 
 class ResizeMode(Enum):
@@ -466,7 +467,7 @@ BUILTIN_COMPONENT_DEFINITIONS = [
     ),
     ComponentDefinition(
         id="school_info_class_info",
-        display_name="学校信息",
+        display_name="班级卡片",
         category="Info",
         icon="Education",
         min_width_cells=2,
@@ -656,3 +657,192 @@ BUILTIN_COMPONENT_DEFINITIONS = [
         default_config={},
     ),
 ]
+
+
+@dataclass
+class PageMeta:
+    """页面元数据"""
+    name: str
+    type: str = "info"  # "info" 组件页 / "nav" 导航页
+    components: list = None   # info 页的组件列表
+    items: list = None        # nav 页的导航项列表
+
+    def __post_init__(self):
+        if self.components is None:
+            self.components = []
+        if self.items is None:
+            self.items = []
+
+    def to_dict(self) -> dict:
+        d = {"name": self.name, "type": self.type}
+        if self.type == "info":
+            d["components"] = self.components
+        elif self.type == "nav":
+            d["items"] = self.items
+        return d
+
+    @classmethod
+    def from_dict(cls, d: dict) -> 'PageMeta':
+        return cls(
+            name=d.get("name", ""),
+            type=d.get("type", "info"),
+            components=d.get("components", []),
+            items=d.get("items", []),
+        )
+
+
+class PageManager:
+    """加载/保存/添加/删除/重命名页面
+       home_layout.json:
+    {
+        "current_page": 0,
+        "pages": [
+            {
+                "name": "信息页",
+                "type": "info",
+                "components": [
+                    {"id": "...", "type": "...", "style": "...", "position": {"x":0.5,"y":0.5}, "size": {"w":200,"h":80}, "enabled": true, "config": {}}
+                ]
+            },
+            {
+                "name": "导航页",
+                "type": "nav",
+                "items": [
+                    {"name": "...", "path": "...", "icon": "...", "type": "app"}
+                ]
+            }
+        ]
+    }
+    """
+
+    DEFAULT_PAGES = [
+        {"name": "信息页", "type": "info", "components": []},
+        {"name": "导航页", "type": "nav", "items": []},
+    ]
+    MAX_PAGES = 10
+
+    def __init__(self, config_dir: str):
+        self._config_dir = config_dir
+        self._layout_file = os.path.join(config_dir, "home_layout.json")
+        self._pages: List[PageMeta] = []
+        self._current_page = 0
+        self.load()
+
+    def load(self):
+        """加载配置"""
+        if os.path.exists(self._layout_file):
+            self._load_unified()
+        else:
+            self._pages = [PageMeta.from_dict(p) for p in self.DEFAULT_PAGES]
+            self._current_page = 0
+            self.save()
+
+    def _load_unified(self):
+        try:
+            with open(self._layout_file, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            pages_data = data.get("pages", [])
+            if not pages_data:
+                pages_data = self.DEFAULT_PAGES
+            self._pages = [PageMeta.from_dict(p) for p in pages_data]
+            self._current_page = max(0, min(int(data.get("current_page", 0)), len(self._pages) - 1))
+        except Exception as e:
+            logger.error(f"[PageManager] 加载失败: {e}")
+            self._pages = [PageMeta.from_dict(p) for p in self.DEFAULT_PAGES]
+            self._current_page = 0
+
+    def save(self):
+        try:
+            os.makedirs(self._config_dir, exist_ok=True)
+            data = {
+                "current_page": self._current_page,
+                "pages": [p.to_dict() for p in self._pages],
+            }
+            with open(self._layout_file, "w", encoding="utf-8") as f:
+                json.dump(data, f, indent=2, ensure_ascii=False)
+        except Exception as e:
+            logger.error(f"[PageManager] 保存失败: {e}")
+
+    def pages(self) -> List[PageMeta]:
+        return list(self._pages)
+
+    def page_count(self) -> int:
+        return len(self._pages)
+
+    def get_page(self, index: int) -> Optional[PageMeta]:
+        if 0 <= index < len(self._pages):
+            return self._pages[index]
+        return None
+
+    def get_current_page(self) -> int:
+        return self._current_page
+
+    def set_current_page(self, index: int):
+        if 0 <= index < len(self._pages):
+            self._current_page = index
+
+    def add_page(self, name: str = "", page_type: str = "info") -> int:
+        """添加页面 返回 新页面 index/失败 -1"""
+        if len(self._pages) >= self.MAX_PAGES:
+            return -1
+        if not name:
+            info_count = sum(1 for p in self._pages if p.type == "info")
+            nav_count = sum(1 for p in self._pages if p.type == "nav")
+            if page_type == "nav":
+                name = f"导航页 {nav_count + 1}"
+            else:
+                name = f"信息页 {info_count + 1}"
+        self._pages.append(PageMeta(name=name, type=page_type))
+        self.save()
+        return len(self._pages) - 1
+
+    def rename_page(self, index: int, name: str):
+        if 0 <= index < len(self._pages):
+            self._pages[index].name = name
+            self.save()
+
+    def delete_page(self, index: int) -> bool:
+        """删除页面 至少一 导航页不能删"""
+        if len(self._pages) <= 1:
+            return False
+        if not (0 <= index < len(self._pages)):
+            return False
+        if self._pages[index].type == "nav":
+            return False
+        del self._pages[index]
+        if self._current_page >= len(self._pages):
+            self._current_page = len(self._pages) - 1
+        elif self._current_page > index:
+            self._current_page -= 1
+        self.save()
+        return True
+
+    def is_nav_page(self, index: int) -> bool:
+        p = self.get_page(index)
+        return p is not None and p.type == "nav"
+
+    def get_page_components(self, index: int) -> list:
+        """获取信息页的组件列表"""
+        p = self.get_page(index)
+        if p and p.type == "info":
+            return p.components
+        return []
+
+    def set_page_components(self, index: int, components: list):
+        """设置信息页的组件列表"""
+        if 0 <= index < len(self._pages) and self._pages[index].type == "info":
+            self._pages[index].components = components
+            self.save()
+
+    def get_page_items(self, index: int) -> list:
+        """获取导航页的项目列表"""
+        p = self.get_page(index)
+        if p and p.type == "nav":
+            return p.items
+        return []
+
+    def set_page_items(self, index: int, items: list):
+        """设置导航页的项目列表"""
+        if 0 <= index < len(self._pages) and self._pages[index].type == "nav":
+            self._pages[index].items = items
+            self.save()

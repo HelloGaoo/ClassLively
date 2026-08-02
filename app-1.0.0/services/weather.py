@@ -15,8 +15,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 """
-天气服务模块
-这个有参考classisland和classwidgets
+天气服务（参考 classisland / classwidgets）
 """
 
 import json
@@ -29,10 +28,10 @@ from typing import Any, Dict, Optional
 import requests
 
 from PyQt6.QtCore import Qt
-from qfluentwidgets import BodyLabel, MessageBoxBase, SearchLineEdit, SubtitleLabel, ListWidget
+from qfluentwidgets import MessageBoxBase, SearchLineEdit, SubtitleLabel, ListWidget
 
 from core.config import cfg
-from core.constants import BASE_DIR, get_resPath
+from core.constants import get_resPath
 from core.utils import tr
 
 logger = logging.getLogger("Glimpseon.services.weather")
@@ -159,12 +158,10 @@ class WeatherService:
         self.city_code = city_code
 
     def fetch_all(self) -> Optional[Dict[str, Any]]:
-        """请求天气数据"""
         try:
             lat = cfg.latitude.value if cfg.latitude.value else 39.9042
             lon = cfg.longitude.value if cfg.longitude.value else 116.4074
-            
-            # 仅经纬度请求
+
             params = {
                 **self.api_params,
                 "latitude": str(lat),
@@ -187,20 +184,14 @@ class WeatherService:
 
             current = data['current']
 
-            temperature = current.get('temperature', {})
-            temp_value = temperature.get('value', 0)
-            temp_unit = temperature.get('unit', '°C')
-
             weather_code = current.get('weather', 0)
             try:
                 weather_code = int(weather_code)
             except (ValueError, TypeError):
-                weather_code = 0
                 logger.warning(f"天气代码无效：{weather_code}")
+                weather_code = 0
 
-            weather_text, _ = self.WEATHER_MAP.get(weather_code, ("未知", "2.svg"))
-
-            logger.info(f"天气数据获取成功")
+            logger.info("天气数据获取成功")
             return data
 
         except requests.exceptions.Timeout:
@@ -362,7 +353,6 @@ class RegionDatabase:
             return []
 
     def get_coordinates(self, region_name):
-        """获取地区的经纬度"""
         try:
             if not os.path.exists(self._db_path):
                 return None, None
@@ -378,33 +368,8 @@ class RegionDatabase:
             logger.error(f'获取经纬度失败：{err}')
             return None, None
 
-    def get_code(self, region_name):
-        """原城市代码获取 弃"""
-        return ''
-
-    def get_name(self, region_code):
-        # try:
-        #     if not os.path.exists(self._db_path):
-        #         return ''
-
-        #     code = region_code
-        #     if code and code.startswith('weathercn:'):
-        #         code = code[10:]
-
-        #     with self._connect() as conn:
-        #         cursor = conn.cursor()
-        #         cursor.execute('SELECT name FROM citys WHERE city_num LIKE ?', ('%' + code + '%',))
-        #         result = cursor.fetchone()
-        #         return result[0] if result else ''
-        # except Exception as err:
-        #     # print(f'通过代码获取地区名失败：{err}')
-        #     logger.error(f'获取地区名失败：{err}')
-        #     return ''
-        return
-
 
 class RegionSelectorDialog(MessageBoxBase):
-    """地区选择对话框"""
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -429,8 +394,8 @@ class RegionSelectorDialog(MessageBoxBase):
         self.viewLayout.addWidget(self._search_input)
         self.viewLayout.addWidget(self._region_list)
 
-        self.yesButton.setText(tr("common.confirm"))  # 确定
-        self.cancelButton.setText(tr("common.cancel"))  # 取消
+        self.yesButton.setText(tr("common.confirm"))
+        self.cancelButton.setText(tr("common.cancel"))
 
         self.widget.setMinimumWidth(520)
         self.widget.setMinimumHeight(620)
@@ -456,7 +421,6 @@ class RegionSelectorDialog(MessageBoxBase):
                     self._region_list.setCurrentItem(items[0])
                     self._region_list.scrollToItem(items[0])
         except Exception as err:
-            # print(f'选中当前地区失败：{err}')
             logger.warning(f'选中当前地区失败：{err}')
 
     def get_selected_region(self):

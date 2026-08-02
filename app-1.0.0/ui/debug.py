@@ -33,8 +33,6 @@ from PyQt6.QtWidgets import (
     QGridLayout,
     QHBoxLayout,
     QLabel,
-    QProgressBar,
-    QTextEdit,
     QVBoxLayout,
     QWidget,
 )
@@ -46,18 +44,20 @@ from qfluentwidgets import (
     InfoBar,
     LineEdit,
     PrimaryPushButton,
+    ProgressBar,
     PushButton,
     ScrollArea,
     setTheme,
     SpinBox,
     StrongBodyLabel,
     SubtitleLabel,
+    TextEdit,
     ToggleButton,
 )
 from PyQt6.QtCore import pyqtSignal
 
 from core.config import cfg
-from core.constants import BASE_DIR, WALLPAPER_DIR, DATA_CONFIG, DATA_LOG, get_resPath, load_qss, RESOURCE_ICONS
+from core.constants import BASE_DIR, WALLPAPER_DIR, DATA_CONFIG, DATA_LOG, get_resPath, load_qss, RESOURCE_ICONS, clear_qss_cache
 from core.utils import tr, TranslatableWidget, FUI
 from core.logger import logger
 from services.weather import WeatherService, RegionDatabase
@@ -282,7 +282,7 @@ class DebugPanel(BaseScrollAreaInterface, TranslatableWidget):
         btnRow.addStretch()
         layout.addLayout(btnRow)
 
-        self.networkLogEdit = QTextEdit(card)
+        self.networkLogEdit = TextEdit(card)
         self.networkLogEdit.setPlaceholderText(tr("debug.label_placeholder_log"))  # 诊断日志将显示在此处...
         self.networkLogEdit.setMaximumHeight(100)
         self.networkLogEdit.setReadOnly(True)
@@ -326,7 +326,7 @@ class DebugPanel(BaseScrollAreaInterface, TranslatableWidget):
         line.setFixedHeight(1)
         layout.addWidget(line)
 
-        self.rawDataEdit = QTextEdit(card)
+        self.rawDataEdit = TextEdit(card)
         self.rawDataEdit.setPlaceholderText(tr("debug.label_api_raw_data"))  # API原始数据将显示在此处...
         self.rawDataEdit.setMaximumHeight(120)
         layout.addWidget(self.rawDataEdit)
@@ -473,11 +473,11 @@ class DebugPanel(BaseScrollAreaInterface, TranslatableWidget):
             imgLabel.setImage(QPixmap(28, 28))
         layout.addWidget(imgLabel, alignment=Qt.AlignmentFlag.AlignHCenter)
         codeLabel = BodyLabel(f"{code}", parent_card)
-        codeLabel.setStyleSheet("font-size: 11px; font-weight: bold; font-family: 'HarmonyOS Sans', 'Microsoft YaHei', 'SimHei', sans-serif;")
+        codeLabel.setObjectName("weatherCodeLabel")
         codeLabel.setAlignment(Qt.AlignmentFlag.AlignHCenter)
         layout.addWidget(codeLabel)
         nameLabel = BodyLabel(name[:5], parent_card)
-        nameLabel.setStyleSheet("font-size: 10px; font-family: 'HarmonyOS Sans', 'Microsoft YaHei', 'SimHei', sans-serif;")
+        nameLabel.setObjectName("weatherNameLabel")
         nameLabel.setAlignment(Qt.AlignmentFlag.AlignHCenter)
         layout.addWidget(nameLabel)
         item.mousePressEvent = lambda e, c=code: self._onGridItemClick(c)
@@ -562,7 +562,7 @@ class DebugPanel(BaseScrollAreaInterface, TranslatableWidget):
         enableRow.addStretch()
         layout.addLayout(enableRow)
 
-        self.elementInfoEdit = QTextEdit(card)
+        self.elementInfoEdit = TextEdit(card)
         self.elementInfoEdit.setPlaceholderText(tr("debug.placeholder_element_info"))  # 悬停在界面元素上查看信息...
         self.elementInfoEdit.setMaximumHeight(130)
         self.elementInfoEdit.setReadOnly(True)
@@ -597,14 +597,14 @@ class DebugPanel(BaseScrollAreaInterface, TranslatableWidget):
         row.addStretch(1)
         layout.addLayout(row)
 
-        self.batchWallpaperProgress = QProgressBar(card)
+        self.batchWallpaperProgress = ProgressBar(card)
         self.batchWallpaperProgress.setRange(0, 100)
         self.batchWallpaperProgress.setValue(0)
         self.batchWallpaperProgress.setFixedHeight(6)
         self.batchWallpaperProgress.setTextVisible(False)
         layout.addWidget(self.batchWallpaperProgress)
 
-        self.batchWallpaperLog = QTextEdit(card)
+        self.batchWallpaperLog = TextEdit(card)
         self.batchWallpaperLog.setPlaceholderText(tr("debug.placeholder_fetch_log"))  # 获取日志将显示在此处...
         self.batchWallpaperLog.setMaximumHeight(120)
         self.batchWallpaperLog.setReadOnly(True)
@@ -689,6 +689,7 @@ class DebugPanel(BaseScrollAreaInterface, TranslatableWidget):
 
     def _reloadTheme(self):
         try:
+            clear_qss_cache()
             setTheme(cfg.themeMode.value)
             self._loadStyleSheet()
             InfoBar.success(title=tr("debug.theme_refresh"), content=tr("debug.stylesheet_reloaded"), parent=self, duration=2000)
@@ -960,9 +961,7 @@ class DebugPanel(BaseScrollAreaInterface, TranslatableWidget):
         start_time = time.time()
         try:
             city_name = cfg.city.value if hasattr(cfg, 'city') and cfg.city.value else "北京"
-            city_db = RegionDatabase()
-            city_code = city_db.get_code(city_name)
-            if not city_code: city_code = "101010100"
+            city_code = "101010100"
             weather_service = WeatherService(city_code)
             weather_data = weather_service.fetch_all()
             elapsed = (time.time() - start_time) * 1000
@@ -1092,7 +1091,7 @@ class DebugPanel(BaseScrollAreaInterface, TranslatableWidget):
 
             self._popOutWindow = _PopOutWindow(self)
             self._popOutWindow.setObjectName('debug')
-            self._popOutWindow.setWindowTitle("调试面板 - Glimpseon")
+            self._popOutWindow.setWindowTitle(tr("debug.panel_title"))
             self._popOutWindow.setFixedSize(850, 750)
 
             qss = load_qss('debug.qss')
@@ -1104,7 +1103,6 @@ class DebugPanel(BaseScrollAreaInterface, TranslatableWidget):
 
             container = QWidget()
             container.setObjectName('scrollWidget')
-            container.setStyleSheet("background-color: transparent;")
             content_layout = QVBoxLayout(container)
             content_layout.setContentsMargins(36, 20, 36, 20)
             content_layout.setSpacing(15)
@@ -1118,9 +1116,9 @@ class DebugPanel(BaseScrollAreaInterface, TranslatableWidget):
             content_layout.addWidget(self._createBatchWallpaperCard())
 
             scroll = ScrollArea(self._popOutWindow)
+            scroll.setObjectName("debugScroll")
             scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
             scroll.setWidgetResizable(True)
-            scroll.setStyleSheet("background-color: transparent; border: none;")
             scroll.setWidget(container)
             self._popOutContentContainer = container
             outer_layout.addWidget(scroll)

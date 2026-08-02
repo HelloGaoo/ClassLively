@@ -1,12 +1,7 @@
-/* 调试面板 */
-
+/* 调试面板 浅色 */
 #debug {
     background: transparent;
     border: none;
-    font-family: "HarmonyOS Sans", "Microsoft YaHei", "SimHei", sans-serif;
-}
-
-#debug #scrollWidget {
 }
 
 #debug QScrollArea {
@@ -15,19 +10,16 @@
 }
 
 /* 标题 */
-
 #debug QLabel#settingLabel {
     font-size: 33px;
     background-color: transparent;
-    color: black;
-    font-family: "HarmonyOS Sans", "Microsoft YaHei", "SimHei", sans-serif;
+    color: #000000;
 }
 
 #debug SubtitleLabel {
     color: #000000;
     font-size: 18px;
-    font-weight: bold;
-    padding: 10px 0;
+    font-weight: 600;
 }
 
 #debug BodyLabel {
@@ -38,7 +30,7 @@
 #debug StrongBodyLabel {
     color: #000000;
     font-size: 14px;
-    font-weight: bold;
+    font-weight: 600;
 }
 
 #debug BodyLabel#debugValueLabel {
@@ -58,12 +50,10 @@
 }
 
 /* 卡片 */
-
 #debug CardWidget {
     background-color: #ffffff;
-    border-radius: 8px;
     border: 1px solid #d0d0d0;
-    font-family: "HarmonyOS Sans", "Microsoft YaHei", "SimHei", sans-serif;
+    border-radius: 8px;
 }
 
 #debug CardWidget:hover {
@@ -71,14 +61,14 @@
 }
 
 /* 按钮 */
-
 #debug PrimaryPushButton {
     background-color: #0078d4;
     color: #ffffff;
     border: none;
     border-radius: 4px;
-    padding: 8px 16px;
-    font-weight: bold;
+    padding: 6px 16px;
+    font-weight: 600;
+    font-size: 14px;
 }
 
 #debug PrimaryPushButton:hover {
@@ -94,11 +84,13 @@
     color: #000000;
     border: 1px solid #cccccc;
     border-radius: 4px;
-    padding: 6px 12px;
+    padding: 6px 16px;
+    font-size: 14px;
 }
 
 #debug PushButton:hover {
     background-color: #f0f0f0;
+    border-color: #999999;
 }
 
 #debug PushButton:pressed {
@@ -106,11 +98,16 @@
 }
 
 #debug ToggleButton {
-    background-color: #e0e0e0;
+    background-color: transparent;
     color: #000000;
     border: 1px solid #cccccc;
     border-radius: 4px;
-    padding: 6px 12px;
+    padding: 6px 16px;
+    font-size: 14px;
+}
+
+#debug ToggleButton:hover {
+    background-color: rgba(0, 0, 0, 0.05);
 }
 
 #debug ToggleButton:checked {
@@ -119,20 +116,15 @@
     color: #ffffff;
 }
 
-#debug ToggleButton:hover {
-    background-color: #f0f0f0;
-}
-
 /* 输入控件 */
-
 #debug QTextEdit {
     background-color: #f9f9f9;
     color: #333333;
     border: 1px solid #d0d0d0;
     border-radius: 4px;
     padding: 8px;
-    font-family: 'Consolas', 'Courier New', monospace;
     font-size: 13px;
+    selection-background-color: #0078d4;
 }
 
 #debug QTextEdit:focus {
@@ -174,6 +166,7 @@
     border: 1px solid #cccccc;
     border-radius: 4px;
     padding: 6px 12px;
+    min-width: 120px;
 }
 
 #debug ComboBox:hover {
@@ -182,7 +175,7 @@
 
 #debug ComboBox::drop-down {
     border: none;
-    width: 20px;
+    width: 24px;
 }
 
 #debug ComboBox::down-arrow {
@@ -190,7 +183,7 @@
     border-left: 5px solid transparent;
     border-right: 5px solid transparent;
     border-top: 5px solid #000000;
-    margin-right: 10px;
+    margin-right: 8px;
 }
 
 #debug QComboBox QAbstractItemView {
@@ -198,6 +191,7 @@
     color: #000000;
     border: 1px solid #d0d0d0;
     selection-background-color: #0078d4;
+    outline: none;
 }
 
 #debug QComboBox QAbstractItemView::item {
@@ -214,7 +208,6 @@
 }
 
 /* 复选框 */
-
 #debug QCheckBox {
     color: #000000;
     spacing: 8px;
@@ -234,14 +227,13 @@
 }
 
 /* 进度条 */
-
 #debug QProgressBar {
     background-color: #e0e0e0;
     border: none;
     border-radius: 4px;
     text-align: center;
     color: #000000;
-    height: 20px;
+    height: 8px;
 }
 
 #debug QProgressBar::chunk {
@@ -250,41 +242,45 @@
 }
 
 /* 分组框 */
-
 #debug QGroupBox {
     background-color: #ffffff;
     border: 1px solid #d0d0d0;
     border-radius: 8px;
-    margin-top: 10px;
-    padding-top: 10px;
-    font-weight: bold;
+    margin-top: 12px;
+    padding-top: 12px;
+    font-weight: 600;
     color: #000000;
 }
 
 #debug QGroupBox::title {
     subcontrol-origin: margin;
     subcontrol-position: top left;
-    left: 10px;
-    padding: 0 5px;
+    left: 12px;
+    padding: 0 8px;
     color: #0078d4;
 }
 
 /* 滚动条 */
-
 #debug QScrollBar:vertical {
     background-color: #f3f3f3;
-    width: 12px;
-    border-radius: 6px;
+    width: 10px;
+    border-radius: 5px;
+    margin: 2px;
 }
 
 #debug QScrollBar::handle:vertical {
     background-color: #cccccc;
-    border-radius: 6px;
+    border-radius: 5px;
     min-height: 20px;
+    margin: 2px;
 }
 
 #debug QScrollBar::handle:vertical:hover {
     background-color: #bbbbbb;
+}
+
+#debug QScrollBar::handle:vertical:pressed {
+    background-color: #aaaaaa;
 }
 
 #debug QScrollBar::add-line:vertical,
@@ -297,17 +293,7 @@
     background: none;
 }
 
-/* 布局 */
-
-#debug QVBoxLayout,
-#debug QHBoxLayout,
-#debug QGridLayout {
-    spacing: 10px;
-    margin: 0px;
-}
-
 /* 天气图标网格 */
-
 #debug #weatherIconGrid {
     background-color: transparent;
 }
@@ -325,4 +311,13 @@
 
 #debug #weatherIconGrid CardWidget BodyLabel {
     color: #555555;
+}
+
+#debug BodyLabel#weatherCodeLabel {
+    font-size: 11px;
+    font-weight: bold;
+}
+
+#debug BodyLabel#weatherNameLabel {
+    font-size: 10px;
 }
