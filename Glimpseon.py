@@ -16,7 +16,7 @@
 """
 Glimpseon 启动器
 """
-# 本模块参考：classisland（https://github.com/ClassIsland/ClassIsland）
+# 本模块参考：ClassIsland（https://github.com/ClassIsland/ClassIsland）
 import json
 import os
 import subprocess
@@ -25,18 +25,12 @@ from pathlib import Path
 
 
 def find_and_launch():
-    # 获取根目录
     root = Path(__file__).parent.resolve()
-    
-    # 扫描app-*
     app_dirs = [d for d in root.iterdir() 
                 if d.is_dir() and d.name.startswith("app-")]
-    
     if not app_dirs:
-        print("找不到app目录")
-        return 1
+        sys.exit("找不到app目录")
     
-    # 读取每个record.json
     valid_versions = []
     for app_dir in app_dirs:
         record_path = app_dir / "record.json"
@@ -50,12 +44,10 @@ def find_and_launch():
             print(f"跳过 {app_dir.name}: record.json 解析失败 - {e}")
             continue
         
-        # 跳过未完成安装
         if record.get("partial", False):
-            print(f"跳过 {app_dir.name}: 安装未完成")
+            print(f"跳过 {app_dir.name}")
             continue
         
-        # 解析版本号
         version_str = app_dir.name.replace("app-", "")
         try:
             version_parts = version_str.split(".")

@@ -57,7 +57,7 @@ except ImportError:
 
 
 class _BasePopup(QFrame):
-    """无边框置顶弹窗"""
+    """去边框置顶弹窗"""
 
     def __init__(self, parent=None, mouse_through=False):
         super().__init__(parent)
@@ -260,9 +260,9 @@ class NotificationManager(QObject):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self._active_windows = []   # 防止窗口被回收
-        self._is_showing = False    # 是否正在显示滚动/全屏
-        self._queue = []            # 等待显示的滚动/全屏通知
+        self._active_windows = []   # 防止窗口回收
+        self._is_showing = False    # 是否正在滚动/全屏
+        self._queue = []            # 等待的滚动/全屏
 
         # TTS
         self._tts_voice = "zh-CN-XiaoxiaoNeural"

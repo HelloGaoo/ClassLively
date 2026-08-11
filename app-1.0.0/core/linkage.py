@@ -41,7 +41,7 @@ _SETTINGS_FILE = "Settings.json"
 
 
 class TimeState(IntEnum):
-    """时间状态枚举"""
+    """时间状态"""
     NONE = 0
     PREPARE_ON_CLASS = 1
     ON_CLASS = 2
@@ -147,7 +147,7 @@ class _CWTimeSlot:
 
 
 def _time_from_str(s: str) -> Optional[datetime.time]:
-    """HH:MM 或 HH:MM:SS → time"""
+    """HH:MM/HH:MM:SS > time"""
     if not s:
         return None
     parts = s.strip().split(":")
@@ -161,7 +161,7 @@ def _time_from_str(s: str) -> Optional[datetime.time]:
 
 
 def _fmt_delta(td: timedelta) -> str:
-    """timedelta → "HH:MM" 或 "MM:SS" """
+    """timedelta > "HH:MM/HH:MM:SS" """
     total_sec = max(0, int(td.total_seconds()))
     h, rem = divmod(total_sec, 3600)
     m, s = divmod(rem, 60)
@@ -169,7 +169,7 @@ def _fmt_delta(td: timedelta) -> str:
 
 
 def _python_weekday_to_dotnet(weekday: int) -> int:
-    """Mon=1..Sun=7 → Sun=0..Sat=6"""
+    """Mon=1..Sun=7 > Sun=0..Sat=6"""
     return 0 if weekday == 7 else weekday
 
 
@@ -178,7 +178,8 @@ def _python_weekday_to_dotnet(weekday: int) -> int:
 
 # ClassIsland 联动
 def _find_exe_by_psutil(process_names: list[str]) -> Optional[str]:
-    """查找进程的路径"""
+    """todo:_find_exe_by_psutil _find_classisland_exe做法是不现实的"""
+    """查找进程路径"""
     try:
         import psutil
         for proc in psutil.process_iter(['name', 'exe']):
@@ -208,7 +209,7 @@ def _find_classisland_data() -> str:
         for _ in range(3):
             for candidate in [base, os.path.join(base, "data")]:
                 if os.path.isfile(os.path.join(candidate, _PROFILE_FILE)):
-                    logger.info(f"[Linkage] 从进程发现 ClassIsland: {candidate}")
+                    logger.info(f"从进程发现 ClassIsland: {candidate}")
                     return candidate
             parent = os.path.dirname(base)
             if parent == base:
@@ -277,7 +278,7 @@ class LinkageBridge(QObject):
         self._running = True
         self._thread = threading.Thread(target=self._loop, daemon=True, name="linkage-file")
         self._thread.start()
-        logger.info(f"[Linkage] 启动 (路径: {self._data_dir or '未设置'})")
+        logger.info(f"[Link0age] 启动 (路径: {self._data_dir or '未设置'})")
 
     def stop(self):
         self._running = False

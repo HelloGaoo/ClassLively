@@ -130,7 +130,7 @@ class WallpaperRecord:
 
 
 class WallpaperHistory:
-    """壁纸历史管理（单例）"""
+    """壁纸历史管理"""
 
     _instance: Optional['WallpaperHistory'] = None
 
@@ -352,6 +352,7 @@ class WallpaperInfoCard(CardWidget):
 
 class WallpaperPreviewDialog(MessageBoxBase):
     """壁纸预览弹窗"""
+    # 这个类应该是死代码
     useRequested = pyqtSignal(str)
     deleteRequested = pyqtSignal(str)
     

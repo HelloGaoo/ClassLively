@@ -86,7 +86,7 @@ class TimetablePage(ScrollArea, TranslatableWidget):
         self._ciBridge = LinkageBridge(self)
         self._cwBridge = ClassWidgetsBridge(self)
         self._activeBridge = None
-        self._linkageMode = False  # 当前是否为联动模式
+        self._linkageMode = False  # 是否联动模式
 
         # 布局
         self.scrollWidget = QWidget()
@@ -614,7 +614,7 @@ class TimetablePage(ScrollArea, TranslatableWidget):
         if period_idx < 0 or period_idx >= self._profile.period_count():
             return
 
-        # 删除前记录下一行
+        # 记录下一行
         total_rows = self._profile.period_count()
         next_row = original_row if original_row < total_rows - 1 else total_rows - 2
 
@@ -624,7 +624,7 @@ class TimetablePage(ScrollArea, TranslatableWidget):
         self._saveProfile()
         self._syncTimePickers()
 
-        # 删除后选中下一行
+        # 选中下一行
         if next_row >= 0:
             if source_table == "time":
                 self.timeTable.selectRow(next_row)
@@ -672,12 +672,11 @@ class TimetablePage(ScrollArea, TranslatableWidget):
         if self._activeTable == "course":
             self._updateCourseSettings()
 
-
+    # 右侧专栏在选中后改变显示内容
     def _onTimeTableSelection(self):
-        """时间表选中切换到时间设置"""
+        """时间表选中"""
         sel = self.timeTable.selectedItems()
         if not sel or self._profile is None or self._profile.period_count() == 0:
-            # 无内容显示空状态
             self._activeTable = None
             self._emptyState.show()
             self._timeSettings.hide()
@@ -690,10 +689,9 @@ class TimetablePage(ScrollArea, TranslatableWidget):
         self._pickersFromRow(sel[0].row())
 
     def _onCourseTableSelection(self):
-        """课程表选中切换到课程设置"""
+        """课程表选中"""
         sel = self.courseTable.selectedItems()
         if not sel or self._profile is None or self._profile.period_count() == 0:
-            # 无内容显示空状态
             self._activeTable = None
             self._emptyState.show()
             self._timeSettings.hide()
@@ -832,7 +830,7 @@ class TimetablePage(ScrollArea, TranslatableWidget):
             item.setText(text)
         self._block_save = False
 
-        # 更新科目按钮高亮
+        # 更新高亮
         self._highlightSubjectBtn(text)
 
 
@@ -1048,7 +1046,7 @@ class TimetablePage(ScrollArea, TranslatableWidget):
         return self._cwBridge
 
     def get_today_schedule(self) -> list:
-        """返回今日课表（兼容 Glimpseon/CI/CW 模式）"""
+        """返回今日课表"""
         from datetime import datetime as _dt, time as _time
 
         if self._activeBridge:
@@ -1199,7 +1197,7 @@ class TimetablePage(ScrollArea, TranslatableWidget):
         self._breakDurSpin.setEnabled(enabled)
 
     def _updateLinkagePathLabel(self):
-        """联动模式更新档案名称为路径（超长截断）"""
+        """联动模式更新档案名称为路径"""
         if self._activeBridge is self._ciBridge:
             path = cfg.linkageDataPath.value
         elif self._activeBridge is self._cwBridge:
@@ -1345,8 +1343,6 @@ class TimetablePage(ScrollArea, TranslatableWidget):
         """定时刷新联动表格"""
         if self._activeBridge and self._linkageMode:
             self._refreshLinkageTables()
-
-
 
     def resizeEvent(self, event):
         super().resizeEvent(event)

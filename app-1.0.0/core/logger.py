@@ -37,7 +37,6 @@ from PyQt6.QtCore import qInstallMessageHandler, QtMsgType
 from core.paths import DATA_LOG, ensure_data_dirs, BASE_DIR
 from core.constants import APP_NAME
 
-# 确保目录存在
 ensure_data_dirs()
 
 log_dir = DATA_LOG

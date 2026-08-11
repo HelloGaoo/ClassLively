@@ -319,46 +319,37 @@ class ComponentRegistry(QObject):
         self._definitions: Dict[str, ComponentDefinition] = {}
     
     def register(self, definition: ComponentDefinition):
-        """注册组件定义"""
         if definition.id:
             self._definitions[definition.id] = definition
             self.definitions_changed.emit()
     
     def register_batch(self, definitions: List[ComponentDefinition]):
-        """批量注册"""
         for d in definitions:
             if d.id:
                 self._definitions[d.id] = d
         self.definitions_changed.emit()
     
     def unregister(self, component_id: str):
-        """注销组件"""
         if component_id in self._definitions:
             del self._definitions[component_id]
             self.definitions_changed.emit()
     
     def get_definition(self, component_id: str) -> Optional[ComponentDefinition]:
-        """获取组件定义"""
         return self._definitions.get(component_id)
     
     def has_definition(self, component_id: str) -> bool:
-        """检查组件存在"""
         return component_id in self._definitions
     
     def get_all_definitions(self) -> List[ComponentDefinition]:
-        """获取所有组件定义"""
         return list(self._definitions.values())
     
     def get_definitions_by_category(self, category: str) -> List[ComponentDefinition]:
-        """按分类获取组件"""
         return [d for d in self._definitions.values() if d.category == category]
     
     def get_categories(self) -> List[str]:
-        """获取所有分类"""
         return sorted(set(d.category for d in self._definitions.values()))
     
     def load_from_json(self, path: str, component_classes: Optional[Dict[str, Type]] = None):
-        """加载组件定义"""
         try:
             with open(path, 'r', encoding='utf-8') as f:
                 data = json.load(f)
@@ -372,13 +363,14 @@ class ComponentRegistry(QObject):
                     definition = ComponentDefinition.from_dict(comp_data, comp_class)
                     self.register(definition)
                 except Exception as e:
-                    logger.warning(f"[ComponentRegistry] 跳过无效组件定义: {e}, data={comp_data}")
+                    logger.warning(f"跳过: {e} data={comp_data}")
             
-            logger.info(f"[ComponentRegistry] 从 {path} 加载 {len(self._definitions)} 个组件定义")
+            logger.info(f"加载 {len(self._definitions)} 个组件:{path}")
         except FileNotFoundError:
-            logger.warning(f"[ComponentRegistry] 文件不存在: {path}")
+            logger.warning(f"文件不存在: {path}")
         except Exception as e:
-            logger.error(f"[ComponentRegistry] 加载失败: {e}")
+            logger.error(f"加载失败: {e}")
+            
 
 
 BUILTIN_COMPONENT_DEFINITIONS = [
@@ -821,28 +813,27 @@ class PageManager:
         p = self.get_page(index)
         return p is not None and p.type == "nav"
 
+    # 如下是获取/设置组件列表
     def get_page_components(self, index: int) -> list:
-        """获取信息页的组件列表"""
+        """信息页"""
         p = self.get_page(index)
         if p and p.type == "info":
             return p.components
         return []
 
     def set_page_components(self, index: int, components: list):
-        """设置信息页的组件列表"""
         if 0 <= index < len(self._pages) and self._pages[index].type == "info":
             self._pages[index].components = components
             self.save()
 
     def get_page_items(self, index: int) -> list:
-        """获取导航页的项目列表"""
+        """导航页"""
         p = self.get_page(index)
         if p and p.type == "nav":
             return p.items
         return []
 
     def set_page_items(self, index: int, items: list):
-        """设置导航页的项目列表"""
         if 0 <= index < len(self._pages) and self._pages[index].type == "nav":
             self._pages[index].items = items
             self.save()

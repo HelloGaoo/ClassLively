@@ -31,6 +31,11 @@ from dataclasses import dataclass
 from types import SimpleNamespace
 from typing import Optional, List, Tuple, Dict, Any
 
+import pymem
+import psutil
+from win32api import GetFileVersionInfo
+from winsdk.windows.media.control import GlobalSystemMediaTransportControlsSessionManager
+# GlobalSystemMediaTransportControlsSessionManager这坨我很好奇是不是人写的代码
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
@@ -38,32 +43,8 @@ from urllib3.util.retry import Retry
 from core.paths import BASE_DIR
 
 DEFAULT_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-
-logger = logging.getLogger("Glimpseon.services.media")
-
-def _check_and_install_deps():
-    missing = []
-    try:
-        import pymem
-    except ImportError:
-        missing.append('pymem')
-    try:
-        import psutil
-    except ImportError:
-        missing.append('psutil')
-    try:
-        from win32api import GetFileVersionInfo
-    except ImportError:
-        missing.append('pywin32')
-    try:
-        from winsdk.windows.media.control import GlobalSystemMediaTransportControlsSessionManager
-    except ImportError:
-        missing.append('winsdk')
-
-    if missing:
-        logger.warning(f"媒体服务缺少依赖库: {', '.join(missing)}")
-        return False
-    return True
+0
+logger = logging.getLogger("Gl000mpseon.services.media")
 
 
 @dataclass
@@ -134,7 +115,8 @@ class Lyrics:
 
 
 def parse_lrc(lrc_text: str) -> List[LyricLine]:
-    """解析 LRC 格式歌词文本，返回按时间排序的 LyricLine 列表"""
+    """解析 LRC 歌词文本
+    返回时间排序的 LyricLine 列表"""
     lines = []
     pat = re.compile(r'\[(\d{1,2}):(\d{1,2})(?:\.(\d{1,3}))?\]')
     for line in lrc_text.split('\n'):
@@ -240,7 +222,7 @@ class NeteaseCloudMusic:
     def get_info(self) -> Optional[MediaInfo]:
         data = self._read_memory()
         if not data:
-            logger.debug("网易云音乐: 内存读取失败或无数据")
+            logger.debug("网易云音乐: 内存读取失败")
             return None
         title, artist = self._parse_window_title()
         if not title and not artist:
@@ -630,18 +612,17 @@ class GSMTCReader:
             async def _read():
                 try:
                     if not self._initialized or self._manager is None:
-                        logger.debug("GSMTC: 请求媒体会话管理")
                         self._manager = await MediaManager.request_async()
                         self._initialized = True
 
                     session = self._manager.get_current_session()
                     if not session:
                         if self._had_session:
-                            logger.info("GSMTC: 无活跃媒体会话")
+                            # logger.info("GSMTC: 无活跃媒体会话")
                             self._had_session = False
                         return None
                     if not self._had_session:
-                        logger.info("GSMTC: 检测到活跃媒体会话")
+                        # logger.info("GSMTC: 检测到活跃媒体会话")
                         self._had_session = True
 
                     info = MediaInfo()
@@ -658,7 +639,7 @@ class GSMTCReader:
                         if pb:
                             info.playback_status = self.STATUS_MAP.get(pb.playback_status, "unknown")
                             info.is_playing = pb.playback_status.value == 4
-                            logger.debug(f"GSMTC: 播放状态={info.playback_status}, 正在播放={info.is_playing}")
+                            # logger.debug(f"GSMTC: 播放状态={info.playback_status}, 正在播放={info.is_playing}")
                     except Exception as e:
                         logger.warning(f"GSMTC: 获取播放状态失败 {e}")
 
@@ -680,7 +661,7 @@ class GSMTCReader:
                             media_key = f"{info.title}|{info.artist}"
                             if media_key != self._last_media_key:
                                 self._last_media_key = media_key
-                                logger.info(f"GSMTC: 获取到媒体信息 - 标题={info.title}, 歌手={info.artist}")
+                                # logger.info(f"GSMTC: 获取到媒体信息 - 标题={info.title}, 歌手={info.artist}")
                             
                             if hasattr(props, 'thumbnail') and props.thumbnail:
                                 try:
@@ -718,7 +699,6 @@ class GSMTCReader:
                 return result
             except RuntimeError as e:
                 logger.warning(f"GSMTC: 事件循环错误: {e}")
-                # 关闭旧循环再创建新的，避免资源泄漏
                 if self._loop and not self._loop.is_closed():
                     self._loop.close()
                 self._loop = asyncio.new_event_loop()
@@ -756,7 +736,7 @@ class GSMTCReader:
 
 
 class KugouMemoryReader:
-    """酷狗音乐 - 窗口标题 时间模拟"""
+    """酷狗音乐：窗口标题 时间模拟"""
 
     def __init__(self):
         self._available = True
@@ -1263,7 +1243,6 @@ class MediaProvider:
     """调度器"""
 
     def __init__(self):
-        _check_and_install_deps()
         self._sources = [
             NeteaseCloudMusic(),
             QQMusicReader(),
@@ -1281,10 +1260,10 @@ class MediaProvider:
                         media_key = f"{info.title}|{info.artist}"
                         if media_key != self._last_media_key:
                             self._last_media_key = media_key
-                            logger.info(f"媒体源 [{i}] {source.name}: 成功获取媒体信息 - {info.title} - {info.artist}")
+                            # logger.info(f"媒体源 [{i}] {source.name}: 成功获取媒体信息 - {info.title} - {info.artist}")
                         return info
                     else:
-                        logger.debug(f"媒体源 [{i}] {source.name}: 获取到无效信息")
+                        logger.debug(f"媒体源 [{i}] {source.name}: 无效信息")
                 except Exception as e:
                     logger.error(f"媒体源 [{i}] {source.name}: 执行异常 {e}")
         return None
@@ -1307,7 +1286,6 @@ class MediaProvider:
 _provider: Optional[MediaProvider] = None
 
 def _get_provider() -> MediaProvider:
-    """惰性初始化 MediaProvider"""
     global _provider
     if _provider is None:
         _provider = MediaProvider()

@@ -54,7 +54,7 @@ from core.logger import log_dir
 
 
 class LineEditSettingCard(SettingCard):
-    """带 LineEdit 的设置卡片 """
+    """LineEdit设置卡片"""
 
     def __init__(self, configItem, icon, title, content=None, parent=None):
         super().__init__(icon, title, content, parent)
@@ -102,7 +102,7 @@ class SpinBoxSettingCard(SettingCard):
 
 
 class TextLineSettingCard(SettingCard):
-    """带文本框输入的设置卡片"""
+    """文本框设置卡片"""
 
     def __init__(self, configItem, icon, title, content=None, parent=None):
         super().__init__(icon, title, content, parent)
@@ -153,7 +153,7 @@ class SyncStatusSettingCard(SettingCard):
 
 
 class AutoOffsetSettingCard(SettingCard):
-    """带开关+数值框的时间偏移增量卡片"""
+    """开关 数值框设置卡片"""
 
     def __init__(self, switchConfigItem, spinConfigItem, icon, title,
                  content=None, parent=None):
@@ -248,9 +248,6 @@ class SettingsSubPage(ScrollArea):
         self.titleLabel.setObjectName("settingLabel")
         self.titleLabel.move(60, 63)
 
-
-# ─────────────────────────── 通用 ───────────────────────────
-
 class GeneralPage(SettingsSubPage):
     """通用设置页面"""
 
@@ -295,8 +292,6 @@ class GeneralPage(SettingsSubPage):
         self.vBoxLayout.addWidget(self.autoOpenMaximizeCard)
         self.vBoxLayout.addStretch()
 
-
-# ─────────────────────────── 时间 ───────────────────────────
 
 class TimePage(SettingsSubPage):
     """时间设置页面"""
@@ -416,8 +411,6 @@ class TimePage(SettingsSubPage):
         self.timeSyncStatusCard.set_status(sync_time)
 
 
-# ─────────────────────────── 外观 ───────────────────────────
-
 class AppearancePage(SettingsSubPage):
     """外观设置页面"""
 
@@ -474,8 +467,6 @@ class AppearancePage(SettingsSubPage):
             parent=self.window(),
         )
 
-
-# ─────────────────────────── 日志 ───────────────────────────
 
 class LogPage(SettingsSubPage):
     """日志设置页面"""
@@ -600,8 +591,6 @@ class LogPage(SettingsSubPage):
                     parent=self,
                 )
 
-
-# ─────────────────────────── 高级 ───────────────────────────
 
 class AdvancedPage(SettingsSubPage):
     """高级设置页面"""
@@ -808,7 +797,7 @@ class AdvancedPage(SettingsSubPage):
             )
 
     def _refreshAllConfigUI(self):
-        """刷新所有配置项的UI和主窗口组件"""
+        """刷新"""
         for attr_name in dir(cfg):
             if not attr_name.startswith("_"):
                 attr = getattr(cfg, attr_name)
@@ -826,9 +815,7 @@ class AdvancedPage(SettingsSubPage):
         clear_qss_cache()
         setTheme(current_theme)
         cfg.themeChanged.emit(current_theme)
-
-
-# ─────────────────────────── 网格 ───────────────────────────
+        
 
 class _GridPreviewWidget(QWidget):
     """网格预览组件"""
@@ -927,25 +914,21 @@ class _CornerRadiusPreviewWidget(QWidget):
 
         # 背景
         painter.fillRect(self.rect(), QColor(40, 40, 40))
-
-        # 绘制条纹背景
+        # 条纹
         w, h = self.width(), self.height()
         card_w, card_h = 120, 80
         card_x = (w - card_w) // 2
         card_y = (h - card_h) // 2
-
         stripe_pen = QPen(QColor(60, 60, 60), 6)
         painter.setPen(stripe_pen)
         for i in range(-card_h, card_w + card_h, 12):
             painter.drawLine(card_x + i, card_y, card_x + i + card_h, card_y + card_h)
-
-        # 绘制卡片背景
+        # 卡片
         alpha = int(self.card_opacity / 100.0 * 255)
         painter.setBrush(QBrush(QColor(60, 60, 60, alpha)))
         painter.setPen(QPen(QColor(80, 80, 80), 1))
         painter.drawRoundedRect(card_x, card_y, card_w, card_h, self.card_radius, self.card_radius)
-
-        # 绘制示例文字
+        # 示例
         painter.setPen(QColor(200, 200, 200))
         font = QFont("Arial", 10)
         painter.setFont(font)
@@ -960,7 +943,7 @@ class GridPage(SettingsSubPage):
         super().__init__(tr("settings.grid.title"), parent)
         self.main_window = main_window
 
-        # 网格预览  卡片预览
+        # 网格预览 卡片预览
         self.gridPreviewWidget = _GridPreviewWidget(self.scrollWidget)
         self.cornerRadiusPreviewWidget = _CornerRadiusPreviewWidget(self.scrollWidget)
 
@@ -1051,7 +1034,7 @@ class SettingsWindow(FluentWindow):
         self.resize(1150, 750)
         self.setWindowIcon(QIcon(get_resPath(APP_ICON)))
 
-        # 窗口置顶，隐藏最小化和最大化按钮
+        # 窗口置顶 隐藏最小化 最大化
         self.setWindowFlags(
             (self.windowFlags() | Qt.WindowType.WindowStaysOnTopHint)
             & ~Qt.WindowType.WindowMinimizeButtonHint
@@ -1103,7 +1086,6 @@ class SettingsWindow(FluentWindow):
         self.navigationInterface.setReturnButtonVisible(False)
 
     def _applyTheme(self):
-        """应用当前主题"""
         theme = cfg.themeMode.value
         setTheme(theme)
         qss = load_qss('setting.qss')
@@ -1111,7 +1093,6 @@ class SettingsWindow(FluentWindow):
             self.setStyleSheet(qss)
 
     def closeEvent(self, event):
-        """关闭时释放资源"""
         if hasattr(self, '_autoSyncTimer'):
             self._autoSyncTimer.stop()
         event.accept()

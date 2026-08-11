@@ -46,8 +46,6 @@ from qfluentwidgets import MessageBox
 
 logger = logging.getLogger("Glimpseon.ui.notification")
 
-# 获取通知类型文本
-
 def _type_label(t: str) -> str:
     m = {
         NotifType.SCROLL: tr("notification.type_scroll"),
@@ -57,7 +55,7 @@ def _type_label(t: str) -> str:
     return m.get(t, t)
 
 class _PreviewWidget(QWidget):
-    """通知文本样式预览控件"""
+    """通知文本样式预览"""
 
     def __init__(self, parent=None):
         super().__init__(parent)

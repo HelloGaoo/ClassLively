@@ -362,10 +362,10 @@ class AboutInterface(ScrollArea, TranslatableWidget):
             try:
                 changelog = get_github_changelog()
                 if changelog:
-                    logger.info(f"{'自动' if auto_load else '手动'}加载：成功从 GitHub 获取更新日志")
+                    logger.info(f"{'自动' if auto_load else '手动'}加载：成功获取更新日志")
                     return changelog
                 else:
-                    logger.info("GitHub 获取失败")
+                    logger.info("获取更新日志失败")
                     return tr("update.no_changelog")
             except Exception as e:
                 logger.error(f"加载更新日志失败：{str(e)}")
@@ -405,7 +405,7 @@ class AboutInterface(ScrollArea, TranslatableWidget):
             try:
                 result = check_github_version_legacy()
             except Exception as e:
-                logger.error(f"手动检查：检查更新时出错 - {str(e)}")
+                logger.error(f"手动检查：检查更新出错 - {str(e)}")
                 result = {'success': False, 'error': str(e)}
             result['auto_check'] = False
             self._check_result_signal.emit(result)
@@ -424,7 +424,7 @@ class AboutInterface(ScrollArea, TranslatableWidget):
             try:
                 result = check_github_version_legacy()
             except Exception as e:
-                logger.error(f"自动检查：检查更新时出错 - {str(e)}")
+                logger.error(f"自动检查：检查更新出错 - {str(e)}")
                 result = {'success': False, 'error': str(e)}
             result['auto_check'] = True
             self._check_result_signal.emit(result)
@@ -457,7 +457,7 @@ class AboutInterface(ScrollArea, TranslatableWidget):
             github_build_date = result.get('build_date')
             changelog = result.get('changelog')
 
-            logger.info(f"检查结果：GitHub 最新版本：{github_version} (构建日期：{github_build_date})")
+            logger.info(f"检查结果：最新版本：{github_version} (构建日期：{github_build_date})")
 
             has_update = self._is_newer_version(github_version, VERSION)
 
@@ -479,7 +479,7 @@ class AboutInterface(ScrollArea, TranslatableWidget):
                     self._setChangelogContent(changelog)
 
                 if auto_check and cfg.autoUpdate.value:
-                    logger.info("自动检查：启用自动更新，开始下载")
+                    logger.info("自动检查：启用自动更新 开始下载")
                     QTimer.singleShot(2000, lambda: self.__downloadUpdate(auto_update=True))
 
             else:
@@ -542,7 +542,7 @@ class AboutInterface(ScrollArea, TranslatableWidget):
                             os.remove(download_path)
 
                 if not download_success:
-                    raise Exception("下载更新失败，已达到最大重试次数")
+                    raise Exception("下载更新失败")
 
                 QTimer.singleShot(0, lambda: self.updateStatusLabel.setText(tr("update.extracting")))
 
@@ -575,7 +575,6 @@ class AboutInterface(ScrollArea, TranslatableWidget):
                     creationflags=subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS
                 )
 
-                logger.info("更新脚本已启动，准备退出应用")
                 QTimer.singleShot(0, lambda: self.updateStatusLabel.setText(tr("update.complete")))
                 QApplication.instance().quit()
 

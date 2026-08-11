@@ -16,15 +16,12 @@
 
 """主界面模块"""
 
-import ctypes
 import datetime
-import json
 import os
 import re
 import time
 
 from PyQt6.QtCore import (
-    QByteArray,
     QDate,
     QEasingCurve,
     QEvent,
@@ -58,7 +55,6 @@ from PyQt6.QtWidgets import (
     QSizePolicy,
     QVBoxLayout,
     QWidget,
-    QAbstractItemView,
     QFileDialog,
     QFileIconProvider,
 )
@@ -69,10 +65,7 @@ from qfluentwidgets import (
     CalendarPicker,
     TimePicker,
     ComboBox,
-    SwitchButton,
-    SpinBox,
     LineEdit,
-    ListWidget,
     ToolButton,
     StrongBodyLabel,
     BodyLabel,
@@ -144,7 +137,7 @@ class GuideLineOverlay(QWidget):
 
 
 class PageIndicator(QWidget):
-    """底部条页面指示器：N 个圆点，当前页加粗+主题色，左/右键点击切页。"""
+    """底部页面圆点"""
 
     pageClicked = pyqtSignal(int)
 
@@ -291,7 +284,7 @@ class HomeInterface(QWidget, TranslatableWidget):
         self._page_safety_timer = QTimer(self)
         self._page_safety_timer.setSingleShot(True)
         self._page_safety_timer.timeout.connect(self._checkPagePosition)
-        # 周期性检查鼠标是否还按着
+        # 检查鼠标按着
         self._swipe_watchdog = QTimer(self)
         self._swipe_watchdog.setSingleShot(False)
         self._swipe_watchdog.setInterval(100)
@@ -301,7 +294,6 @@ class HomeInterface(QWidget, TranslatableWidget):
 
         self._initBackground()
 
-        # PageManager 必须在 _initLayout 之前
         from core.component import PageManager
         self.page_manager = PageManager(DATA_CONFIG)
 
@@ -309,8 +301,6 @@ class HomeInterface(QWidget, TranslatableWidget):
         self._initPages()
 
         self._cached_poetry = None
-        self._last_lunar_date = None
-        self._cached_lunar_string = ""
 
         from core.component import GridLayoutService, GridSettings, ComponentRegistry, BUILTIN_COMPONENT_DEFINITIONS
         self.grid_service = GridLayoutService()
@@ -330,7 +320,7 @@ class HomeInterface(QWidget, TranslatableWidget):
         self.component_manager = ComponentManager(self)
         self.component_manager.load_components()
         self._draggable_widgets = self.component_manager.get_all_containers()
-        # 组件加载完毕吗根据当前页显示/隐藏
+        # 组件加载完毕后根据当前页显示/隐藏
         self._applyPageVisibility()
 
         self._initBottomBar()
@@ -422,7 +412,6 @@ class HomeInterface(QWidget, TranslatableWidget):
 
     def _initPages(self):
         """根据 PageManager 创建所有页面 widget"""
-        # 用 dict 按 page_index 取对应 widget
         self._page_widgets = {}        # page_index -> QWidget
 
         from ui.component import NavigationPage
@@ -463,7 +452,7 @@ class HomeInterface(QWidget, TranslatableWidget):
         self.pagesStack.move(-self._currentPageIndex * w + offset_x, 0)
 
     def _applyPageVisibility(self, visible_pages=None):
-        """根据当前页设置组件可见性"""
+        """设置组件可见性"""
         if not hasattr(self, 'component_manager') or not self.component_manager:
             return
         cur = self._currentPageIndex
@@ -487,7 +476,7 @@ class HomeInterface(QWidget, TranslatableWidget):
                 logger.warning(f"[_applyPageVisibility] {comp_id}: {e}")
 
     def get_info_page_widget(self, page_index: int):
-        """返回指定信息页的 widget"""
+        """返回信息页的 widget"""
         if not hasattr(self, '_page_widgets'):
             return None
         meta = self.page_manager.get_page(page_index)
@@ -496,7 +485,7 @@ class HomeInterface(QWidget, TranslatableWidget):
         return self._page_widgets.get(page_index)
 
     def _stopPageAnim(self):
-        """停止翻页动画：断开 finished 信号再 stop"""
+        """停止翻页动画"""
         if self._page_anim:
             anim = self._page_anim
             self._page_anim = None
@@ -507,7 +496,7 @@ class HomeInterface(QWidget, TranslatableWidget):
             anim.stop()
 
     def _goToPage(self, index: int, animate: bool = True):
-        """切换到指定页面"""
+        """切换到某页面"""
         if not (0 <= index < len(self._page_widgets)):
             return
         if hasattr(self, '_deselectAll'):
@@ -534,7 +523,7 @@ class HomeInterface(QWidget, TranslatableWidget):
             if cur_x == target_x:
                 self._onPageAnimFinished()
             else:
-                # QPropertyAnimation 在 C++ 动画 pos 属性，
+                # QPropertyAnimation 在 C++ 动画 pos 属性
                 anim = QPropertyAnimation(self.pagesStack, b"pos", self)
                 anim.setStartValue(QPoint(cur_x, 0))
                 anim.setEndValue(QPoint(target_x, 0))
@@ -563,7 +552,6 @@ class HomeInterface(QWidget, TranslatableWidget):
         self._applyPageVisibility()
         if hasattr(self, 'pageIndicator'):
             self.pageIndicator.set_current(self._currentPageIndex)
-        # 网格 overlay 只在信息页显示
         if hasattr(self, '_grid_overlay') and self._grid_overlay:
             if self._edit_mode_active and self.page_manager.get_page(self._currentPageIndex) and \
                self.page_manager.get_page(self._currentPageIndex).type == "info":
@@ -573,7 +561,6 @@ class HomeInterface(QWidget, TranslatableWidget):
         self._page_safety_timer.start(300)
 
     def _checkPagePosition(self):
-        """如果不在拖拽/动画中 pagesStack 不在页边界：强制 snap"""
         if self._swipe_dragging or self._page_anim:
             return
         if not hasattr(self, 'pagesStack') or not self.pagesStack:
@@ -650,7 +637,7 @@ class HomeInterface(QWidget, TranslatableWidget):
         self._updateBottomBarPosition()
 
     def _refreshAddPageBtn(self):
-        """刷新添加页面按钮文案"""
+        """添加页面按钮文案"""
         if not hasattr(self, 'addPageBtn') or not self.addPageBtn:
             return
         total = self.page_manager.page_count()
@@ -777,7 +764,6 @@ class HomeInterface(QWidget, TranslatableWidget):
         self.bottomBar.move(x, y)
 
     def _openSettingsWindow(self):
-        """打开设置窗口"""
         from ui.settings import SettingsWindow
         if not hasattr(self, '_settings_window') or self._settings_window is None:
             self._settings_window = SettingsWindow(self.mainWindow)
@@ -786,7 +772,6 @@ class HomeInterface(QWidget, TranslatableWidget):
         self._settings_window.activateWindow()
 
     def _openComponentEditWindow(self):
-        """打开组件库窗口"""
         from ui.component import ComponentLibraryWindow
         if not hasattr(self, '_component_library_window') or self._component_library_window is None:
             self._component_library_window = ComponentLibraryWindow(self.component_registry)
@@ -802,12 +787,10 @@ class HomeInterface(QWidget, TranslatableWidget):
         self._component_library_window.activateWindow()
 
     def _on_component_library_destroyed(self):
-        """组件库窗口销毁时清理引用"""
         self._component_library_window = None
         self._exitEditMode()
 
     def eventFilter(self, obj, event):
-        """监听组件库窗口事件"""
         if obj == self._component_library_window and event.type() == QEvent.Type.Close:
             self._exitEditMode()
         return super().eventFilter(obj, event)
@@ -815,7 +798,7 @@ class HomeInterface(QWidget, TranslatableWidget):
     def dragEnterEvent(self, event):
         """拖拽进入"""
         if event.mimeData().hasFormat("application/x-Glimpseon-component"):
-            # 当前页为导航页时不接受组件拖入
+            # 导航页时不接受拖入组件
             meta = self.page_manager.get_page(self._currentPageIndex) if hasattr(self, 'page_manager') else None
             if meta is not None and meta.type == "nav":
                 event.ignore()
@@ -1093,7 +1076,7 @@ class HomeInterface(QWidget, TranslatableWidget):
         self.update()
 
     def _resolve_component_type_style(self, component_id: str) -> tuple:
-        """从 definition ID 或 type|style 格式读 component_manager 要的 type style"""
+        """从 definition id/type|style 格式读type style"""
         try:
             from ui.component import COMPONENT_STYLES
             if '|' in component_id:
@@ -1115,7 +1098,7 @@ class HomeInterface(QWidget, TranslatableWidget):
         return (parts[0], '_'.join(parts[1:]))
 
     def _showBottomMenu(self):
-        """底部菜单按钮的弹出菜单"""
+        """底部菜单按钮弹出菜单"""
         menu = RoundMenu(parent=self.menuBtn)
 
         settings_action = Action(FUI.SETTING, tr("home.menu_settings"))
@@ -1186,7 +1169,7 @@ class HomeInterface(QWidget, TranslatableWidget):
         self._edit_selected_placement_id = None
 
     def deleteSelectedComponent(self, component_id: str):
-        """删除指定组件"""
+        """删除组件"""
         self._deselectAll()
         self.component_manager.remove_component(component_id)
         self._draggable_widgets = [
@@ -1195,7 +1178,6 @@ class HomeInterface(QWidget, TranslatableWidget):
         ]
 
     def mousePressEvent(self, event):
-        """点击空白取消选中 + 翻页拖拽起点"""
         if self.isEditMode and event.button() == Qt.MouseButton.LeftButton:
             self._deselectAll()
         # 翻页拖拽：记录起点
@@ -1225,7 +1207,7 @@ class HomeInterface(QWidget, TranslatableWidget):
             if abs(dx) > 10 and abs(dx) > abs(dy):
                 if not self._swipe_moved:
                     self._swipe_moved = True
-                    # 首次移动时显示相邻页组件
+                    # 第一次移动时显示相邻页组件
                     pages = {self._currentPageIndex}
                     if self._currentPageIndex > 0:
                         pages.add(self._currentPageIndex - 1)
@@ -1270,11 +1252,10 @@ class HomeInterface(QWidget, TranslatableWidget):
         super().mouseReleaseEvent(event)
 
     def _swipeWatchdog(self):
-        """如果鼠标已释放但 releaseEvent 漏掉 手动处理"""
         if not self._swipe_dragging:
             self._swipe_watchdog.stop()
             return
-        # 检查鼠标左键还按着
+        # 左键
         from PyQt6.QtWidgets import QApplication
         if not (QApplication.mouseButtons() & Qt.MouseButton.LeftButton):
             self._swipe_watchdog.stop()
@@ -1318,7 +1299,7 @@ class HomeInterface(QWidget, TranslatableWidget):
             if event.key() == Qt.Key.Key_Delete:
                 self.deleteSelectedComponent(self._edit_selected_placement_id)
                 return
-        # 左右方向键翻页
+
         if event.key() == Qt.Key.Key_Left:
             self._goToPage(self._currentPageIndex - 1, animate=True)
             return
@@ -1613,1380 +1594,6 @@ class HomeInterface(QWidget, TranslatableWidget):
             except Exception as e:
                 logger.error(f"保存组件位置失败: {e}")
 
-
-class EditPanel(QWidget):
-    """编辑面板"""
-
-    def __init__(self, mainWindow, width=300):
-        """初始化编辑面板"""
-        super().__init__(parent=mainWindow)
-        self.mainWindow = mainWindow
-        self._width = width
-        self.setFixedWidth(self._width)
-        self.setObjectName('EditPanel')
-        self.isLeftSide = False
-        self.updateTimer = QTimer(self)
-        self.updateTimer.timeout.connect(self._updateCountdownList)
-        self.updateTimer.start(1000)
-
-        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
-        self.setAutoFillBackground(True)
-        self._updateTheme()
-
-        scroll = SmoothScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        scroll.setFrameShape(QFrame.Shape.NoFrame)
-        content = QWidget()
-        scroll.setWidget(content)
-        v = QVBoxLayout(content)
-        v.setContentsMargins(16, 16, 16, 16)
-        v.setSpacing(12)
-        titleLayout = QHBoxLayout()
-        titleLabel = StrongBodyLabel(tr("home.edit_panel"), self)  # 编辑面板
-        titleLayout.addWidget(titleLabel)
-        titleLayout.addStretch()
-
-        self.positionButton = ToolButton(parent=self)
-        self.positionButton.setFixedSize(32, 32)
-        self.positionButton.setToolTip(tr("home.switch_to_left"))  # 切换到左侧
-        self.positionButton.setIcon(FUI.CARE_LEFT_SOLID)
-        self.positionButton.clicked.connect(self._togglePosition)
-        titleLayout.addWidget(self.positionButton)
-        v.addLayout(titleLayout)
-
-        self._addSeparator(v)
-        self._createTimeSettings(v)
-        self._updateTimeSettingsEnabled(cfg.showClock.value)
-        self._addSeparator(v)
-        self._createPoetrySettings(v)
-        self._updatePoetrySettingsEnabled(cfg.showPoetry.value)
-        self._addSeparator(v)
-        self._createWeatherSettings(v)
-        self._updateWeatherSettingsEnabled(cfg.showWeather.value)
-        self._addSeparator(v)
-        self._createCountdownListCard(v)
-        self._addSeparator(v)
-        self._createCountdownSettings(v)
-        self._updateCountdownSettingsEnabled(cfg.showCountdown.value)
-        self._addSeparator(v)
-        self._createSchoolInfoSettings(v)
-        self._updateSchoolInfoSettingsEnabled(cfg.showSchoolInfo.value)
-        self._addSeparator(v)
-        self._createQuickLaunchSettings(v)
-        self._updateQuickLaunchSettingsEnabled(cfg.showQuickLaunch.value)
-        self._addSeparator(v)
-        self._createMediaSettings(v)
-        self._updateMediaSettingsEnabled(cfg.showMediaInfo.value)
-        self._connectConfigSignals()
-        self.__connectSignalToSlot()
-
-        v.addStretch()
-
-        self.closeButton = PushButton(tr("common.close"), self, icon=FUI.CLOSE)  # 关闭
-        self.closeButton.setFixedHeight(36)
-        v.addWidget(self.closeButton)
-        self.closeButton.clicked.connect(self.hidePanel)
-
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.addWidget(scroll)
-
-        # 动画
-        self.anim = QPropertyAnimation(self, QByteArray(b'geometry'))
-        self.anim.setEasingCurve(QEasingCurve.Type.OutCubic)
-        self._updateTheme()
-
-        self.hide()
-
-    def _addSeparator(self, layout):
-        """添加分隔线"""
-        separator = QWidget()
-        separator.setFixedHeight(1)
-        separator.setObjectName('separator')
-        layout.addWidget(separator)
-
-    def _updateTimeSettingsEnabled(self, enabled):
-        self.showSecondsSwitch.setEnabled(enabled)
-        self.showLunarSwitch.setEnabled(enabled)
-        self.clockColorCombo.setEnabled(enabled)
-        self.clockSizeSpin.setEnabled(enabled)
-        self.dateSizeSpin.setEnabled(enabled)
-
-    def _updatePoetrySettingsEnabled(self, enabled):
-        self.poetryApiCombo.setEnabled(enabled)
-        self.poetrySizeSpin.setEnabled(enabled)
-        self.poetryUpdateIntervalCombo.setEnabled(enabled)
-
-    def _updateWeatherSettingsEnabled(self, enabled):
-        self.cityButton.setEnabled(enabled)
-        self.weatherSizeSpin.setEnabled(enabled)
-        self.weatherIconSizeSpin.setEnabled(enabled)
-        self.weatherUpdateIntervalCombo.setEnabled(enabled)
-
-    def _updateCountdownSettingsEnabled(self, enabled):
-        self.countdownTextColorCombo.setEnabled(enabled)
-        self.countdownConnectorColorCombo.setEnabled(enabled)
-        self.countdownAddButton.setEnabled(enabled)
-        self.countdownListWidget.setEnabled(enabled)
-        self.countdownEditButton.setEnabled(enabled)
-        self.countdownDeleteButton.setEnabled(enabled)
-        self.countdownTextSizeSpin.setEnabled(enabled)
-        self.countdownConnectorSizeSpin.setEnabled(enabled)
-        self.countdownDisplayModeCombo.setEnabled(enabled)
-        self.countdownCarouselIntervalSpin.setEnabled(enabled)
-
-    def _updateSchoolInfoSettingsEnabled(self, enabled):
-        self.schoolEdit.setEnabled(enabled)
-        self.schoolClassEdit.setEnabled(enabled)
-        self.schoolInfoTextColorCombo.setEnabled(enabled)
-        self.schoolInfoTextSizeSpin.setEnabled(enabled)
-
-    def _updateQuickLaunchSettingsEnabled(self, enabled):
-        self.showQuickLaunchSwitch.setEnabled(enabled)
-        self.quickLaunchEditButton.setEnabled(enabled)
-
-    def _updateMediaSettingsEnabled(self, enabled):
-        self.showMediaCoverSwitch.setEnabled(enabled)
-        self.mediaWidthSpin.setEnabled(enabled)
-        self.mediaLyricsAdvanceSpin.setEnabled(enabled)
-
-    def _connectConfigSignals(self):
-        """连接配置变化信到 UI 更新"""
-        # 时间设置
-        cfg.showClock.valueChanged.connect(self._updateShowClockSwitch)
-        cfg.showClockSeconds.valueChanged.connect(self._updateShowSecondsSwitch)
-        cfg.showLunarCalendar.valueChanged.connect(self._updateShowLunarSwitch)
-        cfg.clockColor.valueChanged.connect(self._updateClockColorCombo)
-        cfg.clockSize.valueChanged.connect(self._updateClockSizeSpin)
-        cfg.dateSize.valueChanged.connect(self._updateDateSizeSpin)
-
-        # 一言设置
-        cfg.showPoetry.valueChanged.connect(self._updateShowPoetrySwitch)
-        cfg.poetryApiUrl.valueChanged.connect(self._updatePoetryApiEdit)
-        cfg.poetrySize.valueChanged.connect(self._updatePoetrySizeSpin)
-        cfg.poetryUpdateInterval.valueChanged.connect(self._updatePoetryUpdateIntervalCombo)
-
-        # 天气设置
-        cfg.showWeather.valueChanged.connect(self._updateShowWeatherSwitch)
-        cfg.weatherSize.valueChanged.connect(self._updateWeatherSizeSpin)
-        cfg.weatherIconSize.valueChanged.connect(self._updateWeatherIconSizeSpin)
-        cfg.weatherUpdateInterval.valueChanged.connect(self._updateWeatherUpdateIntervalCombo)
-        cfg.city.valueChanged.connect(self._updateCityButton)
-
-        # 倒计时设置
-        cfg.showCountdown.valueChanged.connect(self._updateShowCountdownSwitch)
-        cfg.countdownDisplayMode.valueChanged.connect(self._updateCountdownDisplayModeCombo)
-        cfg.countdownTextSize.valueChanged.connect(self._updateCountdownTextSizeSpin)
-        cfg.countdownConnectorSize.valueChanged.connect(self._updateCountdownConnectorSizeSpin)
-        cfg.countdownCarouselInterval.valueChanged.connect(self._updateCountdownCarouselIntervalSpin)
-        cfg.countdownList.valueChanged.connect(self._updateCountdownList)
-        cfg.countdownTextColor.valueChanged.connect(self._updateCountdownTextColorCombo)
-        cfg.countdownConnectorColor.valueChanged.connect(self._updateCountdownConnectorColorCombo)
-
-        # 学校信息设置
-        cfg.showSchoolInfo.valueChanged.connect(self._updateShowSchoolInfoSwitch)
-        cfg.schoolInfoTextColor.valueChanged.connect(self._updateSchoolInfoTextColorCombo)
-        cfg.schoolInfoTextSize.valueChanged.connect(self._updateSchoolInfoTextSizeSpin)
-        cfg.school.valueChanged.connect(self._updateSchoolEdit)
-        cfg.schoolClass.valueChanged.connect(self._updateSchoolClassEdit)
-
-        # 媒体设置
-        cfg.showMediaInfo.valueChanged.connect(self._updateShowMediaInfoSwitch)
-        cfg.showMediaCover.valueChanged.connect(self._updateShowMediaCoverSwitch)
-        cfg.mediaWidth.valueChanged.connect(self._updateMediaWidthSpin)
-        cfg.mediaLyricsAdvance.valueChanged.connect(self._updateMediaLyricsAdvanceSpin)
-
-    def __connectSignalToSlot(self):
-        cfg.themeChanged.connect(self._onThemeChanged)
-        cfg.themeColor.valueChanged.connect(self._onThemeColorChanged)
-
-    def _onThemeChanged(self, theme):
-        self._updateTheme()
-
-    def _onThemeColorChanged(self, value):
-        self._updateCountdownTextColorCombo(cfg.countdownTextColor.value)
-        self._updateCountdownConnectorColorCombo(cfg.countdownConnectorColor.value)
-
-    def _updateShowClockSwitch(self, value):
-        """更新启用时钟开关"""
-        self.showClockSwitch.setChecked(value)
-
-    def _updateShowSecondsSwitch(self, value):
-        """更新显示秒针开关"""
-        self.showSecondsSwitch.setChecked(value)
-
-    def _updateShowLunarSwitch(self, value):
-        """更新显示农历开关"""
-        self.showLunarSwitch.setChecked(value)
-
-    def _updateClockColorCombo(self, value):
-        """更新时钟颜色下拉框"""
-        try:
-            self.clockColorCombo.currentTextChanged.disconnect(self._onClockColorChanged)
-        except TypeError:
-            pass
-        self.clockColorCombo.setCurrentText(self._getColorText(value))
-        self.clockColorCombo.currentTextChanged.connect(self._onClockColorChanged)
-
-    def _updateClockSizeSpin(self, value):
-        """更新时钟大小旋转框"""
-        self.clockSizeSpin.setValue(value)
-
-    def _updateDateSizeSpin(self, value):
-        """更新日期大小旋转框"""
-        self.dateSizeSpin.setValue(value)
-
-    def _updateShowPoetrySwitch(self, value):
-        """更新启用一言开关"""
-        self.showPoetrySwitch.setChecked(value)
-
-    def _updatePoetryApiEdit(self, value):
-        """更新一言 API 地址下拉框"""
-        try:
-            self.poetryApiCombo.currentTextChanged.disconnect(self._onPoetryApiChanged)
-        except TypeError:
-            pass
-        if value == 'https://api.imlcd.cn/yy/api.php':
-            self.poetryApiCombo.setCurrentText(tr("home.yiyan_api"))
-        elif value == 'https://www.ffapi.cn/int/v1/shici':
-            self.poetryApiCombo.setCurrentText(tr("home.poetry_api"))
-        else:
-            self.poetryApiCombo.setCurrentText(tr("home.yiyan_api"))
-        self.poetryApiCombo.currentTextChanged.connect(self._onPoetryApiChanged)
-
-    def _updatePoetrySizeSpin(self, value):
-        """更新一言大小旋转框"""
-        self.poetrySizeSpin.setValue(value)
-
-    def _updatePoetryUpdateIntervalCombo(self, value):
-        """更新一言更新间隔下拉框"""
-        try:
-            self.poetryUpdateIntervalCombo.currentTextChanged.disconnect(self._onPoetryUpdateIntervalChanged)
-        except TypeError:
-            pass
-        self.poetryUpdateIntervalCombo.setCurrentText(value)
-        self.poetryUpdateIntervalCombo.currentTextChanged.connect(self._onPoetryUpdateIntervalChanged)
-
-    def _updateShowWeatherSwitch(self, value):
-        """更新启用天气开关"""
-        self.showWeatherSwitch.setChecked(value)
-
-    def _updateWeatherSizeSpin(self, value):
-        """更新天气文字大小旋转框"""
-        self.weatherSizeSpin.setValue(value)
-
-    def _updateWeatherIconSizeSpin(self, value):
-        """更新天气图标大小旋转框"""
-        self.weatherIconSizeSpin.setValue(value)
-
-    def _updateWeatherUpdateIntervalCombo(self, value):
-        """更新天气更新间隔下拉框"""
-        try:
-            self.weatherUpdateIntervalCombo.currentTextChanged.disconnect(self._onWeatherUpdateIntervalChanged)
-        except TypeError:
-            pass
-        self.weatherUpdateIntervalCombo.setCurrentText(value)
-        self.weatherUpdateIntervalCombo.currentTextChanged.connect(self._onWeatherUpdateIntervalChanged)
-
-    def _updateCityButton(self, value):
-        """更新城市按钮"""
-        self.cityButton.setText(value)
-
-    def _createTimeSettings(self, layout):
-        titleLabel = StrongBodyLabel(tr("home.time_settings"), self)  # 时间设置
-        layout.addWidget(titleLabel)
-        enableLayout = QHBoxLayout()
-        enableLabel = BodyLabel(tr("home.enable_clock"), self)  # 启用时钟
-        enableLabel.setFixedWidth(100)
-        enableLayout.addWidget(enableLabel)
-        enableLayout.addStretch()
-        self.showClockSwitch = SwitchButton(self)
-        self.showClockSwitch.setOffText('')
-        self.showClockSwitch.setOnText('')
-        self.showClockSwitch.setChecked(cfg.showClock.value)
-        self.showClockSwitch.checkedChanged.connect(self._onShowClockChanged)
-        enableLayout.addWidget(self.showClockSwitch)
-        layout.addLayout(enableLayout)
-        secondsLayout = QHBoxLayout()
-        secondsLabel = BodyLabel(tr("home.show_seconds"), self)  # 显示秒针
-        secondsLabel.setFixedWidth(100)
-        secondsLayout.addWidget(secondsLabel)
-        secondsLayout.addStretch()
-        self.showSecondsSwitch = SwitchButton(self)
-        self.showSecondsSwitch.setOffText('')
-        self.showSecondsSwitch.setOnText('')
-        self.showSecondsSwitch.setChecked(cfg.showClockSeconds.value)
-        self.showSecondsSwitch.checkedChanged.connect(self._onShowSecondsChanged)
-        secondsLayout.addWidget(self.showSecondsSwitch)
-        layout.addLayout(secondsLayout)
-        lunarLayout = QHBoxLayout()
-        lunarLabel = BodyLabel(tr("home.show_lunar"), self)  # 显示农历
-        lunarLabel.setFixedWidth(100)
-        lunarLayout.addWidget(lunarLabel)
-        lunarLayout.addStretch()
-        self.showLunarSwitch = SwitchButton(self)
-        self.showLunarSwitch.setOffText('')
-        self.showLunarSwitch.setOnText('')
-        self.showLunarSwitch.setChecked(cfg.showLunarCalendar.value)
-        self.showLunarSwitch.checkedChanged.connect(self._onShowLunarChanged)
-        lunarLayout.addWidget(self.showLunarSwitch)
-        layout.addLayout(lunarLayout)
-        colorLayout = QHBoxLayout()
-        colorLabel = BodyLabel(tr("home.clock_color"), self)  # 时钟颜色
-        colorLabel.setFixedWidth(100)
-        colorLayout.addWidget(colorLabel)
-        colorLayout.addStretch()
-        self.clockColorCombo = ComboBox(self)
-        self.clockColorCombo.addItems([tr("color.primary"), tr("color.white"), tr("color.black")])  # 主要颜色 / 白色 / 黑色
-        self.clockColorCombo.setCurrentText(self._getColorText(cfg.clockColor.value))
-        self.clockColorCombo.setFixedWidth(120)
-        self.clockColorCombo.currentTextChanged.connect(self._onClockColorChanged)
-        colorLayout.addWidget(self.clockColorCombo)
-        layout.addLayout(colorLayout)
-        clockSizeLayout = QHBoxLayout()
-        clockSizeLabel = BodyLabel(tr("home.clock_size"), self)  # 时钟大小
-        clockSizeLabel.setFixedWidth(100)
-        clockSizeLayout.addWidget(clockSizeLabel)
-        clockSizeLayout.addStretch()
-        self.clockSizeSpin = SpinBox(self)
-        self.clockSizeSpin.setRange(80, 200)
-        self.clockSizeSpin.setValue(cfg.clockSize.value)
-        self.clockSizeSpin.setFixedWidth(120)
-        self.clockSizeSpin.valueChanged.connect(self._onClockSizeChanged)
-        clockSizeLayout.addWidget(self.clockSizeSpin)
-        layout.addLayout(clockSizeLayout)
-        dateSizeLayout = QHBoxLayout()
-        dateSizeLabel = BodyLabel(tr("home.date_size"), self)  # 日期大小
-        dateSizeLabel.setFixedWidth(100)
-        dateSizeLayout.addWidget(dateSizeLabel)
-        dateSizeLayout.addStretch()
-        self.dateSizeSpin = SpinBox(self)
-        self.dateSizeSpin.setRange(12, 50)
-        self.dateSizeSpin.setValue(cfg.dateSize.value)
-        self.dateSizeSpin.setFixedWidth(120)
-        self.dateSizeSpin.valueChanged.connect(self._onDateSizeChanged)
-        dateSizeLayout.addWidget(self.dateSizeSpin)
-        layout.addLayout(dateSizeLayout)
-
-    def _createPoetrySettings(self, layout):
-        titleLabel = StrongBodyLabel(tr("home.poetry_settings"), self)  # 一言设置
-        layout.addWidget(titleLabel)
-        enableLayout = QHBoxLayout()
-        enableLabel = BodyLabel(tr("home.enable_poetry"), self)  # 启用一言
-        enableLabel.setFixedWidth(100)
-        enableLayout.addWidget(enableLabel)
-        enableLayout.addStretch()
-        self.showPoetrySwitch = SwitchButton(self)
-        self.showPoetrySwitch.setOffText('')
-        self.showPoetrySwitch.setOnText('')
-        self.showPoetrySwitch.setChecked(cfg.showPoetry.value)
-        self.showPoetrySwitch.checkedChanged.connect(self._onShowPoetryChanged)
-        enableLayout.addWidget(self.showPoetrySwitch)
-        layout.addLayout(enableLayout)
-        apiLayout = QHBoxLayout()
-        apiLabel = BodyLabel(tr("home.poetry_api_url"), self)  # 一言 API 地址
-        apiLabel.setFixedWidth(100)
-        apiLayout.addWidget(apiLabel)
-        apiLayout.addStretch()
-        self.poetryApiCombo = ComboBox(self)
-        self.poetryApiCombo.addItems([
-            tr("home.yiyan_api"),  # 一言 API
-            tr("home.poetry_api")  # 诗词 API
-        ])
-        if cfg.poetryApiUrl.value == 'https://www.ffapi.cn/int/v1/shici':
-            self.poetryApiCombo.setCurrentText(tr("home.poetry_api"))
-        else:
-            self.poetryApiCombo.setCurrentText(tr("home.yiyan_api"))
-        self.poetryApiCombo.setFixedWidth(120)
-        self.poetryApiCombo.currentTextChanged.connect(self._onPoetryApiChanged)
-        apiLayout.addWidget(self.poetryApiCombo)
-        layout.addLayout(apiLayout)
-        poetrySizeLayout = QHBoxLayout()
-        poetrySizeLabel = BodyLabel(tr("home.poetry_size"), self)  # 一言大小
-        poetrySizeLabel.setFixedWidth(100)
-        poetrySizeLayout.addWidget(poetrySizeLabel)
-        poetrySizeLayout.addStretch()
-        self.poetrySizeSpin = SpinBox(self)
-        self.poetrySizeSpin.setRange(12, 50)
-        self.poetrySizeSpin.setValue(cfg.poetrySize.value)
-        self.poetrySizeSpin.setFixedWidth(120)
-        self.poetrySizeSpin.valueChanged.connect(self._onPoetrySizeChanged)
-        poetrySizeLayout.addWidget(self.poetrySizeSpin)
-        layout.addLayout(poetrySizeLayout)
-        poetryIntervalLayout = QHBoxLayout()
-        poetryIntervalLabel = BodyLabel(tr("home.poetry_update_interval"), self)  # 一言更新间隔
-        poetryIntervalLabel.setFixedWidth(100)
-        poetryIntervalLayout.addWidget(poetryIntervalLabel)
-        poetryIntervalLayout.addStretch()
-        self.poetryUpdateIntervalCombo = ComboBox(self)
-        self.poetryUpdateIntervalCombo.addItems([tr("time.never"), tr("time.minutes_5"), tr("time.minutes_10"), tr("time.minutes_30"), tr("time.hour_1"), tr("time.hours_3"), tr("time.hours_6"), tr("time.hours_12"), tr("time.day_1")])  # 从不 / 5 分钟 / 10 分钟 / 30 分钟 / 1 小时 / 3 小时 / 6 小时 / 12 小时 / 1 天
-        self.poetryUpdateIntervalCombo.setCurrentText(cfg.poetryUpdateInterval.value)
-        self.poetryUpdateIntervalCombo.setFixedWidth(120)
-        self.poetryUpdateIntervalCombo.currentTextChanged.connect(self._onPoetryUpdateIntervalChanged)
-        poetryIntervalLayout.addWidget(self.poetryUpdateIntervalCombo)
-        layout.addLayout(poetryIntervalLayout)
-
-    def _createWeatherSettings(self, layout):
-        """创建天气设置部分"""
-        titleLabel = StrongBodyLabel(tr("home.weather_settings"), self)  # 天气设置
-        layout.addWidget(titleLabel)
-        enableLayout = QHBoxLayout()
-        enableLabel = BodyLabel(tr("home.enable_weather"), self)  # 启用天气
-        enableLabel.setFixedWidth(100)
-        enableLayout.addWidget(enableLabel)
-        enableLayout.addStretch()
-        self.showWeatherSwitch = SwitchButton(self)
-        self.showWeatherSwitch.setOffText('')
-        self.showWeatherSwitch.setOnText('')
-        self.showWeatherSwitch.setChecked(cfg.showWeather.value)
-        self.showWeatherSwitch.checkedChanged.connect(self._onShowWeatherChanged)
-        enableLayout.addWidget(self.showWeatherSwitch)
-        layout.addLayout(enableLayout)
-        cityLayout = QHBoxLayout()
-        cityLabel = BodyLabel(tr("home.city"), self)  # 城市
-        cityLabel.setFixedWidth(100)
-        cityLayout.addWidget(cityLabel)
-        cityLayout.addStretch()
-        self.cityButton = PushButton(self)
-        self.cityButton.setFixedHeight(36)
-        _city = cfg.city.value
-        if not _city or _city in ("点击选择", "Click to select", "點據選擇"):
-            self.cityButton.setText(tr("component_settings.click_to_select"))
-        else:
-            self.cityButton.setText(_city)
-        self.cityButton.clicked.connect(self._onCityButtonClicked)
-        cityLayout.addWidget(self.cityButton)
-        layout.addLayout(cityLayout)
-        weatherSizeLayout = QHBoxLayout()
-        weatherSizeLabel = BodyLabel(tr("home.weather_text_size"), self)  # 天气文字大小
-        weatherSizeLabel.setFixedWidth(100)
-        weatherSizeLayout.addWidget(weatherSizeLabel)
-        weatherSizeLayout.addStretch()
-        self.weatherSizeSpin = SpinBox(self)
-        self.weatherSizeSpin.setRange(5, 50)
-        self.weatherSizeSpin.setValue(cfg.weatherSize.value)
-        self.weatherSizeSpin.setFixedWidth(120)
-        self.weatherSizeSpin.valueChanged.connect(self._onWeatherSizeChanged)
-        weatherSizeLayout.addWidget(self.weatherSizeSpin)
-        layout.addLayout(weatherSizeLayout)
-        iconSizeLayout = QHBoxLayout()
-        iconSizeLabel = BodyLabel(tr("home.weather_icon_size"), self)  # 天气图标大小
-        iconSizeLabel.setFixedWidth(100)
-        iconSizeLayout.addWidget(iconSizeLabel)
-        iconSizeLayout.addStretch()
-        self.weatherIconSizeSpin = SpinBox(self)
-        self.weatherIconSizeSpin.setRange(32, 128)
-        self.weatherIconSizeSpin.setValue(cfg.weatherIconSize.value)
-        self.weatherIconSizeSpin.setFixedWidth(120)
-        self.weatherIconSizeSpin.valueChanged.connect(self._onWeatherIconSizeChanged)
-        iconSizeLayout.addWidget(self.weatherIconSizeSpin)
-        layout.addLayout(iconSizeLayout)
-        weatherIntervalLayout = QHBoxLayout()
-        weatherIntervalLabel = BodyLabel(tr("home.weather_update_interval"), self)  # 天气更新间隔
-        weatherIntervalLabel.setFixedWidth(100)
-        weatherIntervalLayout.addWidget(weatherIntervalLabel)
-        weatherIntervalLayout.addStretch()
-        self.weatherUpdateIntervalCombo = ComboBox(self)
-        self.weatherUpdateIntervalCombo.addItems([tr("time.never"), tr("time.minutes_5"), tr("time.minutes_15"), tr("time.minutes_30"), tr("time.hour_1"), tr("time.hours_3"), tr("time.hours_6"), tr("time.hours_12"), tr("time.hours_24")])  # 从不 / 5 分钟 / 15 分钟 / 30 分钟 / 1 小时 / 3 小时 / 6 小时 / 12 小时 / 24 小时
-        self.weatherUpdateIntervalCombo.setCurrentText(cfg.weatherUpdateInterval.value)
-        self.weatherUpdateIntervalCombo.setFixedWidth(120)
-        self.weatherUpdateIntervalCombo.currentTextChanged.connect(self._onWeatherUpdateIntervalChanged)
-        weatherIntervalLayout.addWidget(self.weatherUpdateIntervalCombo)
-        layout.addLayout(weatherIntervalLayout)
-
-    def _updateTheme(self):
-        """更新主题"""
-        self.setStyleSheet(load_qss('home.qss'))
-
-    def showPanel(self):
-        """显示编辑面板"""
-        parent = self.parent()
-        if not parent:
-            return
-
-        pr = parent.rect()
-        if self.isLeftSide:
-            end_rect = QRect(0, 0, self._width, pr.height())
-            start_rect = QRect(-self._width, 0, self._width, pr.height())
-        else:
-            end_rect = QRect(pr.width() - self._width, 0, self._width, pr.height())
-            start_rect = QRect(pr.width(), 0, self._width, pr.height())
-
-        self.setGeometry(start_rect)
-        self.show()
-        self.updateTimer.start(1000)
-
-        try:
-            self.anim.finished.disconnect(self._onShowFinished)
-        except Exception:
-            pass
-        self.anim.stop()
-        self.anim.setDuration(300)
-        self.anim.setStartValue(start_rect)
-        self.anim.setEndValue(end_rect)
-        self.anim.start()
-
-    def _onShowFinished(self):
-        """显示动画完成"""
-        try:
-            self.anim.finished.disconnect(self._onShowFinished)
-        except Exception:
-            pass
-
-    def hidePanel(self):
-        """退出编辑模式"""
-        parent = self.parent()
-        if not parent:return
-
-        home = self.mainWindow.homeInterface if hasattr(self.mainWindow, 'homeInterface') else None
-
-        if home and hasattr(home, '_exitEditMode'):
-            home._exitEditMode()
-
-        if hasattr(parent, 'navigationInterface'):parent.navigationInterface.setEnabled(True)
-
-        if home and hasattr(home, '_hideGuideLines'):home._hideGuideLines()
-
-        pr = parent.rect()
-        if self.isLeftSide:
-            start_rect = QRect(0, 0, self._width, pr.height())
-            end_rect = QRect(-self._width, 0, self._width, pr.height())
-        else:
-            start_rect = QRect(pr.width() - self._width, 0, self._width, pr.height())
-            end_rect = QRect(pr.width(), 0, self._width, pr.height())
-
-        # 滑出动画
-        self.anim.stop()
-        self.anim.setDuration(250)
-        self.anim.setStartValue(start_rect)
-        self.anim.setEndValue(end_rect)
-
-        try:
-            self.anim.finished.disconnect(self._onHideFinished)
-        except Exception:
-            pass
-        self.anim.finished.connect(self._onHideFinished)
-        self.anim.start()
-
-    def _onHideFinished(self):
-        """隐藏动画完成"""
-        try:
-            self.updateTimer.stop()
-            self.hide()
-        finally:
-            try:
-                self.anim.finished.disconnect(self._onHideFinished)
-            except Exception:
-                pass
-
-    def _onShowClockChanged(self, checked: bool):
-        """启用时钟开关变化"""
-        cfg.showClock.value = checked
-        self._updateTimeSettingsEnabled(checked)
-        logger.info(f"时间设置：启用时钟={'开启' if checked else '关闭'}")
-
-    def _onShowSecondsChanged(self, checked: bool):
-        """显示秒针开关变化"""
-        cfg.showClockSeconds.value = checked
-        logger.info(f"时间设置：显示秒针={'开启' if checked else '关闭'}")
-
-    def _onShowLunarChanged(self, checked: bool):
-        """显示农历开关变化"""
-        cfg.showLunarCalendar.value = checked
-        logger.info(f"时间设置：显示农历={'开启' if checked else '关闭'}")
-
-    def _getColorText(self, color, default='main'):
-        """获取颜色文本表示"""
-        if not hasattr(color, 'name'):
-            if default == 'red':return tr("color.red")  # 红色
-            elif default == 'white':return tr("color.white")  # 白色
-            return tr("color.primary")  # 主要颜色
-        color_hex = color.name().upper()
-        try:
-            theme_color = cfg.themeColor.value
-            if hasattr(theme_color, 'name'):
-                theme_hex = theme_color.name().upper()
-                if theme_hex == color_hex:return tr("color.primary")  # 主要颜色
-        except Exception:pass
-        if color_hex == '#FF0000':return tr("color.red")  # 红色
-        elif color_hex == '#FFFFFF':return tr("color.white")  # 白色
-        elif color_hex == '#000000':return tr("color.black")  # 黑色
-        return tr("color.primary")  # 主要颜色
-
-    def _onClockColorChanged(self, text: str):
-        """时钟颜色变化"""
-
-        if text == tr("color.white"):
-            cfg.clockColor.value = "#FFFFFF"  # 白色
-        elif text == tr("color.black"):
-            cfg.clockColor.value = "#000000"  # 黑色
-        else:
-            cfg.clockColor.value = cfg.themeColor.value.name() if hasattr(cfg.themeColor.value, 'name') else str(cfg.themeColor.value)
-
-        logger.info(f"时间设置：时钟颜色={text}")
-
-    def _onClockSizeChanged(self, value: int):
-        """时钟大小变化"""
-        cfg.clockSize.value = value
-        logger.info(f"时间设置：时钟大小={value}px")
-
-    def _onDateSizeChanged(self, value: int):
-        """日期大小变化"""
-        cfg.dateSize.value = value
-        logger.info(f"时间设置：日期大小={value}px")
-
-    def _onShowPoetryChanged(self, checked: bool):
-        """启用一言开关变化"""
-        cfg.showPoetry.value = checked
-        self._updatePoetrySettingsEnabled(checked)
-        if hasattr(self.mainWindow, 'homeContent'):
-            for widget in self.mainWindow.homeContent.findChildren(QWidget):
-                if widget.objectName() == 'poetryWidget':
-                    widget.setVisible(checked)
-        logger.info(f"一言设置：启用一言={'开启' if checked else '关闭'}")
-
-    def _onPoetryApiChanged(self, text: str):
-        """一言 API 地址变化"""
-        if text == tr("home.yiyan_api"):  # 一言 API
-            cfg.poetryApiUrl.value = 'https://api.imlcd.cn/yy/api.php'
-        elif text == tr("home.poetry_api"):  # 诗词 API
-            cfg.poetryApiUrl.value = 'https://www.ffapi.cn/int/v1/shici'
-        else:
-            cfg.poetryApiUrl.value = 'https://api.imlcd.cn/yy/api.php'
-        logger.info(f"一言设置：API 地址={cfg.poetryApiUrl.value}")
-
-    def _onPoetryUpdateIntervalChanged(self, text: str):
-        """一言更新间隔变化"""
-        cfg.poetryUpdateInterval.value = text
-        logger.info(f"一言设置：更新间隔={text}")
-
-    def _onPoetrySizeChanged(self, value: int):
-        """一言大小变化"""
-        cfg.poetrySize.value = value
-        logger.info(f"一言设置：一言大小={value}px")
-
-    def _onShowWeatherChanged(self, checked: bool):
-        """启用天气开关变化"""
-        cfg.showWeather.value = checked
-        self._updateWeatherSettingsEnabled(checked)
-        logger.info(f"天气设置：启用天气={'开启' if checked else '关闭'}")
-
-    def _onWeatherSizeChanged(self, value: int):
-        """天气文字大小变化"""
-        cfg.weatherSize.value = value
-        logger.info(f"天气设置：天气文字大小={value}px")
-
-    def _onWeatherIconSizeChanged(self, value: int):
-        """天气图标大小变化"""
-        cfg.weatherIconSize.value = value
-        logger.info(f"天气设置：天气图标大小={value}px")
-
-    def _onWeatherUpdateIntervalChanged(self, text: str):
-        """天气更新间隔变化"""
-        cfg.weatherUpdateInterval.value = text
-        logger.info(f"天气设置：更新间隔={text}")
-    def _onCityButtonClicked(self):
-        """城市选择按钮点击"""
-        from services.weather import RegionSelectorDialog, RegionDatabase
-        dialog = RegionSelectorDialog(self.mainWindow)
-        if dialog.exec():
-            selected_region = dialog.get_selected_region()
-            if selected_region:
-                cfg.city.value = selected_region
-                
-                # 从数据库获取经纬度
-                db = RegionDatabase()
-                lon, lat = db.get_coordinates(selected_region)
-                if lon is not None and lat is not None:
-                    cfg.longitude.value = lon
-                    cfg.latitude.value = lat
-                    logger.info(f"天气设置：城市={selected_region}, 经纬度=({lon}, {lat})")
-                    
-
-    def _togglePosition(self):
-        """切换编辑面板位置"""
-        self.isLeftSide = not self.isLeftSide
-        if self.isLeftSide:
-            self.positionButton.setIcon(FUI.CARE_RIGHT_SOLID)
-            self.positionButton.setToolTip(tr("home.switch_to_right"))  # 切换到右侧
-        else:
-            self.positionButton.setIcon(FUI.CARE_LEFT_SOLID)
-            self.positionButton.setToolTip(tr("home.switch_to_left"))  # 切换到左侧
-
-        if self.isVisible():
-            self.showPanel()
-
-    def updatePositionOnResize(self):
-        if not self.isVisible():return
-        parent = self.parent()
-        pr = parent.rect()
-        if self.isLeftSide:new_rect = QRect(0, 0, self._width, pr.height())
-        else:new_rect = QRect(pr.width() - self._width, 0, self._width, pr.height())
-        self.anim.stop()
-        self.setGeometry(new_rect)
-
-    def _createCountdownSettings(self, layout):
-        """创建倒计时设置"""
-        layout.setSpacing(8)
-
-        titleLabel = StrongBodyLabel(tr("home.countdown_settings"), self)  # 倒计时设置
-        layout.addWidget(titleLabel)
-
-        enableLayout = QHBoxLayout()
-        enableLabel = BodyLabel(tr("home.enable_countdown"), self)  # 启用倒计时
-        enableLabel.setFixedWidth(100)
-        enableLayout.addWidget(enableLabel)
-        enableLayout.addStretch()
-        self.showCountdownSwitch = SwitchButton(self)
-        self.showCountdownSwitch.setOffText('')
-        self.showCountdownSwitch.setOnText('')
-        self.showCountdownSwitch.setChecked(cfg.showCountdown.value)
-        self.showCountdownSwitch.checkedChanged.connect(self._onShowCountdownChanged)
-        enableLayout.addWidget(self.showCountdownSwitch)
-        layout.addLayout(enableLayout)
-
-        # 文字颜色
-        textColorLayout = QHBoxLayout()
-        textColorLabel = BodyLabel(tr("home.text_color"), self)
-        textColorLabel.setFixedWidth(100)
-        textColorLayout.addWidget(textColorLabel)
-        textColorLayout.addStretch()
-        self.countdownTextColorCombo = ComboBox(self)
-        self.countdownTextColorCombo.addItems([tr("color.red"), tr("color.white"), tr("color.black"), tr("color.primary")])  # 红色 / 白色 / 黑色 / 主要颜色
-        self.countdownTextColorCombo.setCurrentText(self._getColorText(cfg.countdownTextColor.value, 'red'))
-        self.countdownTextColorCombo.setFixedWidth(120)
-        self.countdownTextColorCombo.currentTextChanged.connect(self._onCountdownTextColorChanged)
-        textColorLayout.addWidget(self.countdownTextColorCombo)
-        layout.addLayout(textColorLayout)
-
-        # 连接词颜色
-        connectorColorLayout = QHBoxLayout()
-        connectorColorLabel = BodyLabel(tr("home.connector_color"), self)  # 连接符颜色
-        connectorColorLabel.setFixedWidth(100)
-        connectorColorLayout.addWidget(connectorColorLabel)
-        connectorColorLayout.addStretch()
-        self.countdownConnectorColorCombo = ComboBox(self)
-        self.countdownConnectorColorCombo.addItems([tr("color.red"), tr("color.white"), tr("color.black"), tr("color.primary")])  # 红色 / 白色 / 黑色 / 主要颜色
-        self.countdownConnectorColorCombo.setCurrentText(self._getColorText(cfg.countdownConnectorColor.value, 'white'))
-        self.countdownConnectorColorCombo.setFixedWidth(120)
-        self.countdownConnectorColorCombo.currentTextChanged.connect(self._onCountdownConnectorColorChanged)
-        connectorColorLayout.addWidget(self.countdownConnectorColorCombo)
-        layout.addLayout(connectorColorLayout)
-
-        # 文字大小
-        textSizeLayout = QHBoxLayout()
-        textSizeLabel = BodyLabel(tr("home.text_size"), self)
-        textSizeLabel.setFixedWidth(100)
-        textSizeLayout.addWidget(textSizeLabel)
-        textSizeLayout.addStretch()
-        self.countdownTextSizeSpin = SpinBox(self)
-        self.countdownTextSizeSpin.setRange(12, 120)
-        self.countdownTextSizeSpin.setValue(cfg.countdownTextSize.value)
-        self.countdownTextSizeSpin.setFixedWidth(120)
-        self.countdownTextSizeSpin.valueChanged.connect(self._onCountdownTextSizeChanged)
-        textSizeLayout.addWidget(self.countdownTextSizeSpin)
-        layout.addLayout(textSizeLayout)
-
-        # 连接词大小
-        connectorSizeLayout = QHBoxLayout()
-        connectorSizeLabel = BodyLabel(tr("home.connector_size"), self)  # 连接符大小
-        connectorSizeLabel.setFixedWidth(100)
-        connectorSizeLayout.addWidget(connectorSizeLabel)
-        connectorSizeLayout.addStretch()
-        self.countdownConnectorSizeSpin = SpinBox(self)
-        self.countdownConnectorSizeSpin.setRange(12, 60)
-        self.countdownConnectorSizeSpin.setValue(cfg.countdownConnectorSize.value)
-        self.countdownConnectorSizeSpin.setFixedWidth(120)
-        self.countdownConnectorSizeSpin.valueChanged.connect(self._onCountdownConnectorSizeChanged)
-        connectorSizeLayout.addWidget(self.countdownConnectorSizeSpin)
-        layout.addLayout(connectorSizeLayout)
-
-        # 显示模式
-        displayModeLayout = QHBoxLayout()
-        displayModeLabel = BodyLabel(tr("home.display_mode"), self)  # 显示模式
-        displayModeLabel.setFixedWidth(100)
-        displayModeLayout.addWidget(displayModeLabel)
-        displayModeLayout.addStretch()
-        self.countdownDisplayModeCombo = ComboBox(self)
-        self.countdownDisplayModeCombo.addItems([tr("home.simultaneous"), tr("home.carousel")])  # 同时显示 / 轮播显示
-        self.countdownDisplayModeCombo.setCurrentText(tr("home.simultaneous") if cfg.countdownDisplayMode.value == 'simultaneous' else tr("home.carousel"))
-        self.countdownDisplayModeCombo.setFixedWidth(120)
-        self.countdownDisplayModeCombo.currentTextChanged.connect(self._onCountdownDisplayModeChanged)
-        displayModeLayout.addWidget(self.countdownDisplayModeCombo)
-        layout.addLayout(displayModeLayout)
-
-        # 轮播间隔
-        carouselIntervalLayout = QHBoxLayout()
-        carouselIntervalLabel = BodyLabel(tr("home.carousel_interval"), self)  # 轮播间隔
-        carouselIntervalLabel.setFixedWidth(100)
-        carouselIntervalLayout.addWidget(carouselIntervalLabel)
-        carouselIntervalLayout.addStretch()
-        self.countdownCarouselIntervalSpin = SpinBox(self)
-        self.countdownCarouselIntervalSpin.setRange(1, 60)
-        self.countdownCarouselIntervalSpin.setValue(cfg.countdownCarouselInterval.value)
-        self.countdownCarouselIntervalSpin.setFixedWidth(120)
-        self.countdownCarouselIntervalSpin.valueChanged.connect(self._onCountdownCarouselIntervalChanged)
-        carouselIntervalLayout.addWidget(self.countdownCarouselIntervalSpin)
-        layout.addLayout(carouselIntervalLayout)
-
-        actionLayout = QHBoxLayout()
-        actionLabel = BodyLabel(tr("home.countdown_actions"), self)  # 倒计时操作
-        actionLabel.setFixedWidth(100)
-        actionLayout.addWidget(actionLabel)
-        actionLayout.addStretch()
-        self.countdownAddButton = PushButton(FUI.ADD, tr("home.add"), self)  # 添加
-        self.countdownAddButton.clicked.connect(self._onCountdownAddClicked)
-        actionLayout.addWidget(self.countdownAddButton)
-        self.countdownEditButton = PushButton(FUI.EDIT, tr("home.edit"), self)  # 编辑
-        self.countdownEditButton.clicked.connect(self._onCountdownEditClicked)
-        actionLayout.addWidget(self.countdownEditButton)
-        self.countdownDeleteButton = PushButton(FUI.DELETE, tr("home.delete"), self)  # 删除
-        self.countdownDeleteButton.clicked.connect(self._onCountdownDeleteClicked)
-        actionLayout.addWidget(self.countdownDeleteButton)
-        actionLayout.addStretch()
-        layout.addLayout(actionLayout)
-
-    def _createCountdownListCard(self, layout):
-        self.countdownListCard = CardWidget(self)
-        cardLayout = QVBoxLayout(self.countdownListCard)
-        cardLayout.setContentsMargins(16, 12, 16, 12)
-        cardLayout.setSpacing(10)
-
-        listLabel = StrongBodyLabel(tr("home.countdown_list"), self)  # 倒计时列表
-        cardLayout.addWidget(listLabel)
-
-        self.countdownListWidget = ListWidget(self.countdownListCard)
-        self.countdownListWidget.setMinimumHeight(120)
-        self._updateCountdownList()
-        cardLayout.addWidget(self.countdownListWidget)
-
-        layout.addWidget(self.countdownListCard)
-
-    def _updateShowCountdownSwitch(self, value):
-        self.showCountdownSwitch.setChecked(value)
-        self._updateCountdownSettingsEnabled(value)
-
-    def _updateCountdownDisplayModeCombo(self, value):
-        try:
-            self.countdownDisplayModeCombo.currentTextChanged.disconnect(self._onCountdownDisplayModeChanged)
-        except TypeError:
-            pass
-        self.countdownDisplayModeCombo.setCurrentText(tr("home.simultaneous") if value == 'simultaneous' else tr("home.carousel"))  # 同时显示 / 轮播显示
-        self.countdownDisplayModeCombo.currentTextChanged.connect(self._onCountdownDisplayModeChanged)
-
-    def _updateCountdownTextSizeSpin(self, value):
-        self.countdownTextSizeSpin.setValue(value)
-
-    def _updateCountdownConnectorSizeSpin(self, value):
-        self.countdownConnectorSizeSpin.setValue(value)
-
-    def _updateCountdownCarouselIntervalSpin(self, value):
-        self.countdownCarouselIntervalSpin.setValue(value)
-
-    def _updateCountdownTextColorCombo(self, value):
-        self.countdownTextColorCombo.setCurrentText(self._getColorText(value, 'red'))
-
-    def _updateCountdownConnectorColorCombo(self, value):
-        self.countdownConnectorColorCombo.setCurrentText(self._getColorText(value, 'white'))
-
-    def _updateShowSchoolInfoSwitch(self, value):
-        self.schoolInfoSwitch.setChecked(value)
-        self._updateSchoolInfoSettingsEnabled(value)
-
-    def _updateSchoolInfoTextColorCombo(self, value):
-        self.schoolInfoTextColorCombo.setCurrentText(self._getColorText(value, 'white'))
-
-    def _updateSchoolInfoTextSizeSpin(self, value):
-        self.schoolInfoTextSizeSpin.setValue(value)
-
-    def _updateSchoolEdit(self, value):
-        self.schoolEdit.setText(value)
-
-    def _updateSchoolClassEdit(self, value):
-        self.schoolClassEdit.setText(value)
-
-    def _formatRemainingTime(self, target_time_str):
-        try:
-            target = datetime.datetime.strptime(target_time_str, '%Y-%m-%d %H:%M')
-            now = precise_now()
-            delta = target - now
-            total_seconds = int(delta.total_seconds())
-            target_date = target.date()
-            now_date = now.date()
-            if target_date == now_date and total_seconds < 0:
-                return tr("time.today")
-            elif total_seconds > 0:
-                days = total_seconds // 86400
-                hours = (total_seconds % 86400) // 3600
-                minutes = (total_seconds % 3600) // 60
-                seconds = total_seconds % 60
-                if days >= 3:
-                    return f"{days}天"
-                elif days >= 1:
-                    return f"{days}天{hours}时"
-                elif hours >= 1:
-                    return f"{hours}时"
-                elif minutes >= 1:
-                    return f"{minutes}分{seconds}秒"
-                else:
-                    return f"{seconds}秒"
-            else:
-                return f"已过去{abs(total_seconds) // 86400}天"
-        except Exception:
-            return ""
-
-    def _updateCountdownList(self):
-        if not hasattr(self, 'countdownListWidget') or self.countdownListWidget is None:
-            return
-        current_row = self.countdownListWidget.currentRow()
-        self.countdownListWidget.clear()
-        countdown_list = cfg.countdownList.value or []
-        for cd in countdown_list:
-            title = cd.get('title', '')
-            target_time = cd.get('target_time', '')
-            if title and target_time:
-                remaining = self._formatRemainingTime(target_time)
-                if remaining:
-                    self.countdownListWidget.addItem(f"{title} {remaining}")
-        if 0 <= current_row < self.countdownListWidget.count():
-            self.countdownListWidget.setCurrentRow(current_row)
-
-    def _onShowCountdownChanged(self, checked: bool):
-        cfg.showCountdown.value = checked
-        self._updateCountdownSettingsEnabled(checked)
-        logger.info(f"倒计时设置：启用倒计时={'开启' if checked else '关闭'}")
-
-    def _onCountdownDisplayModeChanged(self, text: str):
-        cfg.countdownDisplayMode.value = 'simultaneous' if text == tr("home.simultaneous") else 'carousel'  # 同时显示 / 轮播显示
-        logger.info(f"倒计时设置：显示模式={text}")
-
-    def _onCountdownTextSizeChanged(self, value: int):
-        cfg.countdownTextSize.value = value
-        logger.info(f"倒计时设置：文字大小={value}px")
-
-    def _onCountdownConnectorSizeChanged(self, value: int):
-        cfg.countdownConnectorSize.value = value
-        logger.info(f"倒计时设置：连接词大小={value}px")
-
-    def _onCountdownCarouselIntervalChanged(self, value: int):
-        cfg.countdownCarouselInterval.value = value
-        logger.info(f"倒计时设置：轮播间隔={value}秒")
-
-    def _onCountdownAddClicked(self):
-        dialog = CountdownEditDialog(self.mainWindow)
-        if dialog.exec():
-            countdown_data = dialog.get_countdown()
-            if countdown_data:
-                countdown_list = cfg.countdownList.value or []
-                countdown_list.append(countdown_data)
-                cfg.countdownList.value = countdown_list
-                save_cfg()
-                current_row = self.countdownListWidget.currentRow()
-                self._updateCountdownList()
-                if self.countdownListWidget.count() > 0:
-                    self.countdownListWidget.setCurrentRow(self.countdownListWidget.count() - 1)
-                logger.info(f"倒计时设置：添加倒计时={countdown_data}")
-
-    def _onCountdownEditClicked(self):
-        current_row = self.countdownListWidget.currentRow()
-        if current_row < 0:
-            InfoBar.warning(tr("home.edit_countdown"), tr("home.select_countdown_first"), parent=self, duration=3000)  # 编辑倒计时 / 请先选择一个倒计时
-            return
-        countdown_list = cfg.countdownList.value or []
-        if current_row >= len(countdown_list):
-            return
-
-        dialog = CountdownEditDialog(self.mainWindow, countdown_list[current_row])
-        if dialog.exec():
-            countdown_data = dialog.get_countdown()
-            if countdown_data:
-                countdown_list[current_row] = countdown_data
-                cfg.countdownList.value = countdown_list
-                save_cfg()
-                self._updateCountdownList()
-                if 0 <= current_row < self.countdownListWidget.count():
-                    self.countdownListWidget.setCurrentRow(current_row)
-                logger.info(f"倒计时设置：编辑倒计时={countdown_data}")
-
-    def _onCountdownDeleteClicked(self):
-        current_row = self.countdownListWidget.currentRow()
-        if current_row < 0:
-            InfoBar.warning(tr("home.delete_countdown"), tr("home.select_countdown_first"), parent=self, duration=3000)  # 删除倒计时 / 请先选择一个倒计时
-            return
-        countdown_list = cfg.countdownList.value or []
-        if current_row >= len(countdown_list):
-            return
-        countdown_list.pop(current_row)
-        cfg.countdownList.value = countdown_list
-        save_cfg()
-        self._updateCountdownList()
-        if self.countdownListWidget.count() > 0:
-            new_row = min(current_row, self.countdownListWidget.count() - 1)
-            self.countdownListWidget.setCurrentRow(new_row)
-        logger.info(f"倒计时设置：删除倒计时索引={current_row}")
-
-    def _onCountdownTextColorChanged(self, text: str):
-        """倒计时文字颜色变化"""
-
-        if text == tr("color.red"):
-            cfg.countdownTextColor.value = "#FF0000"
-        elif text == tr("color.white"):  # 白色
-            cfg.countdownTextColor.value = "#FFFFFF"
-        elif text == tr("color.black"):
-            cfg.countdownTextColor.value = "#000000"
-        else:
-            cfg.countdownTextColor.value = cfg.themeColor.value.name() if hasattr(cfg.themeColor.value, 'name') else str(cfg.themeColor.value)
-
-        logger.info(f"倒计时设置：文字颜色={text}")
-
-    def _onCountdownConnectorColorChanged(self, text: str):
-        """倒计时连接词颜色变化"""
-
-        if text == tr("color.red"):
-            cfg.countdownConnectorColor.value = "#FF0000"
-        elif text == tr("color.white"):
-            cfg.countdownConnectorColor.value = "#FFFFFF"
-        elif text == tr("color.black"):
-            cfg.countdownConnectorColor.value = "#000000"
-        else:
-            cfg.countdownConnectorColor.value = cfg.themeColor.value.name() if hasattr(cfg.themeColor.value, 'name') else str(cfg.themeColor.value)
-
-        logger.info(f"倒计时设置：连接词颜色={text}")
-
-    def _onShowSchoolInfoChanged(self, checked: bool):
-        cfg.showSchoolInfo.value = checked
-        self._updateSchoolInfoSettingsEnabled(checked)
-        logger.info(f"学校信息：启用学校信息={'开启' if checked else '关闭'}")
-
-    def _onSchoolClassChanged(self, text: str):
-        cfg.schoolClass.value = text
-        logger.info(f"学校信息：班级={text}")
-
-    def _onSchoolChanged(self, text: str):
-        cfg.school.value = text
-        logger.info(f"学校信息：学校={text}")
-
-    def _onSchoolInfoTextColorChanged(self, text: str):
-
-        if text == tr("color.white"):
-            cfg.schoolInfoTextColor.value = "#FFFFFF"
-        elif text == tr("color.black"):
-            cfg.schoolInfoTextColor.value = "#000000"
-        elif text == tr("color.red"):  # 红色
-            cfg.schoolInfoTextColor.value = "#FF0000"
-        else:
-            cfg.schoolInfoTextColor.value = cfg.themeColor.value.name() if hasattr(cfg.themeColor.value, 'name') else str(cfg.themeColor.value)
-
-        logger.info(f"学校信息：文字颜色={text}")
-
-    def _onSchoolInfoTextSizeChanged(self, value: int):
-        cfg.schoolInfoTextSize.value = value
-        logger.info(f"学校信息：文字大小={value}px")
-
-    def _onShowQuickLaunchChanged(self, checked: bool):
-        cfg.showQuickLaunch.value = checked
-        save_cfg()
-        self.mainWindow.refresh_quick_launch()
-
-    def _onQuickLaunchEditClicked(self):
-        dialog = QuickLaunchEditDialog(self.mainWindow)
-        dialog.exec()
-        self.mainWindow.refresh_quick_launch()
-
-    def _onQuickLaunchIconSizeChanged(self, value: int):
-        cfg.quickLaunchIconSize.value = value
-        save_cfg()
-        self.mainWindow.refresh_quick_launch()
-
-    def _onQuickLaunchIconSpacingChanged(self, value: int):
-        cfg.quickLaunchIconSpacing.value = value
-        save_cfg()
-        self.mainWindow.refresh_quick_launch()
-
-    def _onQuickLaunchShowLabelsChanged(self, checked: bool):
-        cfg.quickLaunchShowLabels.value = checked
-        save_cfg()
-        self.mainWindow.refresh_quick_launch()
-
-    def refreshQuickLaunchSettings(self):
-        self.showQuickLaunchSwitch.setChecked(cfg.showQuickLaunch.value)
-        self.quickLaunchIconSizeSpin.setValue(cfg.quickLaunchIconSize.value)
-        self.quickLaunchIconSpacingSpin.setValue(cfg.quickLaunchIconSpacing.value)
-        self.quickLaunchShowLabelsSwitch.setChecked(cfg.quickLaunchShowLabels.value)
-
-    def refreshAllSettings(self):
-        self.showClockSwitch.setChecked(cfg.showClock.value)
-        self.showSecondsSwitch.setChecked(cfg.showClockSeconds.value)
-        self.showLunarSwitch.setChecked(cfg.showLunarCalendar.value)
-        self.clockColorCombo.setCurrentText(self._getColorText(cfg.clockColor.value))
-        self.clockSizeSpin.setValue(cfg.clockSize.value)
-        self.dateSizeSpin.setValue(cfg.dateSize.value)
-
-        self.showPoetrySwitch.setChecked(cfg.showPoetry.value)
-        if cfg.poetryApiUrl.value == 'https://www.ffapi.cn/int/v1/shici':
-            self.poetryApiCombo.setCurrentText(tr("home.poetry_api"))
-        else:
-            self.poetryApiCombo.setCurrentText(tr("home.yiyan_api"))
-        self.poetrySizeSpin.setValue(cfg.poetrySize.value)
-        self.poetryUpdateIntervalCombo.setCurrentText(cfg.poetryUpdateInterval.value)
-
-        self.showWeatherSwitch.setChecked(cfg.showWeather.value)
-        self.cityButton.setText(cfg.city.value)
-        self.weatherSizeSpin.setValue(cfg.weatherSize.value)
-        self.weatherIconSizeSpin.setValue(cfg.weatherIconSize.value)
-        self.weatherUpdateIntervalCombo.setCurrentText(cfg.weatherUpdateInterval.value)
-
-        self.showCountdownSwitch.setChecked(cfg.showCountdown.value)
-        self.countdownDisplayModeCombo.setCurrentText(tr("home.simultaneous") if cfg.countdownDisplayMode.value == 'simultaneous' else tr("home.carousel"))
-        self.countdownTextSizeSpin.setValue(cfg.countdownTextSize.value)
-        self.countdownConnectorSizeSpin.setValue(cfg.countdownConnectorSize.value)
-        self.countdownCarouselIntervalSpin.setValue(cfg.countdownCarouselInterval.value)
-        self.countdownTextColorCombo.setCurrentText(self._getColorText(cfg.countdownTextColor.value, 'red'))
-        self.countdownConnectorColorCombo.setCurrentText(self._getColorText(cfg.countdownConnectorColor.value, 'white'))
-        self._updateCountdownList()
-
-        self.schoolInfoSwitch.setChecked(cfg.showSchoolInfo.value)
-        self.schoolEdit.setText(cfg.school.value)
-        self.schoolClassEdit.setText(cfg.schoolClass.value)
-        self.schoolInfoTextColorCombo.setCurrentText(self._getColorText(cfg.schoolInfoTextColor.value, 'white'))
-        self.schoolInfoTextSizeSpin.setValue(cfg.schoolInfoTextSize.value)
-
-        self.refreshQuickLaunchSettings()
-        self.refreshMediaSettings()
-
-    def refreshMediaSettings(self):
-        self.showMediaInfoSwitch.setChecked(cfg.showMediaInfo.value)
-        self.showMediaCoverSwitch.setChecked(cfg.showMediaCover.value)
-        self.mediaWidthSpin.setValue(cfg.mediaWidth.value)
-        self.mediaLyricsAdvanceSpin.setValue(cfg.mediaLyricsAdvance.value)
-
-    def _createSchoolInfoSettings(self, layout):
-        """创建学校信息设置"""
-        titleLabel = StrongBodyLabel(tr("home.school_info"), self)  # 学校信息
-        layout.addWidget(titleLabel)
-
-        enableLayout = QHBoxLayout()
-        enableLabel = BodyLabel(tr("home.enable_school_info"), self)  # 启用学校信息
-        enableLabel.setFixedWidth(100)
-        enableLayout.addWidget(enableLabel)
-        enableLayout.addStretch()
-        self.schoolInfoSwitch = SwitchButton(self)
-        self.schoolInfoSwitch.setOffText('')
-        self.schoolInfoSwitch.setOnText('')
-        self.schoolInfoSwitch.setChecked(cfg.showSchoolInfo.value)
-        self.schoolInfoSwitch.checkedChanged.connect(self._onShowSchoolInfoChanged)
-        enableLayout.addWidget(self.schoolInfoSwitch)
-        layout.addLayout(enableLayout)
-
-        schoolClassLayout = QHBoxLayout()
-        schoolClassLabel = BodyLabel(tr("home.class_name"), self)  # 班级名称
-        schoolClassLabel.setFixedWidth(100)
-        schoolClassLayout.addWidget(schoolClassLabel)
-        schoolClassLayout.addStretch()
-        self.schoolClassEdit = LineEdit(self)
-        self.schoolClassEdit.setText(cfg.schoolClass.value)
-        self.schoolClassEdit.setPlaceholderText(tr("home.class_name_example"))  # 例如：高三(1)班
-        self.schoolClassEdit.setFixedWidth(120)
-        self.schoolClassEdit.textChanged.connect(self._onSchoolClassChanged)
-        schoolClassLayout.addWidget(self.schoolClassEdit)
-        layout.addLayout(schoolClassLayout)
-
-        schoolLayout = QHBoxLayout()
-        schoolLabel = BodyLabel(tr("home.school_name"), self)  # 学校名称
-        schoolLabel.setFixedWidth(100)
-        schoolLayout.addWidget(schoolLabel)
-        schoolLayout.addStretch()
-        self.schoolEdit = LineEdit(self)
-        self.schoolEdit.setText(cfg.school.value)
-        self.schoolEdit.setPlaceholderText(tr("home.school_name_example"))  # 例如：XX中学
-        self.schoolEdit.setFixedWidth(120)
-        self.schoolEdit.textChanged.connect(self._onSchoolChanged)
-        schoolLayout.addWidget(self.schoolEdit)
-        layout.addLayout(schoolLayout)
-
-        textColorLayout = QHBoxLayout()
-        textColorLabel = BodyLabel(tr("home.text_color"), self)
-        textColorLabel.setFixedWidth(100)
-        textColorLayout.addWidget(textColorLabel)
-        textColorLayout.addStretch()
-        self.schoolInfoTextColorCombo = ComboBox(self)
-        self.schoolInfoTextColorCombo.addItems([tr("color.white"), tr("color.black"), tr("color.red"), tr("color.primary")])  # 白色 / 黑色 / 红色 / 主要颜色
-        self.schoolInfoTextColorCombo.setCurrentText(self._getColorText(cfg.schoolInfoTextColor.value, 'white'))
-        self.schoolInfoTextColorCombo.setFixedWidth(120)
-        self.schoolInfoTextColorCombo.currentTextChanged.connect(self._onSchoolInfoTextColorChanged)
-        textColorLayout.addWidget(self.schoolInfoTextColorCombo)
-        layout.addLayout(textColorLayout)
-
-        textSizeLayout = QHBoxLayout()
-        textSizeLabel = BodyLabel(tr("home.text_size"), self)
-        textSizeLabel.setFixedWidth(100)
-        textSizeLayout.addWidget(textSizeLabel)
-        textSizeLayout.addStretch()
-        self.schoolInfoTextSizeSpin = SpinBox(self)
-        self.schoolInfoTextSizeSpin.setRange(12, 60)
-        self.schoolInfoTextSizeSpin.setValue(cfg.schoolInfoTextSize.value)
-        self.schoolInfoTextSizeSpin.setFixedWidth(120)
-        self.schoolInfoTextSizeSpin.valueChanged.connect(self._onSchoolInfoTextSizeChanged)
-        textSizeLayout.addWidget(self.schoolInfoTextSizeSpin)
-        layout.addLayout(textSizeLayout)
-
-    def _createQuickLaunchSettings(self, layout):
-        """创建快捷启动栏设置"""
-        titleLabel = StrongBodyLabel(tr("home.quick_launch_bar"), self)  # 快捷启动栏
-        layout.addWidget(titleLabel)
-
-        enableLayout = QHBoxLayout()
-        enableLabel = BodyLabel(tr("home.enable_quick_launch"), self)
-        enableLabel.setFixedWidth(100)
-        enableLayout.addWidget(enableLabel)
-        enableLayout.addStretch()
-        self.showQuickLaunchSwitch = SwitchButton(self)
-        self.showQuickLaunchSwitch.setOffText('')
-        self.showQuickLaunchSwitch.setOnText('')
-        self.showQuickLaunchSwitch.setChecked(cfg.showQuickLaunch.value)
-        self.showQuickLaunchSwitch.checkedChanged.connect(self._onShowQuickLaunchChanged)
-        enableLayout.addWidget(self.showQuickLaunchSwitch)
-        layout.addLayout(enableLayout)
-
-        iconSizeLayout = QHBoxLayout()
-        iconSizeLabel = BodyLabel(tr("home.icon_size"), self)
-        iconSizeLabel.setFixedWidth(100)
-        iconSizeLayout.addWidget(iconSizeLabel)
-        iconSizeLayout.addStretch()
-        self.quickLaunchIconSizeSpin = SpinBox(self)
-        self.quickLaunchIconSizeSpin.setRange(32, 96)
-        self.quickLaunchIconSizeSpin.setValue(cfg.quickLaunchIconSize.value)
-        self.quickLaunchIconSizeSpin.setFixedWidth(120)
-        self.quickLaunchIconSizeSpin.valueChanged.connect(lambda v: self._onQuickLaunchIconSizeChanged(v))
-        iconSizeLayout.addWidget(self.quickLaunchIconSizeSpin)
-        layout.addLayout(iconSizeLayout)
-
-        iconSpacingLayout = QHBoxLayout()
-        iconSpacingLabel = BodyLabel(tr("home.icon_spacing"), self)
-        iconSpacingLabel.setFixedWidth(100)
-        iconSpacingLayout.addWidget(iconSpacingLabel)
-        iconSpacingLayout.addStretch()
-        self.quickLaunchIconSpacingSpin = SpinBox(self)
-        self.quickLaunchIconSpacingSpin.setRange(4, 40)
-        self.quickLaunchIconSpacingSpin.setValue(cfg.quickLaunchIconSpacing.value)
-        self.quickLaunchIconSpacingSpin.setFixedWidth(120)
-        self.quickLaunchIconSpacingSpin.valueChanged.connect(lambda v: self._onQuickLaunchIconSpacingChanged(v))
-        iconSpacingLayout.addWidget(self.quickLaunchIconSpacingSpin)
-        layout.addLayout(iconSpacingLayout)
-
-        showLabelsLayout = QHBoxLayout()
-        showLabelsLabel = BodyLabel(tr("home.show_name"), self)
-        showLabelsLabel.setFixedWidth(100)
-        showLabelsLayout.addWidget(showLabelsLabel)
-        showLabelsLayout.addStretch()
-        self.quickLaunchShowLabelsSwitch = SwitchButton(self)
-        self.quickLaunchShowLabelsSwitch.setChecked(cfg.quickLaunchShowLabels.value)
-        self.quickLaunchShowLabelsSwitch.setOffText('')
-        self.quickLaunchShowLabelsSwitch.setOnText('')
-        self.quickLaunchShowLabelsSwitch.checkedChanged.connect(lambda v: self._onQuickLaunchShowLabelsChanged(v))
-        showLabelsLayout.addWidget(self.quickLaunchShowLabelsSwitch)
-        layout.addLayout(showLabelsLayout)
-
-        appsLayout = QHBoxLayout()
-        appsLabel = BodyLabel(tr("home.app_management"), self)
-        appsLabel.setFixedWidth(100)
-        appsLayout.addWidget(appsLabel)
-        appsLayout.addStretch()
-        self.quickLaunchEditButton = PushButton(tr("home.edit_apps"), self)
-        self.quickLaunchEditButton.setFixedHeight(36)
-        self.quickLaunchEditButton.clicked.connect(self._onQuickLaunchEditClicked)
-        appsLayout.addWidget(self.quickLaunchEditButton)
-        layout.addLayout(appsLayout)
-
-    def _createMediaSettings(self, layout):
-        """创建媒体设置部分"""
-        titleLabel = StrongBodyLabel(tr("home.media_info"), self)
-        layout.addWidget(titleLabel)
-
-        enableLayout = QHBoxLayout()
-        enableLabel = BodyLabel(tr("home.enable_media"), self)
-        enableLabel.setFixedWidth(100)
-        enableLayout.addWidget(enableLabel)
-        enableLayout.addStretch()
-        self.showMediaInfoSwitch = SwitchButton(self)
-        self.showMediaInfoSwitch.setOffText('')
-        self.showMediaInfoSwitch.setOnText('')
-        self.showMediaInfoSwitch.setChecked(cfg.showMediaInfo.value)
-        self.showMediaInfoSwitch.checkedChanged.connect(self._onShowMediaInfoChanged)
-        enableLayout.addWidget(self.showMediaInfoSwitch)
-        layout.addLayout(enableLayout)
-
-        coverLayout = QHBoxLayout()
-        coverLabel = BodyLabel(tr("home.show_cover"), self)
-        coverLabel.setFixedWidth(100)
-        coverLayout.addWidget(coverLabel)
-        coverLayout.addStretch()
-        self.showMediaCoverSwitch = SwitchButton(self)
-        self.showMediaCoverSwitch.setOffText('')
-        self.showMediaCoverSwitch.setOnText('')
-        self.showMediaCoverSwitch.setChecked(cfg.showMediaCover.value)
-        self.showMediaCoverSwitch.checkedChanged.connect(self._onShowMediaCoverChanged)
-        coverLayout.addWidget(self.showMediaCoverSwitch)
-        layout.addLayout(coverLayout)
-
-        widthLayout = QHBoxLayout()
-        widthLabel = BodyLabel(tr("home.component_width"), self)
-        widthLabel.setFixedWidth(100)
-        widthLayout.addWidget(widthLabel)
-        widthLayout.addStretch()
-        self.mediaWidthSpin = SpinBox(self)
-        self.mediaWidthSpin.setRange(200, 800)
-        self.mediaWidthSpin.setValue(cfg.mediaWidth.value)
-        self.mediaWidthSpin.setFixedWidth(120)
-        self.mediaWidthSpin.valueChanged.connect(self._onMediaWidthChanged)
-        widthLayout.addWidget(self.mediaWidthSpin)
-        layout.addLayout(widthLayout)
-
-        lyricsAdvanceLayout = QHBoxLayout()
-        lyricsAdvanceLabel = BodyLabel(tr("home.lyrics_advance"), self)
-        lyricsAdvanceLabel.setFixedWidth(100)
-        lyricsAdvanceLayout.addWidget(lyricsAdvanceLabel)
-        lyricsAdvanceLayout.addStretch()
-        self.mediaLyricsAdvanceSpin = SpinBox(self)
-        self.mediaLyricsAdvanceSpin.setRange(0, 2000)
-        self.mediaLyricsAdvanceSpin.setValue(cfg.mediaLyricsAdvance.value)
-        self.mediaLyricsAdvanceSpin.setFixedWidth(120)
-        self.mediaLyricsAdvanceSpin.valueChanged.connect(self._onMediaLyricsAdvanceChanged)
-        lyricsAdvanceLayout.addWidget(self.mediaLyricsAdvanceSpin)
-        layout.addLayout(lyricsAdvanceLayout)
-
-    def _updateShowMediaInfoSwitch(self, value):
-        self.showMediaInfoSwitch.setChecked(value)
-        self._updateMediaSettingsEnabled(value)
-
-    def _updateShowMediaCoverSwitch(self, value):
-        self.showMediaCoverSwitch.setChecked(value)
-
-    def _updateMediaWidthSpin(self, value):
-        self.mediaWidthSpin.setValue(value)
-
-    def _updateMediaLyricsAdvanceSpin(self, value):
-        self.mediaLyricsAdvanceSpin.setValue(value)
-
-    def _onShowMediaInfoChanged(self, checked: bool):
-        cfg.showMediaInfo.value = checked
-        self._updateMediaSettingsEnabled(checked)
-        logger.info(f"媒体设置：启用媒体信息={'开启' if checked else '关闭'}")
-
-    def _onShowMediaCoverChanged(self, checked: bool):
-        cfg.showMediaCover.value = checked
-        logger.info(f"媒体设置：显示封面={'开启' if checked else '关闭'}")
-
-    def _onMediaWidthChanged(self, value: int):
-        cfg.mediaWidth.value = value
-        logger.info(f"媒体设置：组件宽度={value}px")
-
-    def _onMediaLyricsAdvanceChanged(self, value: int):
-        cfg.mediaLyricsAdvance.value = value
-        logger.info(f"媒体设置：歌词提前时间={value}ms")
-
-
 class CountdownEditDialog(MessageBoxBase):
     """倒计时编辑对话框"""
 
@@ -3087,167 +1694,6 @@ class CountdownEditDialog(MessageBoxBase):
 
     def get_countdown(self):
         return self._result
-
-
-class QuickLaunchEditDialog(MessageBoxBase):
-    """快捷启动栏编辑对话框"""
-
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        apps = cfg.quickLaunchApps.value
-        self._apps = list(apps) if apps else []
-        self._deleted_apps = []  # 记录要删除的列表 确认后再删图标
-        self._init_ui()
-
-    def _init_ui(self):
-        self.viewLayout.setSpacing(8)
-        title = SubtitleLabel(tr("home.edit_quick_launch"))
-        self.viewLayout.addWidget(title)
-        infoLabel = BodyLabel(tr("home.quick_launch_description"))
-        self.viewLayout.addWidget(infoLabel)
-
-        self.appListWidget = ListWidget(self)
-        self.appListWidget.setFixedHeight(200)
-        self.appListWidget.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
-        self.appListWidget.itemClicked.connect(self._on_item_clicked)
-        self._update_app_list()
-        self.viewLayout.addWidget(self.appListWidget)
-
-        buttonLayout = QHBoxLayout()
-        self.addButton = PushButton(tr("home.add_app"), self)
-        self.addButton.clicked.connect(self._on_add_app)
-        buttonLayout.addWidget(self.addButton)
-
-        self.editButton = PushButton(tr("home.edit"), self)
-        self.editButton.clicked.connect(self._on_edit_app)
-        buttonLayout.addWidget(self.editButton)
-
-        self.deleteButton = PushButton(tr("home.delete"), self)
-        self.deleteButton.clicked.connect(self._on_delete_app)
-        buttonLayout.addWidget(self.deleteButton)
-
-        self.viewLayout.addLayout(buttonLayout)
-
-        self.yesButton.setText(tr("common.done"))
-        self.cancelButton.setText(tr("common.cancel"))
-        self.widget.setMinimumWidth(400)
-
-        self._selected_row = -1
-        self.setAcceptDrops(True)
-
-    def _on_item_clicked(self, item):
-        self._selected_row = self.appListWidget.row(item)
-
-    def _update_app_list(self):
-        self.appListWidget.clear()
-        for app in self._apps:
-            name = app.get('name', tr("common.unknown"))
-            path = app.get('path', '')
-            display_text = f"{name} - {path if path else tr('home.no_path_configured')}"
-            self.appListWidget.addItem(display_text)
-
-    def _on_add_app(self):
-        if len(self._apps) >= QuickLaunchDock.MAX_APPS:
-            InfoBar.warning(tr("common.tip"), tr("home.max_apps_warning", max=QuickLaunchDock.MAX_APPS), parent=self, duration=3000)
-            return
-        dialog = AppEditDialog(self.parent())
-        if dialog.exec():
-            app_data = dialog.get_app_data()
-            if app_data:
-                self._apps.append(app_data)
-                self._update_app_list()
-                self._refresh_dock()
-
-    def _on_edit_app(self):
-        if self._selected_row < 0 or self._selected_row >= len(self._apps):
-            InfoBar.warning(tr("common.tip"), tr("home.select_app_first"), parent=self, duration=2000)
-            return
-
-        dialog = AppEditDialog(self.parent(), self._apps[self._selected_row])
-        if dialog.exec():
-            app_data = dialog.get_app_data()
-            if app_data:
-                self._apps[self._selected_row] = app_data
-                self._update_app_list()
-                if 0 <= self._selected_row < self.appListWidget.count():
-                    self.appListWidget.setCurrentRow(self._selected_row)
-                self._refresh_dock()
-
-    def _on_delete_app(self):
-        if self._selected_row < 0 or self._selected_row >= len(self._apps):
-            InfoBar.warning(tr("common.tip"), tr("home.select_app_first"), parent=self, duration=2000)
-            return
-
-        deleted_app = self._apps.pop(self._selected_row)
-        self._deleted_apps.append(deleted_app)
-        self._update_app_list()
-        if self.appListWidget.count() > 0:
-            new_row = min(self._selected_row, self.appListWidget.count() - 1)
-            self.appListWidget.setCurrentRow(new_row)
-            self._selected_row = new_row
-
-    def _delete_app_icon(self, app_data):
-        if not app_data:return
-        icon_filename = app_data.get('icon', '')
-        if not icon_filename or icon_filename in ('exe.ico', 'default.ico'):return
-
-        icon_path = os.path.join(PACKAGE_ROOT, 'data', 'icon', icon_filename)
-        if os.path.exists(icon_path):
-            try:
-                os.remove(icon_path)
-                logger.info(f"已删除图标文件：{icon_path}")
-            except Exception as e:
-                logger.warning(f"删除图标文件失败：{e}")
-
-    def _refresh_dock(self):
-        """刷新 dock 栏显示"""
-        if hasattr(self, 'mainWindow'):
-            self.mainWindow.refresh_quick_launch()
-
-    def dragEnterEvent(self, e):
-        if e.mimeData().hasUrls():
-            urls = e.mimeData().urls()
-            for url in urls:
-                path = url.toLocalFile()
-                if path and (path.lower().endswith('.exe') or path.lower().endswith('.lnk')):
-                    e.acceptProposedAction()
-                    return
-        e.ignore()
-
-    def dragMoveEvent(self, e):
-        if e.mimeData().hasUrls():
-            e.acceptProposedAction()
-        else:
-            e.ignore()
-
-    def dropEvent(self, e):
-        e.acceptProposedAction()
-        urls = e.mimeData().urls()
-        for url in urls:
-            path = url.toLocalFile()
-            if not path:
-                continue
-            if not (path.lower().endswith('.exe') or path.lower().endswith('.lnk')):
-                continue
-            if len(self._apps) >= QuickLaunchDock.MAX_APPS:
-                InfoBar.warning(tr("common.tip"), tr("home.max_apps_warning", max=QuickLaunchDock.MAX_APPS), parent=self, duration=3000)
-                return
-            app_data = resolve_app_from_path(path)
-            if app_data:
-                self._apps.append(app_data)
-                self._update_app_list()
-                self._refresh_dock()
-
-    def accept(self):
-        cfg.quickLaunchApps.value = self._apps
-        save_cfg()
-        for deleted_app in self._deleted_apps:
-            self._delete_app_icon(deleted_app)
-        self._refresh_dock()
-        super().accept()
-
-    def get_apps(self):
-        return self._apps
 
 
 class AppEditDialog(MessageBoxBase):
@@ -3537,7 +1983,7 @@ class _GridOverlay(QWidget):
 
         # 网格线样式
         dash_segment = max(2, cell_size * 0.25)
-        grid_color = QColor(200, 200, 200, 220)  # 更清晰的灰色
+        grid_color = QColor(200, 200, 200, 220) 
         grid_pen = QPen(grid_color)
         grid_pen.setWidthF(1.0)
         grid_pen.setDashPattern([dash_segment, dash_segment])  # 自适应虚线
@@ -3599,11 +2045,11 @@ class _GridOverlay(QWidget):
                 if self._preview_collision:
                     # 红色 - 碰撞/无效
                     border_color = QColor(255, 59, 48, 255)  # #FF3B30
-                    fill_color = QColor(255, 59, 48, 100)    # 明显的红色填充
+                    fill_color = QColor(255, 59, 48, 100)    # 红色
                 else:
                     # 蓝色 - 正常
                     border_color = QColor(10, 132, 255, 255)  # #FF0A84FF
-                    fill_color = QColor(10, 132, 255, 100)    # 明显的蓝色填充
+                    fill_color = QColor(10, 132, 255, 100)    # 蓝色
 
                 # 圆角动态计算
                 min_side = min(rect.width(), rect.height())

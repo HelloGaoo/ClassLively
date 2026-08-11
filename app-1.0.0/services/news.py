@@ -46,7 +46,7 @@ class NewsService:
         try:
             return response.json()
         except ValueError as e:
-            logger.error(f"新闻 JSON 解析失败: {e}")
+            logger.error(f"新闻解析失败: {e}")
             return None
 
     @staticmethod
@@ -66,7 +66,7 @@ class NewsService:
             try:
                 response = session.get(CCTV_NEWS_API_URL, timeout=10)
                 if response.status_code != 200:
-                    logger.error(f"央视新闻请求失败，状态码：{response.status_code}")
+                    logger.error(f"央视新闻请求失败：{response.status_code}")
                     return None
 
                 data = cls._parse_response_json(response)
@@ -107,7 +107,7 @@ class NewsService:
             try:
                 response = session.get(DAILY_NEWS_API_URL, params={"platform": platform}, timeout=10)
                 if response.status_code != 200:
-                    logger.error(f"每日热点新闻请求失败：{response.status_code}")
+                    logger.error(f"每日新闻请求失败：{response.status_code}")
                     return None
 
                 data = cls._parse_response_json(response)
@@ -123,13 +123,13 @@ class NewsService:
                     news_list = data
 
                 if not isinstance(news_list, list):
-                    logger.error("每日热点新闻获取失败")
+                    logger.error("每日新闻获取失败")
                     return None
 
                 cls._save_cache(cache_name, news_list)
                 return news_list
             except requests.exceptions.RequestException as e:
-                logger.error(f"每日热点新闻请求异常：{e}")
+                logger.error(f"每日新闻请求异常：{e}")
                 return None
 
     @classmethod

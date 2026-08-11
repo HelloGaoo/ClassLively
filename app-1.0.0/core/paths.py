@@ -15,11 +15,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 """
-路径初始化模块 - 最先加载，无项目依赖
-
-环境变量（由启动器设置）：
-    Glimpseon_PackageRoot - 根目录路径
-    Glimpseon_AppDir      - 版本目录路径
+路径初始化模块
 """
 
 import json
@@ -36,7 +32,6 @@ def _detect_package_root() -> str:
     if getattr(sys, 'frozen', False):
         return os.path.dirname(os.path.abspath(sys.executable))
 
-    # 开发模式：paths.py -> core -> app-* -> 根目录
     current = Path(__file__).resolve()
     return str(current.parent.parent.parent)
 
@@ -88,7 +83,6 @@ DATA_WALLPAPER = os.path.join(DATA_ROOT, "wallpaper")
 DATA_CLASSPHOTOS = os.path.join(DATA_ROOT, "classphotos")
 DATA_NOTES = os.path.join(DATA_ROOT, "notes")
 
-# 兼容别名
 BASE_DIR = PACKAGE_ROOT
 WALLPAPER_DIR = DATA_WALLPAPER
 

@@ -93,7 +93,7 @@ def release_single_instance():
 
 
 def verify_single_instance():
-    """检查是否已经有实例运行"""
+    """检查实例"""
     allow_multiple = cfg.allowMultipleInstances.value
     is_debug_mode = cfg.debugMode.value
     if allow_multiple or is_debug_mode:
@@ -164,7 +164,7 @@ def _install_system_fonts() -> bool:
                     else:
                         logger.warning(f"AddFontResourceW：{font_file}")
                 except Exception as e:
-                    logger.warning(f"安装单个字体失败 {font_file}：{e}")
+                    logger.warning(f"安装字体失败 {font_file}：{e}")
                     continue
         if installed_any:
             try:
@@ -178,11 +178,11 @@ def _install_system_fonts() -> bool:
                     SMTO_ABORTIFHUNG, 500, ctypes.byref(result)
                 )
             except Exception as e:
-                logger.warning(f"广播字体变更消息失败：{e}")
+                logger.warning(f"字体变更失败：{e}")
         
         return True
     except Exception as e:
-        logger.warning(f"安装字体到系统失败：{e}")
+        logger.warning(f"安装字体失败：{e}")
         return False
 
 
@@ -209,26 +209,26 @@ def _load_app_fonts(max_retries: int = 3, retry_delay: float = 0.1) -> bool:
                 if font_id != -1:
                     loaded = True
                     font_loaded = True
-                    logger.debug(f"成功加载字体：{font_file} (尝试 {attempt + 1})")
+                    logger.debug(f"成功加载字体：{font_file}")
                     break
                 else:
                     if attempt < max_retries - 1:
                         time.sleep(retry_delay)
             except Exception as e:
-                logger.warning(f"加载字体 {font_file} 时发生错误 (尝试 {attempt + 1})：{e}")
+                logger.warning(f"加载字体 {font_file} 错误：{e}")
                 if attempt < max_retries - 1:
                     time.sleep(retry_delay)
         
         if not loaded:
             failed_fonts.append(font_file)
-            logger.warning(f"字体加载失败（已重试{max_retries}次）：{font_file}")
+            logger.warning(f"字体加载失败：{font_file}")
 
     if font_loaded:
-        logger.info(f"字体已加载到应用程序 ({len(HARMONYOS_FONT_FILES) - len(failed_fonts)}/{len(HARMONYOS_FONT_FILES)} 成功)")
+        pass
         if failed_fonts:
-            logger.warning(f"以下字体加载失败：{', '.join(failed_fonts)}")
+            logger.warning(f"字体加载失败：{', '.join(failed_fonts)}")
     else:
-        logger.warning("未成功加载任何字体")
+        logger.warning("未成功加载字体")
     return font_loaded
 
 
@@ -252,7 +252,7 @@ def initialize_fonts(app: QApplication, install_to_system: bool = True):
     logger.info("字体初始化完成")
 
 
-CACHE_DIR = "data/cache"  # 保持兼容，但实际使用 DATA_CACHE
+CACHE_DIR = "data/cache"
 
 INTERVAL_MAP = {
     "从不": 0,
@@ -356,7 +356,7 @@ def load_cache(cache_name: str, ignore_expiry: bool = False) -> Optional[dict]:
                 logger.debug(f"缓存过期: {cache_name}")
                 return None
 
-        logger.debug(f"读取缓存成功: {cache_name}, 剩余有效期: {int(expires_at - now)}秒")
+        logger.debug(f"读取缓存成功: {cache_name} 剩余周期: {int(expires_at - now)}秒")
         return cache_data
     except Exception as e:
         logger.error(f"读取缓存失败 {cache_name}: {e}")
@@ -386,9 +386,9 @@ def clear_all_cache():
         if filename.endswith('.json'):
             try:
                 os.remove(os.path.join(cache_dir, filename))
-                logger.info(f"缓存文件已删除: {filename}")
+                logger.info(f"缓存已删除: {filename}")
             except Exception as e:
-                logger.error(f"删除缓存文件失败 {filename}: {e}")
+                logger.error(f"删除缓存失败 {filename}: {e}")
 
 
 def extract_files():
@@ -431,7 +431,7 @@ def extract_files():
                             logger.info(f"已提取文件: {os.path.join(folder, rel_path, file)}")
                         except Exception as e:
                             logger.error(f"提取文件 {os.path.join(folder, rel_path, file)} 失败：{e}")
-
+# 到底在瞎写啥
 
 def check_autostart():
     try:
@@ -445,7 +445,7 @@ def check_autostart():
             winreg.CloseKey(key)
             return False, None
     except Exception as e:
-        logger.error(f"获取开机自启动状态失败: {e}")
+        logger.error(f"开机自启动: {e}")
         return False, None
 
 

@@ -71,7 +71,7 @@ def get_cached_icon(icon_path: str, size: tuple = (64, 64)) -> Optional[QPixmap]
 
 
 class DownloadInterface(BaseScrollAreaInterface, TranslatableWidget):
-    """ 软件下载界面 """
+    """软件下载界面"""
     
     def __init__(self, parent=None):
         super().__init__(tr("navigation.download"), parent)  # 软件下载
@@ -92,7 +92,7 @@ class DownloadInterface(BaseScrollAreaInterface, TranslatableWidget):
         self._pendingLayout = False
         
         # 运行时状态
-        self.softwareList = []       # 当前页面的 widget dict（给下载逻辑用）
+        self.softwareList = []       # 当前页面的 widget dict
         self.selectedSoftware = []
         self._downloadingNames = set()  # 正在下载中的软件名
         self.downloader = Downloader(logger)
@@ -106,7 +106,6 @@ class DownloadInterface(BaseScrollAreaInterface, TranslatableWidget):
         self.setup_translatable_ui()
     
     def __connectSignalToSlot(self):
-        """ 连接信号与槽 """
         cfg.themeChanged.connect(self._onThemeChanged)
         self.singleModeButton.toggled.connect(self.__handleModeChange)
         self.multiModeButton.toggled.connect(self.__handleModeChange)
@@ -119,7 +118,6 @@ class DownloadInterface(BaseScrollAreaInterface, TranslatableWidget):
         source_key = self.sourceComboBox.itemData(idx)
         if source_key:
             qconfig.set(cfg.downloadSource, source_key)
-            logger.info(f"下载源已保存到配置：{source_name} ({source_key})")
             set_download_src(source_key)
     
     def __get_url(self, cache_file):
@@ -140,17 +138,17 @@ class DownloadInterface(BaseScrollAreaInterface, TranslatableWidget):
         return None
     
     def __setQss(self):
-        """ 设置样式表 """
+        """设置样式表"""
         self.scrollWidget.setObjectName('scrollWidget')
         self.titleLabel.setObjectName('settingLabel')
         self.setStyleSheet(load_qss('download.qss'))
     
     def _onThemeChanged(self, theme: Theme):
-        """ 主题变更槽函数 """
+        """主题变更槽"""
         self.__setQss()
     
     def __handleDownload(self, software_name):
-        """ 处理下载按钮点击事件 """
+        """下载按钮点击事件"""
         msg_box = MessageBox(
             tr("download.confirm_download"),  # 确认下载
             tr("download.confirm_download_single").format(name=software_name),  # 确定要下载 {name} 吗？
@@ -167,7 +165,7 @@ class DownloadInterface(BaseScrollAreaInterface, TranslatableWidget):
                 break
         
         if software_item:
-            # 显示进度环，隐藏下载按钮
+            # 显示进度环 隐藏下载按钮
             software_item['progressBar'].show()
             software_item['progressBar'].setValue(0)
             software_item['button'].hide()
@@ -206,7 +204,7 @@ class DownloadInterface(BaseScrollAreaInterface, TranslatableWidget):
                             '_show_download_error',
                             Qt.ConnectionType.QueuedConnection,
                             Q_ARG(str, software_name),
-                            Q_ARG(str, tr("download.error_no_url"))  # 未找到下载链接  # 未找到下载链接
+                            Q_ARG(str, tr("download.error_no_url"))  # 未找到下载链接
                         )
                         return
 
@@ -217,7 +215,7 @@ class DownloadInterface(BaseScrollAreaInterface, TranslatableWidget):
                             '_show_download_error',
                             Qt.ConnectionType.QueuedConnection,
                             Q_ARG(str, software_name),
-                            Q_ARG(str, tr("download.error_cannot_get_url"))  # 无法获取下载链接  # 无法获取下载链接
+                            Q_ARG(str, tr("download.error_cannot_get_url"))  # 无法获取下载链接
                         )
                         return
                     
@@ -281,13 +279,12 @@ class DownloadInterface(BaseScrollAreaInterface, TranslatableWidget):
                     thread = threading.Thread(target=run_install, daemon=True)
                     thread.start()
                 else:
-                    # 显示未找到安装方法的提示
                     QMetaObject.invokeMethod(
                         self,
                         '_show_download_error',
                         Qt.ConnectionType.QueuedConnection,
                         Q_ARG(str, software_name),
-                        Q_ARG(str, tr("download.error_no_install_method"))  # 未找到安装方法  # 未找到安装方法
+                        Q_ARG(str, tr("download.error_no_install_method"))  # 未找到安装方法
                     )
             except Exception as e:
                 QMetaObject.invokeMethod(
@@ -302,9 +299,9 @@ class DownloadInterface(BaseScrollAreaInterface, TranslatableWidget):
         thread.start()
     
     def __show_download_complete(self, software_item, software_name):
-        """ 显示下载完成 """
+        """显示下载完成"""
         if software_item:
-            # 先设置为100%
+            # 设置为100%
             QMetaObject.invokeMethod(
                 software_item['progressBar'], 
                 'setValue', 
@@ -329,7 +326,7 @@ class DownloadInterface(BaseScrollAreaInterface, TranslatableWidget):
         self._downloadingNames.discard(software_name)
     
     def __show_download_error(self, software_item, software_name, error_msg):
-        """ 显示下载错误 """
+        """显示下载错误"""
         if software_item:
             software_item['progressBar'].hide()
             # 出错时恢复按钮与复选框显示
@@ -382,7 +379,7 @@ class DownloadInterface(BaseScrollAreaInterface, TranslatableWidget):
             self.selectedSoftware = []
     
     def __initWidgets(self):
-        """ 初始化控件 """
+        """初始化控件"""
         # 模式切换控件
         self.modeContainer = QWidget(self.scrollWidget)
         self.modeContainer.setObjectName("modeContainer")
@@ -463,18 +460,18 @@ class DownloadInterface(BaseScrollAreaInterface, TranslatableWidget):
         self.selectedSoftware = []
     
     def __initLayout(self):
-        """ 初始化布局 """
+        """初始化布局"""
         self.mainLayout.addWidget(self.modeContainer)
         self.mainLayout.addWidget(self.softwareContainer, 1)
     
     def addSection(self, title):
-        """ 存储分区标题（数据收集，不创建 widget） """
+        """存储分区标题"""
         if not title:
             title = tr("download.common_software")  # 常用软件
         self._currentDataSection = title
     
     def addSoftware(self, icon_path, name, description, link=None):
-        """ 存储软件数据（数据收集，不创建 widget） """
+        """存储软件数据"""
         sec = self._currentDataSection or tr("download.common_software")
         self._allSoftwareData.append({
             'section': sec,
@@ -506,7 +503,7 @@ class DownloadInterface(BaseScrollAreaInterface, TranslatableWidget):
         return cols
 
     def _clearSoftwareLayout(self):
-        """ 清空 softwareLayout 中的所有 widget """
+        """清空 softwareLayout 中的所有 widget"""
         self.softwareList.clear()
         while self.softwareLayout.count():
             item = self.softwareLayout.takeAt(0)
@@ -515,7 +512,7 @@ class DownloadInterface(BaseScrollAreaInterface, TranslatableWidget):
                 w.deleteLater()
 
     def _layoutAllSoftware(self):
-        """ 渲染软件卡片 """
+        """渲染软件卡片"""
         self._clearSoftwareLayout()
 
         cols = self._calcColumns()
@@ -579,7 +576,7 @@ class DownloadInterface(BaseScrollAreaInterface, TranslatableWidget):
             self._pendingLayout = True
 
     def _createSoftwareCard(self, data, is_single_mode):
-        """ 创建一个软件卡片 widget，返回 (card_widget, software_dict) """
+        """创建一个软件卡片 widget"""
         name = data['name']
         icon_path = data['icon_path']
         description = data['description']
@@ -658,7 +655,7 @@ class DownloadInterface(BaseScrollAreaInterface, TranslatableWidget):
         layout.addWidget(btn)
         layout.addWidget(checkbox)
         
-        # 如果正在下载中，恢复进度状态
+        # 如果正在下载中 恢复进度状态
         is_downloading = name in self._downloadingNames
         if is_downloading:
             btn.hide()
@@ -690,7 +687,7 @@ class DownloadInterface(BaseScrollAreaInterface, TranslatableWidget):
                 self._layoutAllSoftware()
     
     def __handleCheckboxChange(self, software_name, state):
-        """ 复选框状态变更 """
+        """复选框状态变更"""
         if state == Qt.CheckState.Checked:
             if software_name not in self.selectedSoftware:
                 self.selectedSoftware.append(software_name)
@@ -701,7 +698,7 @@ class DownloadInterface(BaseScrollAreaInterface, TranslatableWidget):
             self.__updateSelectAllButton()
     
     def __handleSelectAll(self):
-        """ 全选按钮点击 """
+        """全选按钮点击"""
         all_checked = all(
             software['checkbox'].isChecked() 
             for software in self.softwareList
@@ -739,7 +736,7 @@ class DownloadInterface(BaseScrollAreaInterface, TranslatableWidget):
             self.selectAllButton.setText(tr("download.select_all"))  # 全选
     
     def __handleModeChange(self):
-        """ 处理模式切换 """
+        """处理模式切换"""
         is_single_mode = self.singleModeButton.isChecked()
         
         for software in self.softwareList:
@@ -769,7 +766,7 @@ class DownloadInterface(BaseScrollAreaInterface, TranslatableWidget):
             self.__updateSelectAllButton()
     
     def __handleStartDownload(self):
-        """ 处理开始下载按钮点击 """
+        """处理开始下载按钮点击"""
         if not self.selectedSoftware:
             InfoBar.warning(
                 tr("download.no_selection"),  # 未选择软件
@@ -815,14 +812,14 @@ class DownloadInterface(BaseScrollAreaInterface, TranslatableWidget):
         
         if hasattr(self, 'download_executor') and self.download_executor is not None:
             try:
-                logger.info("关闭可能存在的旧线程池")
+                logger.info("关闭旧线程池")
                 self.download_executor.shutdown(wait=True)
                 logger.info("旧线程池已关闭")
             except Exception as e:
-                logger.error(f"关闭旧线程池时出错: {str(e)}")
+                logger.error(f"关闭旧线程池出错: {str(e)}")
         max_workers = os.cpu_count() if os.cpu_count() else 4
         self.download_executor = ThreadPoolExecutor(max_workers=max_workers)
-        logger.info(f"创建线程池，最大并发数: {max_workers}")
+        logger.info(f"创建线程池 最大并发数: {max_workers}")
         self.futures = []
 
         def _run_install_task(software_name):
@@ -895,7 +892,7 @@ class DownloadInterface(BaseScrollAreaInterface, TranslatableWidget):
             # 更新 cache_file 的 url
             cache_file['url'] = download_url
 
-            # 定义进度回调和完成回调
+            # 进度回调 完成回调
             def update_progress(software_name_arg, percent, item_ref=item):
                 try:
                     val = int(round(float(percent)))
@@ -913,7 +910,7 @@ class DownloadInterface(BaseScrollAreaInterface, TranslatableWidget):
                 name = software_name_arg if software_name_arg else software_name
                 logger.info(f"{name}: 下载完成")
 
-            # 调用 downloader 的安装方法
+            # 调用下载器的安装方法
             try:
                 processed_name = software_name.replace(' ', '').replace('[', '').replace(']', '')
                 install_method_name = f"_install_{processed_name}"
@@ -925,7 +922,7 @@ class DownloadInterface(BaseScrollAreaInterface, TranslatableWidget):
                         download_complete_callback=_on_download_done
                     )
 
-                    # 保证设置为100并显示完成
+                    # 设置为100 显示完成
                     if item:
                         QMetaObject.invokeMethod(
                             item['progressBar'],
@@ -969,11 +966,11 @@ class DownloadInterface(BaseScrollAreaInterface, TranslatableWidget):
                     break
                 time.sleep(1)
             try:
-                logger.info("所有任务完成，关闭线程池")
+                logger.info("关闭线程池")
                 self.download_executor.shutdown(wait=True)
                 logger.info("线程池已关闭")
             except Exception as e:
-                logger.error(f"关闭线程池时出错: {str(e)}")
+                logger.error(f"关闭线程池出错: {str(e)}")
             QMetaObject.invokeMethod(
                 self,
                 '_clear_selected_software',

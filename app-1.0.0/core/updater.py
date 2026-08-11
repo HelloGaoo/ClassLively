@@ -40,9 +40,9 @@ def get_github_changelog(max_retries=3):
     for attempt in range(max_retries):
         try:
             if attempt > 0:
-                logger.info(f"第 {attempt + 1} 次重试获取更新日志")
+                logger.info(f"重试获取更新日志")
 
-            logger.info(f"正在从 GitHub 获取更新日志：{CHANGELOG_URL}")
+            logger.info(f"获取更新日志：{CHANGELOG_URL}")
             response = requests.get(CHANGELOG_URL, timeout=10, verify=False)
             logger.debug(f"更新日志请求返回：{response.status_code}")
             response.raise_for_status()
@@ -52,15 +52,15 @@ def get_github_changelog(max_retries=3):
             return content
 
         except requests.exceptions.Timeout:
-            logger.warning(f"请求超时（尝试 {attempt + 1}/{max_retries}）")
+            logger.warning(f"请求超时")
             if attempt == max_retries - 1:
-                logger.error("获取更新日志失败：多次重试后仍超时")
+                logger.error("获取更新日志失败")
                 return None
         except requests.exceptions.RequestException as e:
             logger.error(f"获取更新日志失败：{str(e)}")
             return None
         except Exception as e:
-            logger.error(f"获取更新日志时出错：{str(e)}")
+            logger.error(f"获取更新日志失败：{str(e)}")
             return None
 
     return None
@@ -76,7 +76,7 @@ def check_github_version(max_retries=3):
     }
 
     try:
-        logger.info(f"正在从 GitHub 获取版本信息：{GITHUB_API}")
+        logger.info(f"获取版本信息：{GITHUB_API}")
         response = requests.get(GITHUB_API, timeout=10, verify=False)
         response.raise_for_status()
 
@@ -145,15 +145,15 @@ def download_update(download_url, progress_callback=None, max_retries=3):
             return str(download_path)
 
         except requests.exceptions.Timeout:
-            logger.warning(f"下载超时（尝试 {attempt + 1}/{max_retries}）")
+            logger.warning(f"下载超时")
             if attempt == max_retries - 1:
-                logger.error("下载更新失败：多次重试后仍超时")
+                logger.error("下载更新失败")
                 return None
         except requests.exceptions.RequestException as e:
             logger.error(f"下载更新失败：{str(e)}")
             return None
         except Exception as e:
-            logger.error(f"下载更新时出错：{str(e)}")
+            logger.error(f"下载更新出错：{str(e)}")
             return None
 
     return None
@@ -201,7 +201,7 @@ def deploy_update(new_version_dir):
     new_version_dir = Path(new_version_dir)
 
     try:
-        logger.info(f"正在部署更新：{new_version_dir}")
+        logger.info(f"正在更新：{new_version_dir}")
 
         for app_dir in package_root.glob("app-*"):
             if app_dir != new_version_dir:
@@ -215,11 +215,11 @@ def deploy_update(new_version_dir):
             record["partial"] = False
             save_record(record, new_version_dir / "record.json")
 
-        logger.info("更新部署完成，下次启动将使用新版本")
+        logger.info("更新完成")
         return True
 
     except Exception as e:
-        logger.error(f"部署更新失败：{str(e)}")
+        logger.error(f"更新失败：{str(e)}")
         return False
 
 
@@ -282,7 +282,7 @@ pause >nul
 
 
 def check_github_version_legacy(max_retries=3):
-    """兼容旧接口"""
+    """兼容"""
     result = check_github_version(max_retries)
     return {
         'success': result['success'],

@@ -42,8 +42,7 @@ WEATHER_API_SIGN = "zUFJoAR2ZVrDy1vF3D07"
 
 
 class WeatherService:
-    """天气 API 服务类"""
-
+    """天气服务"""
     WEATHER_MAP = {
         0: ("晴", "0.svg"),
         1: ("多云", "1.svg"),
@@ -84,7 +83,7 @@ class WeatherService:
         74: "20.svg", 75: "20.svg", 76: "18.svg", 77: "20.svg", 99: "0.svg",
     }
 
-    # 天气代码 → 翻译键 映射
+    # 天气代码 > 翻译键 映射
     WEATHER_TEXT_MAP = {
         0: "weather.sunny", 1: "weather.cloudy", 2: "weather.overcast", 3: "weather.shower", 4: "weather.thundershower",
         5: "weather.thundershower_with_hail", 6: "weather.sleet", 7: "weather.light_rain", 8: "weather.moderate_rain",
@@ -97,7 +96,7 @@ class WeatherService:
         99: "weather.unknown",
     }
 
-    # 天气代码 → 组合翻译键 映射（拼接两个翻译）
+    # 天气代码 > 组合翻译键 映射（拼接两个翻译）
     WEATHER_COMBINED_TEXT_MAP = {
         21: ("weather.light_rain", "weather.moderate_rain"),
         22: ("weather.moderate_rain", "weather.heavy_rain"),
@@ -109,7 +108,7 @@ class WeatherService:
         28: ("weather.heavy_snow", "weather.snowstorm"),
     }
 
-    # 夜间天气代码 → 对应的白天翻译键
+    # 夜间天气代码 > 白天翻译键
     WEATHER_NIGHT_MAP = {
         50: "weather.sunny", 51: "weather.cloudy", 52: "weather.overcast",
         54: "weather.light_rain", 55: "weather.moderate_rain", 56: "weather.heavy_rain", 57: "weather.rainstorm",
@@ -122,7 +121,7 @@ class WeatherService:
 
     @staticmethod
     def get_weather_text(code, tr_func):
-        """获取翻译后的天气文本"""
+        """翻译后的天气文本"""
         if code in WeatherService.WEATHER_TEXT_MAP:
             return tr_func(WeatherService.WEATHER_TEXT_MAP[code])
         if code in WeatherService.WEATHER_COMBINED_TEXT_MAP:
@@ -134,7 +133,7 @@ class WeatherService:
 
     @staticmethod
     def build_weather_code_map(tr_func):
-        """天气代码→翻译文本映射"""
+        """天气代码 > 翻译文本映射"""
         result = {}
         all_codes = set()
         all_codes.update(WeatherService.WEATHER_TEXT_MAP.keys())
@@ -274,7 +273,7 @@ class WeatherService:
                     weather_code = int(val)
                 except (ValueError, TypeError):
                     if isinstance(val, dict):
-                        # API 返回 {'from': 白天code, 'to': 夜间code} 或 {'day': ..., 'night': ...}
+                        # API 返回 {'from': 白天code, 'to': 夜间code} / {'day': ..., 'night': ...}
                         weather_code = int(val.get("from", val.get("day", val.get("night", 0))))
                     elif isinstance(val, list) and len(val) > 0:
                         weather_code = int(val[0])
@@ -284,7 +283,7 @@ class WeatherService:
             if i < len(temp_values):
                 val = temp_values[i]
                 if isinstance(val, dict):
-                    # API 返回 {'from': 高温, 'to': 低温} (与常识相反)
+                    # API 返回 {'from': 高温, 'to': 低温}
                     from_val = val.get("from", val.get("value", "--"))
                     to_val = val.get("to", val.get("value", "--"))
                     # 根据数值大小判断高低
@@ -318,7 +317,6 @@ class RegionDatabase:
     """地区数据管理器"""
 
     def __init__(self):
-        # city.db 是应用资源，从 APP_DIR/resource/ 读取
         self._db_path = get_resPath(os.path.join('resource', 'city.db'))
 
     def _connect(self):
@@ -339,8 +337,7 @@ class RegionDatabase:
                         ('%' + keyword + '%',)
                     )
                 names = [row[0] for row in cursor.fetchall()]
-                
-                # 按首字拼音首字母排序
+
                 try:
                     from pypinyin import lazy_pinyin
                     names.sort(key=lambda x: lazy_pinyin(x[0])[0][0].lower() if x else '')

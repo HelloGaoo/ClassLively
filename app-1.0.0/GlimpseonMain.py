@@ -1085,8 +1085,6 @@ class MainWindow(FluentWindow):
 
         logger.info(f"[MW] DebugPanel 耗时{time.time()-_t:.2f}s")
 
-        self.editPanel = None  # deprecated, kept for compatibility
-
     def _initIdleDetection(self):
         self.idleTimer = QTimer(self)
         self.idleTimer.timeout.connect(self._checkIdle)
@@ -1153,7 +1151,7 @@ class MainWindow(FluentWindow):
                 setTheme(current_theme)
                 cfg.themeChanged.emit(cfg.theme)
         except Exception as e:
-            logger.warning(f"检查系统主题时出错: {e}")
+            logger.warning(f"检查系统主题出错: {e}")
 
     def _onDebugModeChanged(self, value):
         self.debugNavItem.setVisible(value)

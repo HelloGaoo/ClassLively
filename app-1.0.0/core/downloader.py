@@ -94,7 +94,7 @@ DOWNLOAD_SOURCES = {
 
 
 def get_source_name(source_key: str) -> str:
-    """获取下载源的翻译后显示名称"""
+    """下载源翻译后显示的名称"""
     if source_key in DOWNLOAD_SOURCES:
         return tr(DOWNLOAD_SOURCES[source_key]["name_key"])
     return source_key
@@ -155,7 +155,7 @@ class Downloader:
         return offsets
 
     def _update_progress(self, software_name, phase, phase_percent, allocation=None):
-        """根据单阶段百分比(0-100)更新整体进度。"""
+        """更新进度"""
         # 以前会有卡在70%或0% 或100%又退到70%的问题
         if allocation is None:
             allocation = DEFAULT_PHASE_ALLOCATION
@@ -168,7 +168,7 @@ class Downloader:
     
     def _wait_process(self, software_name, process_name, timeout=30, check_interval=1):
         if self.installer_logger:
-            self.installer_logger.info(f"{software_name}: 等待进程 {process_name} 出现，超时 {timeout} 秒")
+            self.installer_logger.info(f"{software_name}: 等待进程 {process_name} 超时 {timeout} 秒")
         start_time = time.time()
         
         while time.time() - start_time < timeout:
@@ -179,22 +179,22 @@ class Downloader:
                 )
                 if process_name in result.stdout:
                     if self.installer_logger:
-                        self.installer_logger.info(f"{software_name}: 进程 {process_name} 已出现")
+                        self.installer_logger.info(f"{software_name}: 进程 {process_name} 存在")
                     return True
             except Exception as err:
                 if self.installer_logger:
-                    self.installer_logger.warning(f"{software_name}: 检查进程 {process_name} 时出错 - {err}")
+                    self.installer_logger.warning(f"{software_name}: 检查进程 {process_name} 出错 {err}")
             
             time.sleep(check_interval)
         
         if self.installer_logger:
-            self.installer_logger.warning(f"{software_name}: 等待进程 {process_name} 超时（{timeout} 秒）")
+            self.installer_logger.warning(f"{software_name}: 等待进程 {process_name} 超时 {timeout} 秒")
         return False
     
     def _wait_process_exit(self, software_name, process, timeout=None, check_interval=2):
         if self.installer_logger:
             if timeout:
-                self.installer_logger.info(f"{software_name}: 等待进程退出，超时 {timeout} 秒")
+                self.installer_logger.info(f"{software_name}: 等待进程超时 {timeout} 秒")
             else:
                 self.installer_logger.info(f"{software_name}: 等待进程退出")
         
@@ -233,7 +233,7 @@ class Downloader:
                     self.installer_logger.warning(f"{software_name}: 终止进程 {process_name} 失败: {result.stderr}")
         except Exception as err:
             if self.installer_logger:
-                self.installer_logger.error(f"{software_name}: 终止进程时出错 - {str(err)}")
+                self.installer_logger.error(f"{software_name}: 终止进程出错 {str(err)}")
 
     def _install_剪辑师(self, software_name, cache_file, progress_callback=None, download_complete_callback=None):
         try:
@@ -907,13 +907,13 @@ class Downloader:
     def _download_file(self, software_name, cache_file, download_location="Temporary", progress_callback=None, download_complete_callback=None, download_rate_limit=0, progress_update_interval=0.5):
         """下载文件
             software_name: 软件名称
-            cache_file: 缓存文件信息
-            download_location: 下载位置 ("Temporary" 或 "Cache")
+            cache_file: 缓存文件
+            download_location: 下载位置"Temporary" 或 "Cache"
             progress_callback: 进度回调函数
-            download_complete_callback: 下载完成回调函数
-            download_rate_limit: 限速（bytes/s），0表示不限速
-            progress_update_interval: UI更新间隔（秒）
-            return: 下载文件的路径
+            download_complete_callback: 下载完成回调
+            download_rate_limit: 限速（bytes/s）
+            progress_update_interval: UI更新间隔（s）
+            return: 下载路径
         """
         url = self._get_download_url(cache_file)
         if not url:
@@ -1110,24 +1110,24 @@ class Downloader:
             try:
                 os.remove(file_path)
                 if self.installer_logger:
-                    self.installer_logger.info(f"{software_name}: 已清理临时文件：{file_path}")
+                    self.installer_logger.info(f"{software_name}: 已清理：{file_path}")
                 return
             except PermissionError as err:
                 if attempt < max_retries - 1:
                     if self.installer_logger:
-                        self.installer_logger.warning(f"{software_name}: 文件被占用，将在 {retry_delay}秒后重试 ({attempt + 1}/{max_retries})")
+                        self.installer_logger.warning(f"{software_name}: 文件被占用 {retry_delay}秒后重试 ({attempt + 1}/{max_retries})")
                     time.sleep(retry_delay)
                 else:
                     if self.installer_logger:
-                        self.installer_logger.error(f"{software_name}: 清理临时文件失败（文件被占用）: {file_path} - {err}")
+                        self.installer_logger.error(f"{software_name}: 清理 {file_path} 失败:{err}")
             except Exception as err:
                 if self.installer_logger:
-                    self.installer_logger.warning(f"{software_name}: 清理临时文件时出错 - {err}")
+                    self.installer_logger.warning(f"{software_name}: 清理 {file_path} 失败:{err}")
                 break
 
 
 def cleanup_temp_directory(temp_dir=None, logger=None):
-    """清理临时目录中的所有文件"""
+    """temp文件全部删除"""
     if temp_dir is None:temp_dir = TEMP_DIR
     if not os.path.exists(temp_dir):return
     try:

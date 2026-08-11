@@ -43,15 +43,12 @@ from qfluentwidgets import (
 from core.constants import DATA_CONFIG, ensure_data_dirs
 from resource.url_dir import url_dir
 
-# 确保目录存在
 ensure_data_dirs()
 
 logger = logging.getLogger("Glimpseon.core.config")
 
 
 class ThemeSerializer(ConfigSerializer):
-    """ 主题序列化 """
-
     def serialize(self, theme):
         return theme.value
 
@@ -60,8 +57,6 @@ class ThemeSerializer(ConfigSerializer):
 
 
 class Language(Enum):
-    """ 语言枚举 """
-
     CHINESE_SIMPLIFIED = QLocale(QLocale.Language.Chinese, QLocale.Country.China)
     CHINESE_TRADITIONAL = QLocale(QLocale.Language.Chinese, QLocale.Country.HongKong)
     ENGLISH = QLocale(QLocale.Language.English)
@@ -69,10 +64,7 @@ class Language(Enum):
 
 
 class LanguageSerializer(ConfigSerializer):
-    """ 语言序列化器 """
-
     def serialize(self, language):
-        """ Language 枚举序列化 to 字符串"""
         mapping = {
             Language.CHINESE_SIMPLIFIED: "zh_CN",
             Language.CHINESE_TRADITIONAL: "zh_TW",
@@ -82,7 +74,6 @@ class LanguageSerializer(ConfigSerializer):
         return mapping.get(language, "Auto")
 
     def deserialize(self, value: str):
-        """字符串反序列化 to Language 枚举"""
         mapping = {
             "zh_CN": Language.CHINESE_SIMPLIFIED,
             "zh_TW": Language.CHINESE_TRADITIONAL,
@@ -91,14 +82,13 @@ class LanguageSerializer(ConfigSerializer):
         }
         result = mapping.get(value)
         if result is None:
-            logger.warning(f"未知的语言值: {value}")
+            logger.warning(f"未知: {value}")
             return Language.AUTO
 
         return result
 
 
 class LogLevel(Enum):
-    """ 日志级别枚举 """
     DEBUG = "Debug"
     INFO = "Info"
     WARNING = "Warning"
@@ -106,8 +96,6 @@ class LogLevel(Enum):
 
 
 class LogLevelSerializer(ConfigSerializer):
-    """ 日志级别序列化器 """
-
     def serialize(self, level):
         return level.value
 
@@ -119,7 +107,7 @@ class LogLevelSerializer(ConfigSerializer):
 
 
 class CountdownListSerializer(ConfigSerializer):
-    """ 倒计时列表 """
+    """倒计时列表"""
     def serialize(self, countdown_list):
         if not countdown_list:
             return []
@@ -131,11 +119,10 @@ class CountdownListSerializer(ConfigSerializer):
 
 
 class Config(QConfig):
-    """ 应用配置 """
+    """应用配置"""
 
     def __init__(self):
         super().__init__()
-        # 显式设置配置文件路径为 data/config/config.json
         self.file = Path(os.path.join(DATA_CONFIG, 'config.json'))
 
     themeMode = OptionsConfigItem(
@@ -457,27 +444,23 @@ class Config(QConfig):
 cfg = Config()
 CONFIG_PATH = os.path.join(DATA_CONFIG, 'config.json')
 
-# 关键：必须无条件调用 qconfig.load() 来设置正确的配置路径
-# 即使配置文件不存在，也要让 qconfig 知道正确的保存位置
 try:
     qconfig.load(CONFIG_PATH, cfg)
-    logger.info(f"配置路径已设置为: {CONFIG_PATH}")
 except Exception as e:
     logger.error(f"设置配置路径失败：{e}")
 
 _cfg_loaded = os.path.exists(CONFIG_PATH)
 if _cfg_loaded:
-    logger.info(f"已从 {CONFIG_PATH} 加载配置")
+    logger.info(f"从 {CONFIG_PATH} 加载配置")
 
 def save_cfg():
     try:
-        # 用 qconfig 的 save 
         qconfig.save()
     except Exception as e:
         logger.error(f"保存配置失败：{e}")
 
 def _on_config_changed(*args):
-    """配置改变时自动保存"""
+    """配置改变时保存"""
     save_cfg()
 
 saved_count = 0
@@ -488,11 +471,7 @@ for attr_name in dir(cfg):
             attr.valueChanged.connect(_on_config_changed)
             saved_count += 1
 
-logger.info(f"已连接 {saved_count} 个配置项的自动保存")
-
-
 def default_cfg():
-    """ 获取默认配置字典 """
     return {
         "MainWindow": {
             "DpiScale": "Auto",
