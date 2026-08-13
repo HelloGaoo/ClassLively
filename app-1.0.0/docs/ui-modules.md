@@ -1,5 +1,7 @@
 # UI 模块（ui/）
 
+> 编写者：HelloGaoo　最后修改：2026/08/13
+
 `ui/` 是基于 PyQt6 Fluent Widgets 的界面层。所有界面通过 `MainWindow.addSubInterface()` 注册到 FluentWindow 导航。每个界面通过 `load_qss()` 加载对应主题 QSS，并实现 `_onThemeChanged` 响应主题切换。
 
 > **约束**：UI 控件必须使用 PyQt6 Fluent Widgets，不得引入其它组件库。组件配置面板必须 parent 到 MainWindow 以保证 z-order 正确。

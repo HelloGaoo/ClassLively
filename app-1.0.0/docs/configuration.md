@@ -1,5 +1,7 @@
 # 配置系统
 
+> 编写者：HelloGaoo　最后修改：2026/08/13
+
 [源码](file:///e:/260523/py/Glimpseon/app-1.0.0/core/config.py)
 
 Glimpseon 使用 qfluentwidgets 的 `QConfig` 体系。所有配置项以类属性形式声明在 `Config(QConfig)` 中，存储于 `data/config/config.json`。

@@ -1,5 +1,7 @@
 # 启动流程
 
+> 编写者：HelloGaoo　最后修改：2026/08/13
+
 本文档梳理从用户启动到主窗口就绪的完整时序，涵盖启动器、闪屏、向导、主窗口、预加载各阶段。
 
 [主程序源码](file:///e:/260523/py/Glimpseon/app-1.0.0/GlimpseonMain.py) · [启动器源码](file:///e:/260523/py/Glimpseon/Glimpseon.py)

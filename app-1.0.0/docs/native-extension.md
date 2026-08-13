@@ -1,5 +1,7 @@
 # 原生扩展（glimpseon\_native/）
 
+> 编写者：HelloGaoo　最后修改：2026/08/13
+
 `glimpseon_native` 是用 C++17 + pybind11 编写的 Windows 原生扩展，编译为 `Glimpseon_native.pyd`（cp311-win\_amd64）。Python 侧通过 `import Glimpseon_native` 调用。我不会C++，所以此拓展与此文档由AI生成。
 
 ***

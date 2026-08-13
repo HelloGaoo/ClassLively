@@ -1,5 +1,7 @@
 # 服务模块（services/）
 
+> 编写者：HelloGaoo　最后修改：2026/08/13
+
 `services/` 是数据获取层，从网络或系统获取外部数据。所有服务统一使用 `core.utils` 的文件缓存机制（`save_cache` / `get_cached_content`）减少请求。
 
 [包导出](file:///e:/260523/py/Glimpseon/app-1.0.0/services/__init__.py)：`from .media import *`、`PoetryService`、`WeatherService`、`NewsService`。

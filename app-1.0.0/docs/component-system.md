@@ -1,5 +1,7 @@
 # 组件系统
 
+> 编写者：HelloGaoo　最后修改：2026/08/13
+
 Glimpseon 定位是桌面信息看板，已编写了注册组件等函数，每个组件独立类，与主页面沟通能做到拖拽、删除、配置相关操作
 
 [核心定义](file:///e:/260523/py/Glimpseon/app-1.0.0/core/component.py) · [UI 实现](file:///e:/260523/py/Glimpseon/app-1.0.0/ui/component.py)
