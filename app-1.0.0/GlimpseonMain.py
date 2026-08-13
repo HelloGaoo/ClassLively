@@ -1796,7 +1796,7 @@ if __name__ == "__main__":
     logger.info(f"学校信息配置：启用={cfg.showSchoolInfo.value}, 学校={cfg.school.value}, 班级={cfg.schoolClass.value}")
     logger.info(f"快捷启动栏配置：启用={cfg.showQuickLaunch.value}, 图标大小={cfg.quickLaunchIconSize.value}, 应用数量={len(cfg.quickLaunchApps.value)}")
     logger.info(f"自动配置：空闲自动打开={cfg.autoOpenOnIdle.value}, 空闲分钟={cfg.idleMinutes.value}, 自动检查更新={cfg.autoCheckUpdate.value}")
-    logger.info(f"版本号：{VERSION} 构建日期：{BUILD_DATE}")
+    # logger.info(f"版本号：{VERSION} 构建日期：{BUILD_DATE}")
     from core.paths import VERSION, BUILD_DATE
     logger.info(f"版本号：{VERSION} 构建日期：{BUILD_DATE}")
     logger.info(f"系统版本：Windows {platform.version()} Python 版本：{platform.python_version()}")
