@@ -142,7 +142,7 @@ class ComponentRegistry(QObject):
 
 ### 内置组件
 
-`BUILTIN_COMPONENT_DEFINITIONS` 预定义组件（数字时钟、月历等）， 映射`ui/component.py` 中的实现类
+`BUILTIN_COMPONENT_DEFINITIONS` 预定义组件（数字时钟、月历等），仅用于组件库窗口展示卡片。注意：这些 `ComponentDefinition` 的 `component_class` 字段默认为 `None`，**不参与实例化**——实际创建 UI 走 [ui/component.py](file:///e:/260523/py/Glimpseon/app-1.0.0/ui/component.py) 的 `COMPONENT_STYLES`（见第 9 章）。
 
 ***
 
@@ -181,9 +181,9 @@ QWidget
 
 ### 4.2 DraggableWidget 编辑能力
 
-- **选中框**：距组件边 8px，2px 蓝边 `#0078D4` + 8px 同色阴影，gap=0。
-- **缩放手柄**：4 角（16×16）+ 4 边（4×12），外偏 -6px，白色填充 `(255,255,255,230)` + 1.5px 蓝边。
-- **编辑/删除按钮**：48×48px，24px 图标，8px 间距；悬停色 编辑 `(0,120,212)` / 删除 `(220,80,80)`。
+- **选中框**：主题色（`_cached_primary_color`，默认 `#30c361`），2px 边框（alpha=200），距组件边 3px，圆角 8；外层 4 层同色发光（alpha=60，逐层 `widthF=i*2`），距边 4px。
+- **调整柄**：右下角圆弧柄（`arc_r=18`，drawArc `-30°~-90°`），外层 7px（alpha=220，`darker(150)`）+ 内层 4px（alpha=230）。非传统 8 点方形手柄。
+- **编辑/删除按钮**：48×48px，22px 图标，8px 间距；悬停色 编辑 `(0,120,212)` / 删除 `(220,80,80)`。
 - **按钮直接使用全局** **`componentCardOpacity`** **/** **`componentCardRadius`**，无值限制。
 - **移动事件触发按钮重定位。**
 
@@ -215,8 +215,7 @@ QWidget
 
 - 显示 `_GridOverlay` 网格背景。
 - 显示 `GuideLineOverlay` 参考线。
-- 半透明遮罩 `rgba(0,0,0,80)` 覆盖 HomeInterface，resize 时更新。
-- 组件显示选中框、缩放手柄、编辑/删除按钮。
+- 组件显示选中框（主题色）、右下角圆弧调整柄、编辑/删除按钮。
 
 ### 5.2 拖拽与缩放
 
@@ -486,8 +485,8 @@ self._timer.setInterval(500)   # 切到 500ms 快速间隔
   PageManager.load()
     └─ 读 home_layout.json → PageMeta 列表
   ComponentManager 按当前页 components 实例化
-    └─ ComponentRegistry.get_definition(id) → ComponentDefinition
-    └─ component_class(instance) 创建 UI
+    └─ COMPONENT_STYLES[comp_data["type"]][comp_data["style"]]["class"] → 实现类
+    └─ comp_class(parent_widget, comp_data) 创建 UI
     └─ 应用 position/size/config
 
 编辑时:

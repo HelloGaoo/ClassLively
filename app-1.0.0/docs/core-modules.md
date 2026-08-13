@@ -14,7 +14,7 @@
 
 | 路径             | 推导规则                                                                                                        |
 | -------------- | ----------------------------------------------------------------------------------------------------------- |
-| `PACKAGE_ROOT` | 环境变量 `Glimpseon_PackageRoot` → `sys.frozen` 时为 `sys.executable` 目录 → 否则 `__file__` 上两级                      |
+| `PACKAGE_ROOT` | 环境变量 `Glimpseon_PackageRoot` → `sys.frozen` 时为 `sys.executable` 目录 → 否则 `__file__` 上三级（`paths.py` 位于 `app-*/core/`，三级父目录即包根） |
 | `APP_DIR`      | 环境变量 `Glimpseon_AppDir` → 否则扫描 `app-*` 目录，选 `record.json` 中 `current==1 && !partial` 的 → 兜底为 `PACKAGE_ROOT` |
 | `MEIPASS_DIR`  | 仅 `sys.frozen` 时取 `sys._MEIPASS`，否则 `None`                                                                  |
 | `DATA_ROOT`    | `PACKAGE_ROOT/data`，其下细分 `config/log/cache/temp/profile/user/icon/wallpaper/classphotos/notes`              |

@@ -33,7 +33,7 @@ find_and_launch()
 
 1. **路径推导**：[core/paths.py](file:///e:/260523/py/Glimpseon/app-1.0.0/core/paths.py) 读取环境变量，计算 `PACKAGE_ROOT` / `APP_DIR` / `DATA_*`，`ensure_data_dirs()` 建目录。
 2. **配置加载**：[core/config.py](file:///e:/260523/py/Glimpseon/app-1.0.0/core/config.py) `qconfig.load(CONFIG_PATH, cfg)`，连接所有 `valueChanged → save_cfg`。
-3. **日志器**：[core/logger.py](file:///e:/260523/py/Glimpseon/app-1.0.0/core/logger.py) 必须先 `setCustomLogger` 再创建 `Glimpseon` logger，否则 `precise_time` / `caller_info` 字段缺失。
+3. **日志器**：[core/logger.py](file:///e:/260523/py/Glimpseon/app-1.0.0/core/logger.py) 必须先 `logging.setLoggerClass(CustomLogger)` 再创建 `Glimpseon` logger，否则 `precise_time` / `caller_info` 字段缺失。
 
 ***
 
@@ -213,14 +213,17 @@ while loader.isRunning():
 
 ```
 splash.setProgress(95)
+allow_ui_update(0.06)
+splash.setProgress(100)
 splash.waitForProgress(100, timeout=1.0)    # 等进度条动画到 100
+allow_ui_update(0.06)
 splash.close()
 window.showMaximized()
 tray_icon.show()
-app.exec()
+sys.exit(app.exec())
 ```
 
-> **经验**：必须先 `window.show()` 让 UI 有机会刷新，再 `splash.close()`。当前实现用 `showMaximized` + `allow_ui_update` 短暂让事件循环处理，确保主窗口已绘制后才关闪屏。
+> **顺序说明**：当前实现是先 `splash.close()` 再 `window.showMaximized()`。`close` 前的 `allow_ui_update(0.06)` 让事件循环处理完闪屏末帧与待绘制事件，避免主窗口显示瞬间的白屏。
 
 ***
 

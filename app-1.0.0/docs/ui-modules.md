@@ -72,12 +72,10 @@ NavigationPage 提示文字颜色随主题：深色 `rgba(230,230,230,0.95)`，�
 
 ### 3.2 编辑模式约定
 
-- 编辑/删除按钮：48×48px，24px 图标，8px 间距。
-- 选中框：距组件边 8px，2px 蓝色边框 `#0078D4` + 8px 同色阴影。
-- 缩放手柄：4 角（16×16）+ 4 边（4×12），外偏 -6px，白色填充 `(255,255,255,230)` + 1.5px 蓝边。
-- 编辑遮罩：半透明 `rgba(0,0,0,80)` 覆盖 HomeInterface，resize 时更新。
-- 编辑/删除按钮直接使用全局 `componentCardOpacity` / `componentCardRadius`，无值限制。
-- 按钮悬停色：编辑 `(0,120,212)`，删除 `(220,80,80)`。
+- 编辑/删除按钮：48×48px，22px 图标，8px 间距；hover 色 编辑 `(0,120,212)` / 删除 `(220,80,80)`；直接使用全局 `componentCardOpacity` / `componentCardRadius`，无值限制。
+- 选中框：主题色（`#30c361`），2px 边框，距组件边 3px，圆角 8；外层 4 层同色发光（alpha=60）。
+- 调整柄：右下角圆弧柄（`arc_r=18`），外层 7px + 内层 4px，非 8 点方形手柄。
+- 编辑模式：`_GridOverlay` 网格 + `GuideLineOverlay` 参考线（无黑色遮罩）。
 - 组件移动事件必须触发按钮重新定位。
 
 ### 3.3 内置组件清单
@@ -108,7 +106,7 @@ NavigationPage 提示文字颜色随主题：深色 `rgba(230,230,230,0.95)`，�
 
 - `MediaWidget`：媒体信息展示（标题/艺术家/封面/进度/歌词）。
 - `LyricsWidget`：歌词逐行高亮渲染。
-- `MediaProgressBar(ProgressBar)`：进度条，默认色 `#4cc2ff`，非激活 `#FFFFFF33`。
+- `MediaProgressBar(ProgressBar)`：进度条，默认色 `#30c361`（`cfg.mediaProgressColor`），非激活 `#FFFFFF1A`（`cfg.mediaProgressTrackColor`）。
 - 后台抓取：`FetchWorker` / `_MediaFetchWorker` / `_KugouThumbWorker`（酷狗封面）。
 - **媒体组件需 500ms 延迟后启动媒体检测**以保证初始化。
 

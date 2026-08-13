@@ -23,7 +23,6 @@ app-1.0.0/
 ├── GlimpseonMain.py        # 主程序入口（Splash + Wizard + MainWindow + Preloader）
 ├── record.json             # 版本记录（version / build_date / current / partial）
 ├── Glimpseon_native.pyd    # 预编译原生扩展（cp311-win_amd64）
-├── classlively_native.pyd  # 附加原生扩展
 │
 ├── core/                   # 核心业务层
 ├── ui/                     # 界面层（PyQt6 Fluent Widgets）
@@ -87,16 +86,16 @@ resource/
 │   ├── default_icon/      # Directory.ico / exe.ico
 │   ├── news/              # 新闻源 logo
 │   ├── software_icon/     # 软件下载中心图标（.ico）
-│   └── weather/           # 天气图标（含 alerts/reminders）
+│   ├── weather/           # 天气图标（含 alerts/reminders）
+│   ├── CY.png             # 应用图标
+│   └── changelog.md       # 更新日志
 ├── qss/{light,dark}/      # 各界面 QSS（app/about/component/debug/
 │                          #   download/home/notification/setting/
 │                          #   setting_dialog/timetable/wallpaper）
 ├── city.db                # 城市经纬度库（weather 服务使用）
 ├── credits.json           # 第三方依赖鸣谢
 ├── software_list.py       # 软件下载分类清单（SOFTWARE_CATEGORIES）
-├── url_dir.py             # 软件直链 URL 表
-├── CY.png                 # 应用图标
-└── changelog.md           # 更新日志
+└── url_dir.py             # 软件直链 URL 表
 ```
 
 ## 7. `locale/` 国际化
@@ -130,7 +129,7 @@ glimpseon_native/
 
 ## 9. 运行期数据目录 `data/`
 
-由 [core/paths.py](file:///e:/260523/py/Glimpseon/app-1.0.0/core/paths.py) 的 `ensure_data_dirs()` 创建，位于 `PACKAGE_ROOT/data/`。子目录见 [架构总览 - 数据目录布局](architecture.md#8-数据目录布局)。
+由 [core/paths.py](file:///e:/260523/py/Glimpseon/app-1.0.0/core/paths.py) 的 `ensure_data_dirs()` 创建，位于 `PACKAGE_ROOT/data/`。子目录见 [架构总览 - 数据目录](architecture.md#7-数据目录)。
 
 ## 10. 命名约定
 

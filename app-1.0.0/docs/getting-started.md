@@ -68,7 +68,7 @@ cd app-1.0.0
 python GlimpseonMain.py
 ```
 
-> 直接运行时无环境变量，[core/paths.py](file:///e:/260523/py/Glimpseon/app-1.0.0/core/paths.py) 会回退为基于 `__file__` 推导 `PACKAGE_ROOT`（上两级）。
+> 直接运行时无环境变量，[core/paths.py](file:///e:/260523/py/Glimpseon/app-1.0.0/core/paths.py) 会回退为基于 `__file__` 推导 `PACKAGE_ROOT`（上三级，`paths.py` 位于 `app-*/core/`，三级父目录即包根）。
 
 ## 5. 首次运行
 
@@ -100,7 +100,7 @@ python GlimpseonMain.py
 
 | 现象         | 排查                                                               |
 | ---------- | ---------------------------------------------------------------- |
-| 启动白屏       | 主窗口先 show 再关 splash；检查 `enableGpuAcceleration`                   |
+| 启动白屏       | `splash.close()` 前的 `allow_ui_update` 未充分让事件循环处理；检查 `enableGpuAcceleration` |
 | 找不到 app 目录 | 确认 `app-*/record.json` 存在且 `partial != true`                     |
 | QSS 不生效    | 切主题后需 `clear_qss_cache()`；检查 `resource/qss/{theme}/`             |
 | 图标不显示      | 确认 `resource/icons/CY.png` 与 `resource/fluent/{theme}/` 存在       |

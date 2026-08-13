@@ -34,7 +34,7 @@
 ### 1.4 刷新与缓存
 
 - `fetch_all()`：一次拉取当前温度、天气代码、逐小时、每日预报。
-- 刷新间隔由 `cfg.weatherUpdateInterval`（`5m/15m/30m/1h/.../24m/never`）控制。
+- 刷新间隔由 `cfg.weatherUpdateInterval`（`never/5m/15m/30m/1h/3h/6h/12h/24h`）控制。
 - 缓存键 `"weather"`，由 `Preloader._load_wt` 预加载。
 
 ***
@@ -121,7 +121,7 @@
 - UI 端 `MediaWidget` 通过 `_MediaFetchWorker`（QObject）后台调用 `get_media_info()`。
 - `_KugouThumbWorker`：酷狗封面缩略图抓取。
 - **媒体组件需 500ms 延迟启动检测**（见项目 memory 约束）。
-- 进度条默认色：激活 `#4cc2ff`，非激活 `#FFFFFF33`。
+- 进度条默认色：激活 `#30c361`（`cfg.mediaProgressColor`），非激活 `#FFFFFF1A`（`cfg.mediaProgressTrackColor`）。
 
 ***
 
