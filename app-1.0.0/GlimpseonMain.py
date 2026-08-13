@@ -1118,7 +1118,6 @@ class MainWindow(FluentWindow):
             self._checkSystemTheme()
 
     def _onThemeModeChanged(self, mode: Theme):
-        # 清 QSS 缓存
         clear_qss_cache()
 
         if mode == Theme.AUTO:
@@ -1213,17 +1212,17 @@ class MainWindow(FluentWindow):
             QApplication.quit()
             subprocess.Popen([sys.executable] + sys.argv)
 
-    def updateInterfaceText(self, interface, text: str, position=None):
-        """更新子界面导航（已弃用）"""
-        try:
-            if hasattr(interface, 'objectName'):
-                route_key = interface.objectName()
-                if hasattr(self.navigationInterface, 'panel'):
-                    item = self.navigationInterface.panel.items.get(route_key)
-                    if item and hasattr(item, 'setText'):
-                        item.setText(text)
-        except Exception as e:
-            logger.warning(f"更新界面文本失败 [{interface.objectName() if hasattr(interface, 'objectName') else 'unknown'}]: {e}")
+    # def updateInterfaceText(self, interface, text: str, position=None):
+    #     """更新子界面导航"""
+    #     try:
+    #         if hasattr(interface, 'objectName'):
+    #             route_key = interface.objectName()
+    #             if hasattr(self.navigationInterface, 'panel'):
+    #                 item = self.navigationInterface.panel.items.get(route_key)
+    #                 if item and hasattr(item, 'setText'):
+    #                     item.setText(text)
+    #     except Exception as e:
+    #         logger.warning(f"更新界面文本失败 [{interface.objectName() if hasattr(interface, 'objectName') else 'unknown'}]: {e}")
 
     def keyPressEvent(self, event):
         if event.key() == Qt.Key.Key_F12:
@@ -1265,7 +1264,6 @@ class MainWindow(FluentWindow):
         #         QTimer.singleShot(0, self._forceFullScreen)
         super().changeEvent(event)
         if event.type() == QEvent.Type.WindowStateChange:
-            # 立刻最大化回去
             if not self.isMaximized() and not self.isMinimized():
                 QTimer.singleShot(0, self.showMaximized)
 
@@ -1373,7 +1371,7 @@ class MainWindow(FluentWindow):
                 if self._isMediaPlaying():
                     self.lastMouseActivity = QTime.currentTime()
                     return
-                logger.info(f"检测到电脑空闲超过{idle_minutes}分钟，自动打开界面")
+                logger.info(f"空闲超过{idle_minutes}分钟 自动打开界面")
                 self._autoOpenFromMinimized()
                 self.lastMouseActivity = QTime.currentTime()
                 self.hasTriggeredAutoOpen = True
@@ -1423,14 +1421,13 @@ class MainWindow(FluentWindow):
                 msg = _MSG.from_address(int(message))
                 if msg.message == 0x0112:  # WM_SYSCOMMAND
                     low_word = msg.wParam & 0xFFFF
-                    # 阻止拖拽移动 (0xF010) 和调整大小 (0xF000 系列)
+                    # 阻止拖拽移动 (0xF010) 调整大小 (0xF000 系列)
                     if (low_word & 0xFFF0) in (0xF010, 0xF000):
                         return True, 0
-                    # 拦截还原 (SC_RESTORE)，仅允许从最小化恢复
+                    # 拦截还原 (SC_RESTORE)
                     if low_word == 0xF120:
                         if self.isMinimized():
                             self.setWindowState(Qt.WindowState.WindowMaximized)
-                        # 返回 True 阻止系统处理，还原按钮无任何效果
                         return True, 0
         except Exception:
             pass
@@ -1704,7 +1701,7 @@ if __name__ == "__main__":
 
     future = executor.submit(_background_init)
 
-    # 退出程序的时候关线程池
+    # 关线程池
     atexit.register(lambda: executor.shutdown(wait=False))
 
     splash.updateStatus(tr("splash.loading_translation"))  # 正在加载翻译
@@ -1799,7 +1796,7 @@ if __name__ == "__main__":
     logger.info(f"学校信息配置：启用={cfg.showSchoolInfo.value}, 学校={cfg.school.value}, 班级={cfg.schoolClass.value}")
     logger.info(f"快捷启动栏配置：启用={cfg.showQuickLaunch.value}, 图标大小={cfg.quickLaunchIconSize.value}, 应用数量={len(cfg.quickLaunchApps.value)}")
     logger.info(f"自动配置：空闲自动打开={cfg.autoOpenOnIdle.value}, 空闲分钟={cfg.idleMinutes.value}, 自动检查更新={cfg.autoCheckUpdate.value}")
-    # logger.info(f"版本号：{VERSION} 构建日期：{BUILD_DATE}")
+    logger.info(f"版本号：{VERSION} 构建日期：{BUILD_DATE}")
     from core.paths import VERSION, BUILD_DATE
     logger.info(f"版本号：{VERSION} 构建日期：{BUILD_DATE}")
     logger.info(f"系统版本：Windows {platform.version()} Python 版本：{platform.python_version()}")

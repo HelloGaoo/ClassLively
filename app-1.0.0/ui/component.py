@@ -961,8 +961,6 @@ class ComponentConfigDialog(MessageBoxBase):
     def _init_ui(self):
         self.setWindowTitle(tr("component_edit.config_title"))
         self.widget.setMinimumSize(520, 480)
-        self.widget.setObjectName("componentEdit")
-        self.setStyleSheet(load_qss('component.qss'))
 
         self._pivot = Pivot(self)
         self._stack = QStackedWidget(self)
@@ -1667,7 +1665,20 @@ class DraggableContainer(DraggableWidget):
         if home and hasattr(home, 'component_manager'):
             comp_data = home.component_manager.get_component_data(self.component_id)
             dialog = ComponentConfigDialog(self, self.component_id, comp_data, home)
-            if dialog.exec():
+
+            # 弹窗打开时隐藏组件库窗口，关闭后恢复
+            lib_window = getattr(home, '_component_library_window', None)
+            if lib_window and lib_window.isVisible():
+                lib_window.hide()
+
+            result = dialog.exec()
+
+            # 恢复组件库窗口
+            if lib_window:
+                lib_window.show()
+                lib_window.raise_()
+
+            if result:
                 new_config = dialog.get_config()
                 home.component_manager.update_component_config(self.component_id, new_config)
                 if hasattr(self, 'apply_config'):
