@@ -1,6 +1,6 @@
 # 服务模块（services/）
 
-> 编写者：HelloGaoo　最后修改：2026/08/13
+> 编写者：HelloGaoo　最后修改：2026/08/14
 
 `services/` 是数据获取层，从网络或系统获取外部数据。所有服务统一使用 `core.utils` 的文件缓存机制（`save_cache` / `get_cached_content`）减少请求。
 
@@ -88,42 +88,42 @@
 
 ### 4.1 数据模型
 
-| 类                     | 作用                                           |
-| --------------------- | -------------------------------------------- |
-| `MediaInfo`           | 媒体信息（标题、艺术家、专辑、时长、进度、封面、歌词等），`is_valid()` 校验 |
-| `SongDetail`          | 歌曲详情                                         |
-| `LyricLine`           | 单行歌词（时间戳 + 文本）                               |
-| `Lyrics`              | 歌词集合                                         |
-| `parse_lrc(lrc_text)` | LRC 文本解析为 `List[LyricLine]`                  |
+| 类                     | 作用                                        |
+| --------------------- | ----------------------------------------- |
+| `MediaInfo`           | 媒体信息（标题、艺术家、专辑、时长、进度、封面等），`is_valid()` 校验 |
+| `LyricLine`           | 单行歌词（时间戳 + 文本）                            |
+| `Lyrics`              | 歌词集合                                      |
+| `parse_lrc(lrc_text)` | LRC 文本解析为 `List[LyricLine]`               |
 
-### 4.2 媒体源（Reader）
+### 4.2 媒体源
 
-`MediaProvider` 按顺序尝试多个源，首个返回有效信息者胜出：
+四大媒体源不互牵，做的是每一条都独立，基本不相互依赖：
 
-| 源类                  | 名称                | 数据获取方式                           |
-| ------------------- | ----------------- | -------------------------------- |
-| `NeteaseCloudMusic` | NeteaseCloudMusic | 网易云音乐 API/内存读取（貌似最近更新Windows接口了） |
-| `QQMusicReader`     | QQMusic           | QQ 音乐内存/接口读取                     |
-| `KugouMemoryReader` | Kugou             | 酷狗音乐内存读取                         |
-| `GSMTCReader`       | GSMTC             | Windows GSMT                     |
+| 源类                  | 名称                | 数据获取方式                                                               |
+| ------------------- | ----------------- | -------------------------------------------------------------------- |
+| `NeteaseCloudMusic` | NeteaseCloudMusic | 网易云内存读取（V2 偏移表 / V3 AOB 扫描）+ 窗口标题 + `music163.xuanmou.com.cn` 代理 API |
+| `KugouMusic`        | KugouMusic        | 酷狗窗口标题模拟进度 + 酷狗搜索/歌词/封面 API（三个分离缓存）                                  |
+| `QQMusic`           | QQMusic           | winsdk SMTC 会话 + UIA（uiautomation）读真实进度                              |
+| `GsmTc`             | GSMTC             | Windows SMTC 通用源，支持播放控制                                              |
 
-每个源实现 `available` 属性、`get_info() → MediaInfo`、`close()`。
+每个源实现统一接口：`read() / lyrics(media) / cover(media) / duration(media) / control(action) / close()`。
+内部自带独立 `requests.Session`、缓存与限速。
 
-### 4.3 调度器与公共 API
+### 4.3 模块路由
 
-- `MediaProvider`：维护源列表，`get_info()` 顺序探测；`_last_media_key` 去重日志。
-- `_get_provider()`：懒加载单例。
-- `get_media_info()`：快捷入口。
+模块函数只做路由，不承担聚合逻辑：
+
+- `get_media_info()`：按序探测四个源，首个返回有效信息者胜出。
+- `get_service(app_name)`：按应用名关键词分发（`kugou`/`qqmusic`/`netease`/`cloudmusic`），未知应用回退 `_gsmtc`。
 - `get_netease()` / `get_gstmtc()`：获取特定源实例。
-- `fetch_all_info(song_name, artist)`：聚合多源补全（歌词、封面）。
-- `close()`：释放所有源资源。
+- `media_control(action)` / `media_next()` / `media_prev()` / `media_play_pause()`：向当前 SMTC 会话发送控制命令。
+- `close()`：释放所有源资源（session/event loop），`_api_get` 支持 close 后惰性重建 session。
 
 ### 4.4 与 UI 协作
 
-- UI 端 `MediaWidget` 通过 `_MediaFetchWorker`（QObject）后台调用 `get_media_info()`。
-- `_KugouThumbWorker`：酷狗封面缩略图抓取。
-- **媒体组件需 500ms 延迟启动检测**（见项目 memory 约束）。
-- 进度条默认色：激活 `#30c361`（`cfg.mediaProgressColor`），非激活 `#FFFFFF1A`（`cfg.mediaProgressTrackColor`）。
+- UI 端 `MediaPlayerComponent` 用 `threading.Thread`（daemon）+ pyqtSignal 在后台调用 `get_media_info()` 与 `get_service().lyrics/cover/duration()`。
+- 详情补全按歌曲 key 校验，切歌竞态时旧结果不覆盖新歌（见 [component-system.md 7.10](component-system.md)）。
+- 进度条使用 qfluentwidgets 原生 `ProgressBar` 外观，不自定义颜色。
 
 ***
 

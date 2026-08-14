@@ -1,6 +1,6 @@
 # UI 模块（ui/）
 
-> 编写者：HelloGaoo　最后修改：2026/08/13
+> 编写者：HelloGaoo　最后修改：2026/08/14
 
 `ui/` 是基于 PyQt6 Fluent Widgets 的界面层。所有界面通过 `MainWindow.addSubInterface()` 注册到 FluentWindow 导航。每个界面通过 `load_qss()` 加载对应主题 QSS，并实现 `_onThemeChanged` 响应主题切换。
 
@@ -106,11 +106,11 @@ NavigationPage 提示文字颜色随主题：深色 `rgba(230,230,230,0.95)`，�
 
 ### 3.4 媒体组件
 
-- `MediaWidget`：媒体信息展示（标题/艺术家/封面/进度/歌词）。
-- `LyricsWidget`：歌词逐行高亮渲染。
-- `MediaProgressBar(ProgressBar)`：进度条，默认色 `#30c361`（`cfg.mediaProgressColor`），非激活 `#FFFFFF1A`（`cfg.mediaProgressTrackColor`）。
-- 后台抓取：`FetchWorker` / `_MediaFetchWorker` / `_KugouThumbWorker`（酷狗封面）。
-- **媒体组件需 500ms 延迟后启动媒体检测**以保证初始化。
+- 单一 `MediaPlayerComponent`（`DraggableContainer` 子类）：标题/艺术家/封面/进度/歌词/播放控制一体。
+- 歌词：右侧 `QLabel`（`wordWrap` 12px 加粗）。
+- 进度条：qfluentwidgets 原生 `ProgressBar`（固定高 3px，不自定义颜色）。
+- 后台抓取：`threading.Thread`（daemon）+ pyqtSignal（`_media_ready` / `_detail_ready` / `_sync_done`）。
+- 切歌竞态保护：详情结果携带歌曲 key，仅匹配当前歌曲才应用（见 [component-system.md 7.10](component-system.md)）。
 
 ### 3.5 手写画板（擦除）架构
 

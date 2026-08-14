@@ -472,6 +472,8 @@ class NeteaseCloudMusic:
 
     def _api_get(self, endpoint: str, params: dict = None) -> Optional[dict]:
         try:
+            if self._session is None:
+                self._session = self._create_session()
             self._api_wait()
             resp = self._session.get(f"{self.API_BASE}{endpoint}", params=params, timeout=10)
             if resp.status_code == 200:

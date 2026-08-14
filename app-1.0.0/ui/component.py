@@ -1804,7 +1804,7 @@ class MediaPlayerComponent(DraggableContainer):
     )
 
     _media_ready = pyqtSignal(object, bool)  # 媒体信息, 是否完整刷新
-    _detail_ready = pyqtSignal(dict)         # 在线补全结果 {lyrics/cover/thumb/duration}
+    _detail_ready = pyqtSignal(str, dict)    # 歌曲key, 在线补全结果 {lyrics/cover/thumb/duration}
     _sync_done = pyqtSignal()                # 播放/暂停命令已发出
 
     def __init__(self, parent, component_data):
@@ -1820,6 +1820,7 @@ class MediaPlayerComponent(DraggableContainer):
         self._fetching = False
         self._pending_full = False
         self._detail_fetching = False
+        self._pending_key = "" 
         self._duration = 0
         self._position = 0
         self._playing = False
@@ -2286,9 +2287,11 @@ class MediaPlayerComponent(DraggableContainer):
         self._time_lbl.setText("00:00 / 00:00")
         self._default_cover()
         self._media = None
+        self._cover = None
         self._lyrics = None
         self._last_ta = ""
         self._has_thumb = False
+        self._pending_key = ""
         self._playing = False
         self._duration = 0
         self._playing_sync_pending = False
@@ -2396,10 +2399,11 @@ class MediaPlayerComponent(DraggableContainer):
         if cache_key in self._info_cache:
             info = self._info_cache.pop(cache_key)
             self._info_cache[cache_key] = info  # LRU 刷新
-            self._on_detail(info)
+            self._apply_detail(cache_key, info)
             return
+        self._pending_key = cache_key
         if self._detail_fetching:
-            return
+            return  # 线程忙：记录待拉取歌曲 返回后由 _on_detail 补拉
         self._detail_fetching = True
         threading.Thread(target=self._fetch_detail, args=(m,), daemon=True).start()
 
@@ -2424,17 +2428,25 @@ class MediaPlayerComponent(DraggableContainer):
                         result['thumb'] = gi.thumbnail_data
         except Exception as e:
             logger.debug(f"获取歌曲信息失败: {e}")
-        self._detail_ready.emit(result)
+        self._detail_ready.emit(m.title_artist, result)
 
-    def _on_detail(self, result: dict):
+    def _on_detail(self, key: str, result: dict):
         self._detail_fetching = False
-        m = self._media
-        if not m:
-            return
-        key = m.title_artist
         self._info_cache[key] = result
         if len(self._info_cache) > 50:
             self._info_cache.popitem(last=False)
+        # 结果只应用到匹配的歌曲，避免切歌竞态导致封面/歌词错配
+        m = self._media
+        if m and m.title_artist == key:
+            self._apply_detail(key, result)
+        # 详情线程忙时丢弃的新歌请求在此补拉
+        if (m and m.title_artist != key and m.title_artist not in self._info_cache
+                and self._pending_key == m.title_artist):
+            self._fetch(m)
+
+    def _apply_detail(self, key: str, result: dict):
+        if not self._media or self._media.title_artist != key:
+            return
         if result.get('duration'):
             self._duration = result['duration']
         if cfg.showMediaCover.value and not self._has_thumb:

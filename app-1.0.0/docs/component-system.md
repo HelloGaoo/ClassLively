@@ -1,6 +1,6 @@
 # 组件系统
 
-> 编写者：HelloGaoo　最后修改：2026/08/13
+> 编写者：HelloGaoo　最后修改：2026/08/14
 
 Glimpseon 定位是桌面信息看板，已编写了注册组件等函数，每个组件独立类，与主页面沟通能做到拖拽、删除、配置相关操作
 
@@ -381,40 +381,36 @@ painter.drawEllipse(pos, diameter / 2.0, diameter / 2.0)
 
 ## 7. 媒体组件
 
-> **注意**：本章由 AI 基于源码（`ui/component.py` 中 `LyricsWidget` L1770、`MediaProgressBar` L1848、`MediaWidget` L1932、`MediaPlayerComponent` L4905）生成，如与实际实现有出入，请以源码为准。
+> **注意**：本章由 AI 基于源码（`ui/component.py` 中 `MediaPlayerComponent` L1772）生成，如与实际实现有出入，请以源码为准。
 
-媒体组件由 `MediaPlayerComponent`（`DraggableContainer` 包装层）和 `MediaWidget`（实际显示控件）组成，后台从 `services.media` 获取正在播放的媒体信息（标题/艺术家/封面/进度/歌词）。
+媒体组件为**单一** **`MediaPlayerComponent`**（`DraggableContainer` 子类），后台从 `services.media` 获取正在播放的媒体信息（标题/艺术家/封面/进度/歌词）。
 
 ### 7.1 类结构
 
-| 类                      | 位置    | 职责                                                                          |
-| ---------------------- | ----- | --------------------------------------------------------------------------- |
-| `MediaPlayerComponent` | L4905 | 包装层，注入缩放因子 `_scale_factor`，同步 `mediaWidth/Height` 配置，响应 `showMediaInfo` 可见性 |
-| `MediaWidget`          | L1932 | 核心显示控件，管理双定时器、线程化抓取、LRU 缓存、封面动画                                             |
-| `LyricsWidget`         | L1770 | 单行歌词自绘控件                                                                    |
-| `MediaProgressBar`     | L1848 | 自绘进度条（继承 `ProgressBar`）                                                     |
-| `_MediaFetchWorker`    | L1897 | QThread worker，调 `get_media_info()` 获取当前媒体                                  |
-| `FetchWorker`          | L1881 | QThread worker，调 `fetch_all_info(title, artist)` 补全详情/封面/歌词                 |
-| `_KugouThumbWorker`    | L1916 | QThread worker，调 `get_gstmtc().get_info()` 获取酷狗缩略图                          |
+| 类                      | 位置    | 职责                               |
+| ---------------------- | ----- | -------------------------------- |
+| `MediaPlayerComponent` | L1772 | UI、双定时器、抓取、LRU 缓存、封面动画、播放控制、切歌保护 |
 
 ### 7.2 双定时器架构
 
-`MediaWidget` 用两个定时器分工：
+`MediaPlayerComponent` 用两个定时器分工：
 
 | 定时器           | 间隔                                      | 回调                 | 职责                                    |
 | ------------- | --------------------------------------- | ------------------ | ------------------------------------- |
-| `_timer`      | `cfg.mediaUpdateInterval * 1000`（默认 1s） | `_update`          | **完整抓取**（`full=True`）：标题/艺术家/封面/歌词/进度 |
-| `_prog_timer` | 1000ms                                  | `_update_progress` | **轻量抓取**（`full=False`）+ 本地进度推算        |
+| `_timer`      | `cfg.mediaUpdateInterval * 1000`（默认 1s） | `_poll`            | **完整抓取**（`full=True`）：标题/艺术家/封面/歌词/进度 |
+| `_prog_timer` | 1000ms                                  | `_update_progress` | 播放中本地推算进度（不请求网络即更新进度条）                |
 
-- `_update_progress`：若正在播放，本地按 `interval` 推进 `_position`（不请求网络即更新进度条），随后触发一次 `full=False` 抓取同步真实进度。
+- `_update_progress`：若正在播放，本地按 `interval` 推进 `_position`（不请求网络即更新进度条）。
 - `start()` 同时启动两个定时器并发起首次 `full=True` 抓取。
 
 ### 7.3 线程化抓取与防重入
 
-`_fetch_in_thread(full)`：每次创建独立 `QThread` + `_MediaFetchWorker`，`moveToThread` 后执行，`finished` 信号回主线程 `_on_worker_done` → `_fetch_done` 信号 → `_on_fetched`。
+用 `threading.Thread`（daemon=True）+ pyqtSignal 跨线程回主线程（Qt 自动 queued 连接）：
 
-- **防重入**：`_fetching` 标志，抓取期间若再次请求 `full=True`，置 `_pending_full=True`，待当前完成后 `QTimer.singleShot(100, ...)` 补抓。
-- 线程结束 `quit/wait(2000)/deleteLater` 清理。
+- `_spawn_media_fetch(full)` → `_media_worker` 线程调 `get_media_info()` → `_media_ready.emit(m, full)` → `_on_media`。
+- `_fetch(m)` → `_fetch_detail` 线程调 `get_service(app_name).lyrics/cover/duration()` → `_detail_ready.emit(key, result)` → `_on_detail`。
+- **防重入**：`_fetching` 标志，抓取期间若再次请求 `full=True`，置 `_pending_full=True`，完成后 `QTimer.singleShot(100, ...)` 补抓。
+- `stop()` 停掉全部定时器（`closeEvent` / `__del__` 均调用），防止线程残留崩溃。
 
 ### 7.4 新歌快速更新（rapid update）
 
@@ -431,30 +427,24 @@ self._timer.setInterval(500)   # 切到 500ms 快速间隔
 
 `_display` 中按 `app_name` 分流封面获取：
 
-1. **GSMT/浏览器缩略图**：`m.thumbnail_data` 存在 → 直接 `_load_cover`（置 `_has_gstmtc_cover=True`，优先级最高，不再被在线封面覆盖）。
-2. **酷狗**：`app_name == 'Kugou'` → `_fetch_kugou_thumbnail()`（`_KugouThumbWorker` 异步抓取）。
-3. **浏览器**：`is_web_browser` → 标记 `_has_gstmtc_cover=True`（等待 thumbnail\_data）。
-4. **在线补全**：非浏览器 → `_fetch(title, artist)` → `FetchWorker` 调 `fetch_all_info` 取封面/歌词/详情，仅在 `not _has_gstmtc_cover` 时应用封面。
+1. **SMTC 缩略图**：`m.thumbnail_data` 存在 → 直接 `_load_cover`（置 `_has_thumb=True`，优先级最高，不再被在线封面覆盖）。
+2. **浏览器**：`is_web_browser` → 标记 `_has_thumb=True`（等待 thumbnail\_data），不触发在线查询。
+3. **酷狗**：`app_name == 'Kugou'` → 详情线程内额外借用 SMTC 会话缩略图作封面。
+4. **在线补全**：非浏览器 → `_fetch(m)` → 详情线程调 `get_service().lyrics/cover/duration()`，仅在 `not _has_thumb` 时应用封面。
 
 ### 7.6 封面动画与阴影
 
 - `_load_cover`：载入后先 `_add_cover_shadow`（4 层渐变阴影 + 圆角裁剪 `SourceAtop`），再 `QPropertyAnimation` 透明度 0→1，300ms `OutCubic` 淡入。
-- 默认封面 `_default_cover`：圆角矩形 + 内层 + 3 层阴影占位。
+- 默认封面 `_default_cover`：自绘圆角矩形 + 音符图标（主题自适应配色）。
 
-### 7.7 进度条 MediaProgressBar
+### 7.7 进度条
 
-自绘双段圆角矩形，不使用默认样式：
+使用 qfluentwidgets 原生 `ProgressBar`（固定高 3px），不自定义颜色、不覆盖样式。
 
-- **轨道**：`cfg.mediaProgressTrackColor`，全宽圆角矩形。
-- **进度**：`cfg.mediaProgressColor`，按 `value/maximum` 比例宽度。
-- **颜色覆盖**：支持 `wallpaper`（提取壁纸主色 `wallpaper.get_dominant_color()`）/ `system`（读注册表 `AccentPalette[2]`）/ 具体颜色值。通过父组件 `_override_progress_color` 属性传递。
-- 高度由 `cfg.mediaProgressHeight` 控制。
+### 7.8 歌词
 
-### 7.8 歌词 LyricsWidget
-
-- 单行显示，`paintEvent` 自绘（`HarmonyOS Sans` DemiBold），`elidedText` 右省略。
-- `update_position(ms)`：`adjusted_ms = ms + cfg.mediaLyricsAdvance`（提前量），`lyrics.get_line_at_time(adjusted_ms)` 定位当前行。
-- 颜色 `cfg.mediaLyricsColor`，字号 `cfg.mediaLyricsSize`。
+- 右侧 `QLabel`（`wordWrap=True`，12px 加粗），替代原自绘 `LyricsWidget`。
+- `_update_lyrics(ms)`：`adjusted_ms = ms + cfg.mediaLyricsAdvance`（提前量），`lyrics.get_line_at_time(adjusted_ms)` 定位当前行。
 
 ### 7.9 浏览器特殊处理
 
@@ -464,19 +454,25 @@ self._timer.setInterval(500)   # 切到 500ms 快速间隔
 - 有 `artist` 时：正常布局。
 - 浏览器不触发在线 `_fetch`（避免用网页标题当歌名查询）。
 
-### 7.10 LRU 缓存
+### 7.10 切歌竞态保护
 
-- `_info_cache`（`OrderedDict`，上限 50）：以 `"{title} - {artist}"` 为 key 缓存 `fetch_all_info` 结果。
+详情补全与轮询抓取异步并行，快速切歌时旧结果可能滞后返回：
+
+- 详情结果携带歌曲 key（`title_artist`），`_on_detail(key, result)` 仅当 key 与当前 `self._media.title_artist` 一致时才应用（`_apply_detail`）。
+- 详情线程忙碌时 `_fetch` 记录 `_pending_key`，返回后自动补拉当前歌，不丢请求。
+- `_no_media` 重置 `_pending_key`，避免残留脏状态。
+
+### 7.11 LRU 缓存
+
+- `_info_cache`（`OrderedDict`，上限 50）：以 `title_artist` 为 key 缓存详情补全结果。
 - 命中时 `pop` 再插入末尾（LRU）；超限时 `popitem(last=False)` 淘汰最久未用。
 - `clear_cache()` 清空并 `close_media()` 释放资源。
 
-### 7.11 缩放因子
+### 7.12 播放控制
 
-`MediaPlayerComponent.apply_scale(factor)` 将 `_scale_factor` 注入 `MediaWidget`，`_scaled_px()` 据此缩放字号/封面/歌词尺寸，使组件在网格中缩放时内部元素等比变化。
-
-### 7.12 启动延迟约束
-
-**媒体组件需在组件加载后延迟 500ms 再启动媒体检测**（`start()`），确保播放器与 Windows GSMT（Global System Media Transport Controls）初始化就绪，避免启动初期读到空/无效状态。此为项目验证过的硬约束。
+- `_on_play_pause`：先立马更新为播放/暂停 → 后台线程 `media_control(play/pause)` → `_sync_confirm_timer` 轮询 SMTC 真实状态确认（上限约 2 秒解锁）。
+- `_on_next` / `_on_prev`：后台线程 `media_next()` / `media_prev()`，800ms 后重新完整拉取。
+- 播放状态同步期间旧状态不覆盖图标（`_playing_sync_pending` 标志）。
 
 ***
 

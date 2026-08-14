@@ -1,6 +1,6 @@
 # 核心模块（core/）
 
-> 编写者：HelloGaoo　最后修改：2026/08/13
+> 编写者：HelloGaoo　最后修改：2026/08/14
 
 `core/` 所有路径、常量、配置、日志、工具函数集中于此，被 `ui/`、`services/`、主程序复用。
 
@@ -14,12 +14,12 @@
 
 ### 1.1 路径推导逻辑
 
-| 路径             | 推导规则                                                                                                        |
-| -------------- | ----------------------------------------------------------------------------------------------------------- |
+| 路径             | 推导规则                                                                                                                         |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------- |
 | `PACKAGE_ROOT` | 环境变量 `Glimpseon_PackageRoot` → `sys.frozen` 时为 `sys.executable` 目录 → 否则 `__file__` 上三级（`paths.py` 位于 `app-*/core/`，三级父目录即包根） |
-| `APP_DIR`      | 环境变量 `Glimpseon_AppDir` → 否则扫描 `app-*` 目录，选 `record.json` 中 `current==1 && !partial` 的 → 兜底为 `PACKAGE_ROOT` |
-| `MEIPASS_DIR`  | 仅 `sys.frozen` 时取 `sys._MEIPASS`，否则 `None`                                                                  |
-| `DATA_ROOT`    | `PACKAGE_ROOT/data`，其下细分 `config/log/cache/temp/profile/user/icon/wallpaper/classphotos/notes`              |
+| `APP_DIR`      | 环境变量 `Glimpseon_AppDir` → 否则扫描 `app-*` 目录，选 `record.json` 中 `current==1 && !partial` 的 → 兜底为 `PACKAGE_ROOT`                  |
+| `MEIPASS_DIR`  | 仅 `sys.frozen` 时取 `sys._MEIPASS`，否则 `None`                                                                                   |
+| `DATA_ROOT`    | `PACKAGE_ROOT/data`，其下细分 `config/log/cache/temp/profile/user/icon/wallpaper/classphotos/notes`                               |
 
 ### 1.2 关键函数
 
@@ -91,7 +91,7 @@ def clear_qss_cache()
 | `Countdown`    | `showCountdown`、`countdownDisplayMode`、颜色/字号、`countdownCarouselInterval`、`countdownList`                                                                                                                                                              |
 | `School`       | `school`、`schoolClass`、`showSchoolInfo`、颜色/字号                                                                                                                                                                                                         |
 | `QuickLaunch`  | `showQuickLaunch`、`quickLaunchApps`、`quickLaunchIconSize`、`quickLaunchIconSpacing`、`showLabels`、`offsetY`                                                                                                                                             |
-| `Media`        | `showMedia*`、`mediaUpdateInterval`、字号、尺寸、颜色、进度条、圆角等                                                                                                                                                                                                   |
+| `Media`        | `showMediaInfo`、`showMediaCover`、`showMediaLyrics`、`mediaUpdateInterval`、`mediaTextSize`、`mediaCoverSize`、`mediaLyricsSize`、`mediaLyricsAdvance`、`mediaUseCustomBg`、`mediaBgOpacity`、`mediaBorderRadius`、颜色配置                                         |
 | `Linkage`      | `linkageEnabled`、`linkageDataPath`、`linkagePollInterval`、`linkageSyncTimeConfig`                                                                                                                                                                      |
 | `ClassWidgets` | `classWidgetsEnabled`、`classWidgetsDataPath`、`classWidgetsPollInterval`                                                                                                                                                                               |
 | `PreciseTime`  | `usePreciseTime`、`timeServer`、`lastSyncTime`                                                                                                                                                                                                          |

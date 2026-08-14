@@ -1,6 +1,6 @@
 # 配置系统
 
-> 编写者：HelloGaoo　最后修改：2026/08/13
+> 编写者：HelloGaoo　最后修改：2026/08/14
 
 [源码](file:///e:/260523/py/Glimpseon/app-1.0.0/core/config.py)
 
@@ -164,32 +164,28 @@ cfg.clockSize.value = 100   # 修改即触发保存
 
 ### Media
 
-| 键                    | 默认          | 范围       | 备注     |
-| -------------------- | ----------- | -------- | ------ |
-| `ShowMediaInfo`      | `True`      | bool     | <br /> |
-| `ShowMediaCover`     | `True`      | bool     | <br /> |
-| `ShowMediaProgress`  | `True`      | bool     | <br /> |
-| `ShowMediaLyrics`    | `True`      | bool     | <br /> |
-| `UpdateInterval`     | `1`         | 1\~5     | 秒      |
-| `TextSize`           | `16`        | 12\~32   | <br /> |
-| `CoverSize`          | `64`        | 32\~128  | <br /> |
-| `LyricsSize`         | `14`        | 10\~24   | <br /> |
-| `LyricsLines`        | `3`         | 1\~7     | <br /> |
-| `Width`              | `360`       | 200\~800 | <br /> |
-| `Height`             | `130`       | 80\~300  | <br /> |
-| `LyricsAdvance`      | `300`       | 0\~2000  | ms     |
-| `UseCustomBg`        | `False`     | bool     | <br /> |
-| `BgOpacity`          | `60`        | 0\~100   | <br /> |
-| `BorderRadius`       | `12`        | 0\~30    | <br /> |
-| `TitleColor`         | `#FFFFFF`   | 颜色       | <br /> |
-| `ArtistColor`        | `#FFFFFF99` | 颜色       | <br /> |
-| `TimeColor`          | `#FFFFFF80` | 颜色       | <br /> |
-| `LyricsColor`        | `#FFFFFFB3` | 颜色       | <br /> |
-| `ProgressColor`      | `#30c361`   | 颜色       | <br /> |
-| `ProgressTrackColor` | `#FFFFFF1A` | 颜色       | <br /> |
-| `ProgressHeight`     | `4`         | 2\~8     | <br /> |
-| `CoverBorderRadius`  | `10`        | 0\~20    | <br /> |
-| `CoverBorderColor`   | `#FFFFFF20` | 颜色       | <br /> |
+| 键                   | 默认          | 范围       | 备注     |
+| ------------------- | ----------- | -------- | ------ |
+| `ShowMediaInfo`     | `True`      | bool     | <br /> |
+| `ShowMediaCover`    | `True`      | bool     | <br /> |
+| `ShowMediaLyrics`   | `True`      | bool     | <br /> |
+| `UpdateInterval`    | `1`         | 1\~5     | 秒      |
+| `TextSize`          | `14`        | 10\~28   | <br /> |
+| `CoverSize`         | `56`        | 32\~128  | <br /> |
+| `LyricsSize`        | `12`        | 8\~24    | <br /> |
+| `LyricsLines`       | `3`         | 1\~7     | <br /> |
+| `Width`             | `360`       | 200\~800 | <br /> |
+| `Height`            | `160`       | 100\~300 | <br /> |
+| `LyricsAdvance`     | `300`       | 0\~2000  | ms     |
+| `UseCustomBg`       | `False`     | bool     | <br /> |
+| `BgOpacity`         | `60`        | 0\~100   | <br /> |
+| `BorderRadius`      | `12`        | 0\~30    | <br /> |
+| `TitleColor`        | `#FFFFFF`   | 颜色       | <br /> |
+| `ArtistColor`       | `#FFFFFF99` | 颜色       | <br /> |
+| `TimeColor`         | `#FFFFFF80` | 颜色       | <br /> |
+| `LyricsColor`       | `#FFFFFFB3` | 颜色       | <br /> |
+| `CoverBorderRadius` | `10`        | 0\~20    | <br /> |
+| `CoverBorderColor`  | `#FFFFFF20` | 颜色       | <br /> |
 
 ### Linkage（ClassIsland）
 
