@@ -39,7 +39,7 @@ from qfluentwidgets import (
 )
 
 from core.config import cfg
-from core.constants import load_qss
+from core.constants import load_qss, FONT_PRIMARY
 from core.utils import tr, TranslatableWidget, FUI
 from core.notification import NotifType
 from qfluentwidgets import MessageBox
@@ -99,14 +99,14 @@ class _PreviewWidget(QWidget):
 
         if not self._text:
             painter.setPen(QColor(180, 180, 180))
-            font = QFont("HarmonyOS Sans", 14)
+            font = QFont(FONT_PRIMARY, 14)
             painter.setFont(font)
             painter.drawText(r, Qt.AlignmentFlag.AlignCenter, tr("notification.preview_hint"))
             painter.end()
             return
 
         painter.setPen(self._text_color)
-        font = QFont("HarmonyOS Sans", self._font_size)
+        font = QFont(FONT_PRIMARY, self._font_size)
         font.setWeight(self._font_weight)
         painter.setFont(font)
         flags = Qt.AlignmentFlag.AlignCenter | Qt.TextFlag.TextWordWrap

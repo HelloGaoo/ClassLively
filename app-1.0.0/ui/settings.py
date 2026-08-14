@@ -48,7 +48,7 @@ from qfluentwidgets import (
 )
 
 from core.config import cfg, default_cfg, ConfigItem, CONFIG_PATH
-from core.constants import BASE_DIR, DATA_CONFIG, load_qss, clear_qss_cache, APP_ICON, get_resPath
+from core.constants import BASE_DIR, DATA_CONFIG, load_qss, clear_qss_cache, APP_ICON, get_resPath, FONT_PRIMARY
 from core.utils import _load_app_fonts, apply_fonts, tr, get_time_sync_service, FUI
 from core.logger import log_dir
 
@@ -930,7 +930,7 @@ class _CornerRadiusPreviewWidget(QWidget):
         painter.drawRoundedRect(card_x, card_y, card_w, card_h, self.card_radius, self.card_radius)
         # 示例
         painter.setPen(QColor(200, 200, 200))
-        font = QFont("Arial", 10)
+        font = QFont(FONT_PRIMARY, 10)
         painter.setFont(font)
         painter.drawText(card_x, card_y, card_w, card_h, Qt.AlignmentFlag.AlignCenter, "Preview")
         painter.end()

@@ -24,7 +24,7 @@ Glimpseon 是一款基于 PyQt6 + Fluent Widgets 的 Windows 桌面信息看板�
 ## 项目关注
 
 - **UI 组件库**：PyQt6 Fluent Widgets
-- **字体**：HarmonyOS Sans（回退 Microsoft YaHei → SimHei → sans-serif）
+- **字体**：HarmonyOS Sans（回退 Microsoft YaHei → PingFang SC → Segoe UI → sans-serif）
 - **许可证**：GPL-3.0
 
 ## 项目入口

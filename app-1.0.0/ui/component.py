@@ -84,7 +84,7 @@ from core.config import cfg, save_cfg
 from core.utils import tr, FUI, get_cached_content, save_cache
 from services.media import MediaInfo, Lyrics, get_media_info, get_service, close as close_media, media_control, media_next, media_prev
 from services.news import NewsService
-from core.constants import BASE_DIR, DATA_CONFIG, DATA_CLASSPHOTOS, DATA_NOTES, load_qss, NEWS_ICONS, get_resPath, APP_ICON
+from core.constants import BASE_DIR, DATA_CONFIG, DATA_CLASSPHOTOS, DATA_NOTES, load_qss, NEWS_ICONS, get_resPath, APP_ICON, FONT_FAMILY, FONT_PRIMARY
 from resource.software_list import get_software_icon_path
 from core.component import (
     ComponentDefinition,
@@ -669,7 +669,7 @@ class DraggableWidget(QWidget):
 
             if getattr(self, '_show_border', False):
                 display_name = get_component_display_name(getattr(self, 'component_id', ''))
-                font = QFont("HarmonyOS Sans")
+                font = QFont(FONT_PRIMARY)
                 font.setPixelSize(14)
                 painter.setFont(font)
                 painter.setPen(QColor(0, 0, 0, 100) if not isDarkTheme() else QColor(255, 255, 255, 100))
@@ -1771,10 +1771,6 @@ class DraggableContainer(DraggableWidget):
 
 class MediaPlayerComponent(DraggableContainer):
     """媒体播放器组件"""
-    _FONT_STACK = ("'HarmonyOS Sans', 'HarmonyOS Sans SC', 'HarmonyOS Sans TC', "
-                   "'HarmonyOS Sans HC', 'Microsoft YaHei UI', 'Microsoft YaHei', "
-                   "'PingFang SC', 'Segoe UI', sans-serif")
-
     _TEXT_QSS = (
         "color: {color};"
         "font-size: {size}px;"
@@ -2086,7 +2082,7 @@ class MediaPlayerComponent(DraggableContainer):
 
         def _text_qss(color, size, weight):
             return self._TEXT_QSS.format(
-                color=self._qss_color(color), size=size, weight=weight, family=self._FONT_STACK)
+                color=self._qss_color(color), size=size, weight=weight, family=FONT_FAMILY)
 
         self._title.setStyleSheet(_text_qss(title_c, 19, 700))
         self._artist.setStyleSheet(_text_qss(artist_c, 11, 500))
@@ -3378,7 +3374,7 @@ class QuickLaunchDock(QWidget):
                 name = self._apps[i].get("name", "")
                 if name:
                     label_font = p.font()
-                    label_font.setFamily("HarmonyOS Sans")
+                    label_font.setFamily(FONT_PRIMARY)
                     label_font.setPixelSize(max(8, int(14 * self._scale_factor)))
                     label_font.setWeight(QFont.Weight.Medium)
                     p.setFont(label_font)
@@ -3448,7 +3444,6 @@ class QuickLaunchDock(QWidget):
 
 # 组件样式类
 py_datetime = datetime
-FONT_FAMILY = '"HarmonyOS Sans"'
 
 
 def render_svg_icon(icon_path: str, size: int, dpr: float = 1.0) -> QPixmap:
@@ -8452,14 +8447,14 @@ class StickyNoteComponent(DraggableContainer):
                 border: 1px solid {colors['header']};
             }}
         """)
-        self._date_label.setStyleSheet(f"color: {colors['text']}; font-size: {sz_date}px; font-family: 'HarmonyOS Sans'; background: transparent;")
+        self._date_label.setStyleSheet(f"color: {colors['text']}; font-size: {sz_date}px; font-family: {FONT_FAMILY}; background: transparent;")
         self._editor.setStyleSheet(f"""
             TextEdit {{
                 background-color: transparent;
                 border: none;
                 color: {colors['text']};
                 font-size: {sz_editor}px;
-                font-family: 'HarmonyOS Sans';
+                font-family: {FONT_FAMILY};
                 padding: 4px 12px 12px 12px;
                 selection-background-color: {colors['header']};
             }}

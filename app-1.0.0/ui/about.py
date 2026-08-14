@@ -49,7 +49,7 @@ from qfluentwidgets import (
 )
 
 from core.config import cfg
-from core.constants import PACKAGE_ROOT, APP_DIR, APP_ICON, get_resPath, load_qss, VERSION, BUILD_DATE
+from core.constants import PACKAGE_ROOT, APP_DIR, APP_ICON, get_resPath, load_qss, VERSION, BUILD_DATE, FONT_PRIMARY
 from core.utils import tr, TranslatableWidget, FUI
 from core.updater import check_github_version_legacy, get_github_changelog, download_update, extract_update, create_update_script
 
@@ -309,7 +309,7 @@ class AboutInterface(ScrollArea, TranslatableWidget):
         self.changelogContent = QTextBrowser(self.changelogCard)
         self.changelogContent.setObjectName("changelogTextEdit")
         self.changelogContent.setOpenExternalLinks(False)
-        self.changelogContent.setFont(QFont("HarmonyOS Sans", 12))
+        self.changelogContent.setFont(QFont(FONT_PRIMARY, 12))
         self.changelogContent.setPlaceholderText(tr("update.changelog_auto_load"))
 
         cLay.addWidget(self.changelogTitle)

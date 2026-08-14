@@ -78,13 +78,11 @@ from qfluentwidgets import (
 )
 
 from core.config import cfg, save_cfg
-from core.constants import PACKAGE_ROOT, DATA_CONFIG, load_qss
+from core.constants import PACKAGE_ROOT, DATA_CONFIG, load_qss, FONT_FAMILY
 from core.logger import logger
 from core.utils import tr, TranslatableWidget, precise_now, FUI
 from resource.software_list import get_software_icon_path
 from ui.component import DraggableContainer, QuickLaunchDock, resolve_app_from_path
-
-FONT_FAMILY = '"HarmonyOS Sans", "HarmonyOS Sans SC", "HarmonyOS Sans TC", "HarmonyOS Sans HC", "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif'
 
 
 class GuideLineOverlay(QWidget):
@@ -1536,7 +1534,7 @@ class HomeInterface(QWidget, TranslatableWidget):
     background-color: {bg_color};
     border-radius: {radius}px;
     border: 1px solid {border_color};
-    font-family: "HarmonyOS Sans", "HarmonyOS Sans SC", "HarmonyOS Sans TC", "HarmonyOS Sans HC", "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
+    font-family: {FONT_FAMILY};
 }}
 #navItemCell:hover {{
     background-color: {"rgba(255, 255, 255, 0.12)" if dark else "rgba(0, 0, 0, 0.10)"};

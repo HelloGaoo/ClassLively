@@ -60,13 +60,18 @@ get_resPath = get_resource_path
 
 _qss_cache = {}
 
-FALLBACK_FONT_QSS = """
+FONT_PRIMARY = "HarmonyOS Sans"
+FONT_FAMILY = ("'HarmonyOS Sans', 'HarmonyOS Sans SC', 'HarmonyOS Sans TC', 'HarmonyOS Sans HC', "
+               "'Microsoft YaHei UI', 'Microsoft YaHei', 'PingFang SC', 'Source Han Sans SC', "
+               "'Segoe UI', 'Arial', sans-serif")
+
+FALLBACK_FONT_QSS = f"""
 QWidget, QLabel, QPushButton, QComboBox, QLineEdit, QTextEdit,
 QPlainTextEdit, QCheckBox, QRadioButton, QGroupBox, QTabWidget,
 QTabBar, QAbstractItemView, QMenu, QToolTip, QStatusBar,
-QSpinBox, QDoubleSpinBox, QDateTimeEdit, QHeaderView {
-    font-family: 'HarmonyOS Sans', 'HarmonyOS Sans SC', 'HarmonyOS Sans TC', 'HarmonyOS Sans HC', 'Microsoft YaHei UI', 'Microsoft YaHei', 'PingFang SC', 'Source Han Sans SC', 'Segoe UI', 'Arial', sans-serif;
-}
+QSpinBox, QDoubleSpinBox, QDateTimeEdit, QHeaderView {{
+    font-family: {FONT_FAMILY};
+}}
 """
 
 

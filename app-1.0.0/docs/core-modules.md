@@ -182,8 +182,10 @@ for attr_name in dir(cfg):
 
 ### 5.2 字体
 
-- `initialize_fonts(app, install_to_system=True)`：检测系统是否已装 HarmonyOS Sans，未装则调 `Glimpseon_native.install_font` 安装；并 `setFontFamilies(["HarmonyOS Sans", ...])`。
-- 字体回退链：`HarmonyOS Sans → Microsoft YaHei → SimHei → sans-serif`。
+- `initialize_fonts(app, install_to_system=True)`：检测系统是否已装 HarmonyOS Sans，未装则调 `Glimpseon_native.install_font` 安装；并 `setFontFamilies([...])`。
+- `resolve_font_family()`：从 `HARMONYOS_FONT_FAMILIES + FONT_FAMILY_CANDIDATES` 中选首个系统可用字体。
+- 字体回退链（`apply_fonts` 注入 QFont 替换规则 + 全局 QSS）：`HarmonyOS Sans → Microsoft YaHei UI → Microsoft YaHei → PingFang SC → Source Han Sans SC → Segoe UI → sans-serif`。
+- UI 组件层统一 `FONT_FAMILY` 常量（`ui/component.py`），与回退链一致。
 
 ### 5.3 缓存
 

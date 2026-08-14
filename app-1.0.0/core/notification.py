@@ -26,6 +26,8 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtGui import QFont
 from qfluentwidgets import BodyLabel
 from plyer import notification as plyer_notification
+
+from core.constants import FONT_PRIMARY
 import threading
 import subprocess
 import uuid
@@ -130,7 +132,7 @@ class ScrollBanner(_BasePopup):
         self.label = BodyLabel(self.text, self)
         weight_map = {0: QFont.Weight.Normal, 1: QFont.Weight.Bold, 2: QFont.Weight.Black}
         weight = weight_map.get(self._font_weight, QFont.Weight.Bold)
-        font = QFont("HarmonyOS Sans", self._font_size)
+        font = QFont(FONT_PRIMARY, self._font_size)
         font.setWeight(weight)
         self.label.setFont(font)
         self.label.setStyleSheet(
@@ -224,7 +226,7 @@ class FullScreenPopup(_BasePopup):
         self.label = BodyLabel(self.text, self)
         weight_map = {0: QFont.Weight.Normal, 1: QFont.Weight.Bold, 2: QFont.Weight.Black}
         weight = weight_map.get(self._font_weight, QFont.Weight.Bold)
-        font = QFont("HarmonyOS Sans", self._font_size)
+        font = QFont(FONT_PRIMARY, self._font_size)
         font.setWeight(weight)
         self.label.setFont(font)
         self.label.setStyleSheet(
