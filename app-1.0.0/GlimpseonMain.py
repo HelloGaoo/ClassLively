@@ -338,7 +338,7 @@ class WizardWindow(QDialog, TranslatableWidget):
         self.welcomeLabel = StrongBodyLabel(tr("wizard.welcome"), self.page1)  # Glimpseon
         self.welcomeLabel.setAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft)
         self.welcomeLabel.setTextFormat(Qt.TextFormat.RichText)
-        self.welcomeLabel.setText('<span style="font-family: HarmonyOS Sans, Microsoft YaHei, SimHei, sans-serif; font-weight:900; font-size:34px;">Glimpseon</span>')
+        self.welcomeLabel.setText('<span style="font-family: HarmonyOS Sans; font-weight:900; font-size:34px;">Glimpseon</span>')
         self.welcomeLabel.setObjectName("welcomeLabel")
 
         self.nextButton = PrimaryPushButton(FUI.RIGHT_ARROW, tr("wizard.next"), self.page1)  # 继续
@@ -363,7 +363,7 @@ class WizardWindow(QDialog, TranslatableWidget):
         self.agreementTitle = StrongBodyLabel(tr("wizard.agreement_title"), self.page2)  # 软件使用协议
         self.agreementTitle.setAlignment(Qt.AlignmentFlag.AlignCenter)
         title_font = self.agreementTitle.font()
-        title_font.setFamily('HarmonyOS Sans, Microsoft YaHei, SimHei, sans-serif')
+        title_font.setFamily('HarmonyOS Sans')
         title_font.setPointSize(30)
         title_font.setBold(True)
         self.agreementTitle.setFont(title_font)
@@ -371,7 +371,7 @@ class WizardWindow(QDialog, TranslatableWidget):
         self.agreementText = BodyLabel(tr("wizard.agreement_text"), self.page2)  # 在使用本软件前，请阅读并同意以下协议：
         self.agreementText.setAlignment(Qt.AlignmentFlag.AlignCenter)
         txt_font = self.agreementText.font()
-        txt_font.setFamily('HarmonyOS Sans, Microsoft YaHei, SimHei, sans-serif')
+        txt_font.setFamily('HarmonyOS Sans')
         txt_font.setPointSize(14)
         self.agreementText.setFont(txt_font)
 
@@ -403,7 +403,7 @@ class WizardWindow(QDialog, TranslatableWidget):
                 uri = ""
             theme_color = cfg.themeColor.value.name()
             link_style = f'color:{theme_color}; text-decoration:underline;'
-            lbl.setText(f'<span style="font-family:\'HarmonyOS Sans\',\'Microsoft YaHei\',\'SimHei\',sans-serif; font-size:16px;">{tr("wizard.agreement_check")}&nbsp;<a href="{uri}" style="{link_style}">{link_text}</a></span>')  # 我已阅读并同意
+            lbl.setText(f'<span style="font-family:\'HarmonyOS Sans\'; font-size:16px;">{tr("wizard.agreement_check")}&nbsp;<a href="{uri}" style="{link_style}">{link_text}</a></span>')  # 我已阅读并同意
             lbl.setOpenExternalLinks(False)
 
             def _on_link_activated(url):
@@ -474,7 +474,7 @@ class WizardWindow(QDialog, TranslatableWidget):
         self.settingsTitle = StrongBodyLabel(tr("wizard.settings_title"), self.page3)  # 基本设置
         self.settingsTitle.setAlignment(Qt.AlignmentFlag.AlignCenter)
         settings_title_font = self.settingsTitle.font()
-        settings_title_font.setFamily('HarmonyOS Sans, Microsoft YaHei, SimHei, sans-serif')
+        settings_title_font.setFamily('HarmonyOS Sans')
         settings_title_font.setPointSize(30)
         settings_title_font.setBold(True)
         self.settingsTitle.setFont(settings_title_font)
@@ -482,7 +482,7 @@ class WizardWindow(QDialog, TranslatableWidget):
         self.settingsText = BodyLabel(tr("wizard.settings_text"), self.page3)  # 请选择您需要的功能选项：
         self.settingsText.setAlignment(Qt.AlignmentFlag.AlignCenter)
         settings_txt_font = self.settingsText.font()
-        settings_txt_font.setFamily('HarmonyOS Sans, Microsoft YaHei, SimHei, sans-serif')
+        settings_txt_font.setFamily('HarmonyOS Sans')
         settings_txt_font.setPointSize(14)
         self.settingsText.setFont(settings_txt_font)
 
@@ -548,7 +548,7 @@ class WizardWindow(QDialog, TranslatableWidget):
         self.appearanceTitle = StrongBodyLabel(tr("wizard.appearance_title"), self.page4)  # 外观设置
         self.appearanceTitle.setAlignment(Qt.AlignmentFlag.AlignCenter)
         appearance_title_font = self.appearanceTitle.font()
-        appearance_title_font.setFamily('HarmonyOS Sans, Microsoft YaHei, SimHei, sans-serif')
+        appearance_title_font.setFamily('HarmonyOS Sans')
         appearance_title_font.setPointSize(30)
         appearance_title_font.setBold(True)
         self.appearanceTitle.setFont(appearance_title_font)
@@ -556,7 +556,7 @@ class WizardWindow(QDialog, TranslatableWidget):
         self.appearanceText = BodyLabel(tr("wizard.appearance_text"), self.page4)  # 选择适合您的主题和颜色：
         self.appearanceText.setAlignment(Qt.AlignmentFlag.AlignCenter)
         appearance_txt_font = self.appearanceText.font()
-        appearance_txt_font.setFamily('HarmonyOS Sans, Microsoft YaHei, SimHei, sans-serif')
+        appearance_txt_font.setFamily('HarmonyOS Sans')
         appearance_txt_font.setPointSize(14)
         self.appearanceText.setFont(appearance_txt_font)
 
@@ -611,7 +611,7 @@ class WizardWindow(QDialog, TranslatableWidget):
         self.schoolInfoTitle = StrongBodyLabel(tr("wizard.school_info_title"), self.page5)  # 学校信息设置
         self.schoolInfoTitle.setAlignment(Qt.AlignmentFlag.AlignCenter)
         school_info_title_font = self.schoolInfoTitle.font()
-        school_info_title_font.setFamily('HarmonyOS Sans, Microsoft YaHei, SimHei, sans-serif')
+        school_info_title_font.setFamily('HarmonyOS Sans')
         school_info_title_font.setPointSize(30)
         school_info_title_font.setBold(True)
         self.schoolInfoTitle.setFont(school_info_title_font)
@@ -619,7 +619,7 @@ class WizardWindow(QDialog, TranslatableWidget):
         self.schoolInfoText = BodyLabel(tr("wizard.school_info_text"), self.page5)  # 请输入您的学校和班级信息，以及选择天气城市：
         self.schoolInfoText.setAlignment(Qt.AlignmentFlag.AlignCenter)
         school_info_txt_font = self.schoolInfoText.font()
-        school_info_txt_font.setFamily('HarmonyOS Sans, Microsoft YaHei, SimHei, sans-serif')
+        school_info_txt_font.setFamily('HarmonyOS Sans')
         school_info_txt_font.setPointSize(14)
         self.schoolInfoText.setFont(school_info_txt_font)
 
@@ -643,7 +643,7 @@ class WizardWindow(QDialog, TranslatableWidget):
 
         city_label = BodyLabel(tr("wizard.weather_city"), self.page5)  # 天气城市
         city_label_font = city_label.font()
-        city_label_font.setFamily('HarmonyOS Sans, Microsoft YaHei, SimHei, sans-serif')
+        city_label_font.setFamily('HarmonyOS Sans')
         city_label_font.setPointSize(city_label_font.pointSize() if city_label_font.pointSize() > 0 else 10)
         city_label.setFont(city_label_font)
         city_label.setFixedWidth(120)
@@ -672,7 +672,7 @@ class WizardWindow(QDialog, TranslatableWidget):
 
         school_label = BodyLabel(tr("wizard.school_name"), self.page5)  # 学校名称
         school_label_font = school_label.font()
-        school_label_font.setFamily('HarmonyOS Sans, Microsoft YaHei, SimHei, sans-serif')
+        school_label_font.setFamily('HarmonyOS Sans')
         school_label_font.setPointSize(school_label_font.pointSize() if school_label_font.pointSize() > 0 else 10)
         school_label.setFont(school_label_font)
         school_label.setFixedWidth(120)
@@ -696,7 +696,7 @@ class WizardWindow(QDialog, TranslatableWidget):
 
         class_label = BodyLabel(tr("wizard.class_name"), self.page5)  # 班级
         class_label_font = class_label.font()
-        class_label_font.setFamily('HarmonyOS Sans, Microsoft YaHei, SimHei, sans-serif')
+        class_label_font.setFamily('HarmonyOS Sans')
         class_label_font.setPointSize(class_label_font.pointSize() if class_label_font.pointSize() > 0 else 10)
         class_label.setFont(class_label_font)
         class_label.setFixedWidth(120)
@@ -720,7 +720,7 @@ class WizardWindow(QDialog, TranslatableWidget):
 
         countdown_label = BodyLabel(tr("wizard.countdown_config"), self.page5)  # 倒计时配置
         countdown_label_font = countdown_label.font()
-        countdown_label_font.setFamily('HarmonyOS Sans, Microsoft YaHei, SimHei, sans-serif')
+        countdown_label_font.setFamily('HarmonyOS Sans')
         countdown_label_font.setPointSize(countdown_label_font.pointSize() if countdown_label_font.pointSize() > 0 else 10)
         countdown_label.setFont(countdown_label_font)
         countdown_label.setFixedWidth(120)

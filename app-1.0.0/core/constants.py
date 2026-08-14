@@ -60,6 +60,15 @@ get_resPath = get_resource_path
 
 _qss_cache = {}
 
+FALLBACK_FONT_QSS = """
+QWidget, QLabel, QPushButton, QComboBox, QLineEdit, QTextEdit,
+QPlainTextEdit, QCheckBox, QRadioButton, QGroupBox, QTabWidget,
+QTabBar, QAbstractItemView, QMenu, QToolTip, QStatusBar,
+QSpinBox, QDoubleSpinBox, QDateTimeEdit, QHeaderView {
+    font-family: 'HarmonyOS Sans', 'HarmonyOS Sans SC', 'HarmonyOS Sans TC', 'HarmonyOS Sans HC', 'Microsoft YaHei UI', 'Microsoft YaHei', 'PingFang SC', 'Source Han Sans SC', 'Segoe UI', 'Arial', sans-serif;
+}
+"""
+
 
 def clear_qss_cache():
     _qss_cache.clear()
@@ -79,6 +88,7 @@ def load_qss(qss_filename: str) -> str:
     try:
         with open(qss_path, 'r', encoding='utf-8-sig') as f:
             content = f.read()
+        content = FALLBACK_FONT_QSS + "\n" + content
         _qss_cache[cache_key] = content
         return content
     except Exception as e:

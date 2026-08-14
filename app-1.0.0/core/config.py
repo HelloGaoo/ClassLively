@@ -336,9 +336,6 @@ class Config(QConfig):
     showMediaCover = ConfigItem(
         "Media", "ShowMediaCover", True, BoolValidator()
     )
-    showMediaProgress = ConfigItem(
-        "Media", "ShowMediaProgress", True, BoolValidator()
-    )
     showMediaLyrics = ConfigItem(
         "Media", "ShowMediaLyrics", True, BoolValidator()
     )
@@ -346,13 +343,13 @@ class Config(QConfig):
         "Media", "UpdateInterval", 1, RangeValidator(1, 5)
     )
     mediaTextSize = RangeConfigItem(
-        "Media", "TextSize", 16, RangeValidator(12, 32)
+        "Media", "TextSize", 14, RangeValidator(10, 28)
     )
     mediaCoverSize = RangeConfigItem(
-        "Media", "CoverSize", 64, RangeValidator(32, 128)
+        "Media", "CoverSize", 56, RangeValidator(32, 128)
     )
     mediaLyricsSize = RangeConfigItem(
-        "Media", "LyricsSize", 14, RangeValidator(10, 24)
+        "Media", "LyricsSize", 12, RangeValidator(8, 24)
     )
     mediaLyricsLines = RangeConfigItem(
         "Media", "LyricsLines", 3, RangeValidator(1, 7)
@@ -361,7 +358,7 @@ class Config(QConfig):
         "Media", "Width", 360, RangeValidator(200, 800)
     )
     mediaHeight = RangeConfigItem(
-        "Media", "Height", 130, RangeValidator(80, 300)
+        "Media", "Height", 160, RangeValidator(100, 300)
     )
     mediaLyricsAdvance = RangeConfigItem(
         "Media", "LyricsAdvance", 300, RangeValidator(0, 2000)
@@ -379,11 +376,6 @@ class Config(QConfig):
     mediaArtistColor = ColorConfigItem("Media", "ArtistColor", "#FFFFFF99")
     mediaTimeColor = ColorConfigItem("Media", "TimeColor", "#FFFFFF80")
     mediaLyricsColor = ColorConfigItem("Media", "LyricsColor", "#FFFFFFB3")
-    mediaProgressColor = ColorConfigItem("Media", "ProgressColor", "#30c361")
-    mediaProgressTrackColor = ColorConfigItem("Media", "ProgressTrackColor", "#FFFFFF1A")
-    mediaProgressHeight = RangeConfigItem(
-        "Media", "ProgressHeight", 4, RangeValidator(2, 8)
-    )
     mediaCoverBorderRadius = RangeConfigItem(
         "Media", "CoverBorderRadius", 10, RangeValidator(0, 20)
     )
@@ -537,7 +529,17 @@ def default_cfg():
             "Longitude": 116.4074
         },
         "QFluentWidgets": {
-            "FontFamilies": ["HarmonyOS Sans"]
+            "FontFamilies": [
+                "HarmonyOS Sans",
+                "HarmonyOS Sans SC",
+                "HarmonyOS Sans TC",
+                "HarmonyOS Sans HC",
+                "Microsoft YaHei UI",
+                "Microsoft YaHei",
+                "PingFang SC",
+                "Source Han Sans SC",
+                "Segoe UI"
+            ]
         },
         "Download": {
             "Source": "hk",

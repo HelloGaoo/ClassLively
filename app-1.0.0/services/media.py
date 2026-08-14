@@ -16,36 +16,30 @@
 
 """
 媒体服务模块
+网易云 / 酷狗 / QQ音乐 / Windows SMTC
 """
 
+import base64
 import ctypes
 import ctypes.wintypes as wintypes
 import logging
-import os
 import re
 import struct
-import sys
+import threading
 import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from types import SimpleNamespace
 from typing import Optional, List, Tuple, Dict, Any
 
 import pymem
 import psutil
-from win32api import GetFileVersionInfo
-from winsdk.windows.media.control import GlobalSystemMediaTransportControlsSessionManager
-# GlobalSystemMediaTransportControlsSessionManager这坨我很好奇是不是人写的代码
+from win32api import GetFileVersionInfo, HIWORD, LOWORD
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
-from core.paths import BASE_DIR
-
 DEFAULT_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-0
-logger = logging.getLogger("Gl000mpseon.services.media")
-
+logger = logging.getLogger("Glimpseon.services.media")
 
 @dataclass
 class MediaInfo:
@@ -72,17 +66,6 @@ class MediaInfo:
     def format_time(ms: int) -> str:
         s = max(0, ms // 1000)
         return f"{s // 60}:{s % 60:02d}"
-
-
-@dataclass
-class SongDetail:
-    """歌曲详情"""
-    song_id: int
-    name: str
-    artists: List[str]
-    album_name: str
-    cover_url: str
-    duration: int
 
 
 @dataclass
@@ -115,8 +98,7 @@ class Lyrics:
 
 
 def parse_lrc(lrc_text: str) -> List[LyricLine]:
-    """解析 LRC 歌词文本
-    返回时间排序的 LyricLine 列表"""
+    """解析 LRC 歌词文本，返回时间排序的 LyricLine 列表"""
     lines = []
     pat = re.compile(r'\[(\d{1,2}):(\d{1,2})(?:\.(\d{1,3}))?\]')
     for line in lrc_text.split('\n'):
@@ -135,9 +117,8 @@ def parse_lrc(lrc_text: str) -> List[LyricLine]:
     lines.sort()
     return lines
 
-
 class NeteaseCloudMusic:
-    """网易云音乐"""
+    """网易云音乐源"""
 
     V2_OFFSETS = {
         '2.7.1.1669': {'current': 0x8C8AF8, 'song_array': 0x8E9044},
@@ -157,7 +138,9 @@ class NeteaseCloudMusic:
     V3_PLAYER_PATTERN = b"\x48\x8D\x0D\x00\x00\x00\x00\xE8\x00\x00\x00\x00\x48\x8D\x0D\x00\x00\x00\x00\xE8\x00\x00\x00\x00\x90\x48\x8D\x0D\x00\x00\x00\x00\xE8\x00\x00\x00\x00\x48\x8D\x05\x00\x00\x00\x00\x48\x8D\xA5\x00\x00\x00\x00\x5F\x5D\xC3\xCC\xCC\xCC\xCC\xCC\x48\x89\x4C\x24\x00\x55\x57\x48\x81\xEC\x00\x00\x00\x00\x48\x8D\x6C\x24\x00\x48\x8D\x7C\x24"
 
     API_BASE = "https://music163.xuanmou.com.cn"
-    API_HEADERS = {'User-Agent': DEFAULT_USER_AGENT}  # 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+    API_HEADERS = {'User-Agent': DEFAULT_USER_AGENT}
+
+    name = "NeteaseCloudMusic"
 
     def __init__(self):
         self._pm = None
@@ -172,61 +155,26 @@ class NeteaseCloudMusic:
         self._first = True
         self._last_id = ''
         self._last_time = 0.0
-        self._api_cache = {}
         self._api_last_time = 0.0
+        self._cache: Dict[str, Any] = {}
+        self._cache_order: List[str] = []
         self._available = self._check_deps()
-
         self._session = self._create_session()
-        self._executor = ThreadPoolExecutor(max_workers=3, thread_name_prefix='media_api')
-        self._cache_max_size = 50
-        self._cache_order = []
-
-    def _check_deps(self) -> bool:
-        try:
-            import pymem
-            import psutil
-            from win32api import GetFileVersionInfo, HIWORD, LOWORD
-            return True
-        except ImportError:
-            return False
 
     @property
     def available(self) -> bool:
         return self._available
 
-    @property
-    def name(self) -> str:
-        return "NeteaseCloudMusic"
 
-    def _create_session(self) -> requests.Session:
-        session = requests.Session()
-        adapter = HTTPAdapter(
-            pool_connections=10,
-            pool_maxsize=10,
-            max_retries=Retry(total=3, backoff_factor=0.1)
-        )
-        session.mount('http://', adapter)
-        session.mount('https://', adapter)
-        session.headers.update(self.API_HEADERS)
-        return session
-
-    def _set_cache(self, key: str, value):
-        if len(self._api_cache) >= self._cache_max_size and key not in self._api_cache:
-            oldest = self._cache_order.pop(0)
-            self._api_cache.pop(oldest, None)
-        self._api_cache[key] = value
-        if key in self._cache_order:
-            self._cache_order.remove(key)
-        self._cache_order.append(key)
-
-    def get_info(self) -> Optional[MediaInfo]:
+    def read(self) -> Optional[MediaInfo]:
+        """读取当前播放状态"""
         data = self._read_memory()
         if not data:
             logger.debug("网易云音乐: 内存读取失败")
             return None
         title, artist = self._parse_window_title()
         if not title and not artist:
-            logger.debug(f"网易云音乐: 窗口标题解析失败")
+            logger.debug("网易云音乐: 窗口标题解析失败")
         else:
             logger.debug(f"网易云音乐: 窗口标题解析成功 - {title} - {artist}")
         return MediaInfo(
@@ -238,89 +186,53 @@ class NeteaseCloudMusic:
             app_name=self.name, song_id=data['song_id'],
         )
 
-    def get_detail(self, song_id: int) -> Optional[SongDetail]:
-        key = f"detail_{song_id}"
-        if key in self._api_cache:
-            return self._api_cache[key]
-        data = self._api_get("/song/detail", {'ids': str(song_id)})
-        if data:
-            songs = data.get('songs', [])
-            if songs:
-                s = songs[0]
-                al = s.get('al', {})
-                detail = SongDetail(
-                    song_id=s.get('id'), name=s.get('name', ''),
-                    artists=[a.get('name', '') for a in s.get('ar', [])],
-                    album_name=al.get('name', ''), cover_url=al.get('picUrl', ''),
-                    duration=s.get('dt', 0)
-                )
-                self._set_cache(key, detail)
-                return detail
-        return None
-
-    def get_lyrics(self, song_id: int) -> Optional[Lyrics]:
-        key = f"lyric_{song_id}"
-        if key in self._api_cache:
-            return self._api_cache[key]
-        data = self._api_get("/lyric", {'id': str(song_id)})
+    def lyrics(self, media: MediaInfo) -> Optional[Lyrics]:
+        """按 song_id 补全歌词"""
+        if not media or not media.song_id:
+            return None
+        key = f"lyric_{media.song_id}"
+        if key in self._cache:
+            return self._cache[key]
+        data = self._api_get("/lyric", {'id': str(media.song_id)})
         if data:
             lrc = data.get('lrc', {}).get('lyric', '') or data.get('tlyric', {}).get('lyric', '')
             if lrc:
-                lines = self._parse_lrc(lrc)
+                lines = parse_lrc(lrc)
                 if lines:
-                    lyrics = Lyrics(lines=lines, raw_lrc=lrc, song_id=song_id)
-                    self._set_cache(key, lyrics)
-                    return lyrics
+                    ly = Lyrics(lines=lines, raw_lrc=lrc, song_id=int(media.song_id))
+                    self._set_cache(key, ly)
+                    return ly
         return None
 
-    def get_cover(self, url: str) -> Optional[bytes]:
-        key = f"cover_{hash(url)}"
-        if key in self._api_cache:
-            return self._api_cache[key]
-        try:
-            resp = self._session.get(url, timeout=8)
-            if resp.status_code == 200 and 'image' in resp.headers.get('Content-Type', ''):
-                data = resp.content
-                if 1024 < len(data) < 10 * 1024 * 1024:
-                    self._set_cache(key, data)
-                    return data
-        except Exception as e:
-            logger.debug(f"获取封面失败: {e}")
-        return None
-
-    def fetch_all(self, song_name: str, artist: str = "") -> Dict[str, Any]:
-        result = {'song_id': None, 'detail': None, 'lyrics': None, 'cover': None}
-        start_time = time.time()
-
-        song_id = self._search_song(f"{song_name} {artist}".strip())
-        if not song_id:
-            return result
-        result['song_id'] = song_id
-
-        detail = self.get_detail(song_id)
-        if detail:
-            result['detail'] = detail
-
-        futures = {}
+    def cover(self, media: MediaInfo) -> Optional[bytes]:
+        """补全封面：优先已有缩略图 否则按 song_id 查详情下载"""
+        if media and media.thumbnail_data:
+            return media.thumbnail_data
+        if not media or not media.song_id:
+            return None
+        key = f"cover_{media.song_id}"
+        if key in self._cache:
+            return self._cache[key]
+        detail = self._get_detail(media.song_id)
         if detail and detail.cover_url:
-            futures['cover'] = self._executor.submit(self.get_cover, detail.cover_url)
-        futures['lyrics'] = self._executor.submit(self.get_lyrics, song_id)
+            data = self._download(detail.cover_url)
+            if data:
+                self._set_cache(key, data)
+                return data
+        return None
 
-        for future in as_completed(futures.values()):
-            try:
-                future.result(timeout=10)
-            except Exception as e:
-                logger.debug(f"并行请求失败: {e}")
+    def duration(self, media: MediaInfo) -> int:
+        """补全时长（ms）"""
+        if media and media.duration_ms > 0:
+            return media.duration_ms
+        if media and media.song_id:
+            detail = self._get_detail(media.song_id)
+            if detail:
+                return detail.duration
+        return 0
 
-        if 'cover' in futures and detail and detail.cover_url:
-            result['cover'] = self.get_cover(detail.cover_url)
-        if 'lyrics' in futures:
-            result['lyrics'] = self.get_lyrics(song_id)
-
-        elapsed = time.time() - start_time
-        logger.debug(f"fetch_all耗时: {elapsed:.2f}秒 (歌曲ID: {song_id})")
-
-        return result
+    def control(self, action: str) -> bool:
+        return False
 
     def close(self):
         if self._pm:
@@ -335,23 +247,23 @@ class NeteaseCloudMusic:
             except Exception as e:
                 logger.debug(f"关闭 session 失败: {e}")
             self._session = None
-        if self._executor:
-            try:
-                self._executor.shutdown(wait=False)
-            except Exception as e:
-                logger.debug(f"关闭 executor 失败: {e}")
-            self._executor = None
-        self._api_cache.clear()
+        self._cache.clear()
         self._cache_order.clear()
+
+    # 内存读取
+
+    def _check_deps(self) -> bool:
+        try:
+            import pymem
+            import psutil
+            return True
+        except ImportError:
+            return False
 
     def _read_memory(self) -> Optional[Dict[str, Any]]:
         if not self._available:
             return None
         try:
-            import pymem
-            import psutil
-            from win32api import GetFileVersionInfo, HIWORD, LOWORD
-
             pid = 0
             if self._pm:
                 try:
@@ -415,9 +327,6 @@ class NeteaseCloudMusic:
             return None
 
     def _find_process(self) -> Tuple[int, str]:
-        import psutil
-        from win32api import GetFileVersionInfo, HIWORD, LOWORD
-
         for proc in psutil.process_iter(attrs=['name', 'pid']):
             if proc.info['name'] and proc.info['name'].lower() == 'cloudmusic.exe':
                 try:
@@ -535,6 +444,26 @@ class NeteaseCloudMusic:
             logger.debug(f"解析窗口标题失败: {e}")
             return "", ""
 
+    def _create_session(self) -> requests.Session:
+        session = requests.Session()
+        adapter = HTTPAdapter(
+            pool_connections=10,
+            pool_maxsize=10,
+            max_retries=Retry(total=3, backoff_factor=0.1)
+        )
+        session.mount('http://', adapter)
+        session.mount('https://', adapter)
+        session.headers.update(self.API_HEADERS)
+        return session
+
+    def _set_cache(self, key: str, value):
+        if len(self._cache) >= 50 and key not in self._cache:
+            self._cache.pop(self._cache_order.pop(0), None)
+        self._cache[key] = value
+        if key in self._cache_order:
+            self._cache_order.remove(key)
+        self._cache_order.append(key)
+
     def _api_wait(self):
         elapsed = time.time() - self._api_last_time
         if elapsed < 0.1:
@@ -553,190 +482,43 @@ class NeteaseCloudMusic:
             logger.debug(f"API请求失败: {endpoint} - {e}")
         return None
 
-    def _search_song(self, keyword: str) -> Optional[int]:
-        data = self._api_get("/cloudsearch", {'keywords': keyword, 'limit': '5', 'type': '1'})
-        songs = data.get('result', {}).get('songs', []) if data else []
-        return songs[0].get('id') if songs else None
+    def _get_detail(self, song_id: str):
+        """按 song_id 查歌曲详情（缓存）"""
+        key = f"detail_{song_id}"
+        if key in self._cache:
+            return self._cache[key]
+        data = self._api_get("/song/detail", {'ids': str(song_id)})
+        if data:
+            songs = data.get('songs', [])
+            if songs:
+                s = songs[0]
+                al = s.get('al', {})
+                detail = SimpleNamespace(
+                    song_id=s.get('id'), name=s.get('name', ''),
+                    artists=[a.get('name', '') for a in s.get('ar', [])],
+                    album_name=al.get('name', ''), cover_url=al.get('picUrl', ''),
+                    duration=s.get('dt', 0)
+                )
+                self._set_cache(key, detail)
+                return detail
+        return None
 
-    def _parse_lrc(self, lrc: str) -> List[LyricLine]:
-        return parse_lrc(lrc)
-
-
-class GSMTCReader:
-    """Windows GSMTC"""
-
-    STATUS_MAP = {}
-
-    def __init__(self):
-        self._manager = None
-        self._initialized = False
-        self._available = self._check_deps()
-        self._loop = None
-        self._had_session = False
-        self._last_media_key: str = ""
-        if self._available:
-            try:
-                from winsdk.windows.media.control import GlobalSystemMediaTransportControlsSessionPlaybackStatus as PlaybackStatus
-                self.STATUS_MAP = {
-                    PlaybackStatus.CLOSED: "closed", PlaybackStatus.OPENED: "opened",
-                    PlaybackStatus.CHANGING: "changing", PlaybackStatus.STOPPED: "stopped",
-                    PlaybackStatus.PLAYING: "playing", PlaybackStatus.PAUSED: "paused",
-                }
-                logger.info("GSMTC: 初始化成功")
-            except Exception as e:
-                logger.warning(f"GSMTC: 初始化失败 {e}")
-
-    def _check_deps(self) -> bool:
+    def _download(self, url: str) -> Optional[bytes]:
         try:
-            from winsdk.windows.media.control import GlobalSystemMediaTransportControlsSessionManager
-            return True
-        except ImportError:
-            return False
-
-    @property
-    def available(self) -> bool:
-        return self._available
-
-    @property
-    def name(self) -> str:
-        return "GSMTC"
-
-    def get_info(self) -> Optional[MediaInfo]:
-        if not self._available:
-            logger.warning("GSMTC: 依赖库 winsdk 未安装")
-            return None
-        try:
-            from winsdk.windows.media.control import GlobalSystemMediaTransportControlsSessionManager as MediaManager
-            import asyncio
-
-            async def _read():
-                try:
-                    if not self._initialized or self._manager is None:
-                        self._manager = await MediaManager.request_async()
-                        self._initialized = True
-
-                    session = self._manager.get_current_session()
-                    if not session:
-                        if self._had_session:
-                            # logger.info("GSMTC: 无活跃媒体会话")
-                            self._had_session = False
-                        return None
-                    if not self._had_session:
-                        # logger.info("GSMTC: 检测到活跃媒体会话")
-                        self._had_session = True
-
-                    info = MediaInfo()
-
-                    try:
-                        app = session.source_app_user_model_id
-                        info.app_name = app.split('.')[-1] if app and '.' in app else app or ""
-                        logger.debug(f"GSMTC: 应用名称={info.app_name}")
-                    except Exception as e:
-                        logger.warning(f"GSMTC: 获取应用名失败 {e}")
-
-                    try:
-                        pb = session.get_playback_info()
-                        if pb:
-                            info.playback_status = self.STATUS_MAP.get(pb.playback_status, "unknown")
-                            info.is_playing = pb.playback_status.value == 4
-                            # logger.debug(f"GSMTC: 播放状态={info.playback_status}, 正在播放={info.is_playing}")
-                    except Exception as e:
-                        logger.warning(f"GSMTC: 获取播放状态失败 {e}")
-
-                    try:
-                        tl = session.get_timeline_properties()
-                        if tl:
-                            info.position_ms = max(0, int(tl.position.total_seconds() * 1000))
-                            info.duration_ms = max(0, int(tl.end_time.total_seconds() * 1000))
-                    except Exception as e:
-                        logger.warning(f"GSMTC: 获取时间线失败 {e}")
-
-                    try:
-                        props = await session.try_get_media_properties_async()
-                        if props:
-                            info.title = props.title or ""
-                            info.artist = props.artist or ""
-                            info.album = props.album_title or ""
-                            info.title_artist = f"{info.title} - {info.artist}" if info.artist else info.title
-                            media_key = f"{info.title}|{info.artist}"
-                            if media_key != self._last_media_key:
-                                self._last_media_key = media_key
-                                # logger.info(f"GSMTC: 获取到媒体信息 - 标题={info.title}, 歌手={info.artist}")
-                            
-                            if hasattr(props, 'thumbnail') and props.thumbnail:
-                                try:
-                                    from winsdk.windows.storage.streams import Buffer, InputStreamOptions
-                                    
-                                    thumb = props.thumbnail
-                                    stream = await thumb.open_read_async()
-                                    if stream and 0 < stream.size < 10 * 1024 * 1024:
-                                        buf = Buffer(stream.size)
-                                        await stream.read_async(buf, buf.capacity, InputStreamOptions.READ_AHEAD)
-                                        info.thumbnail_data = bytes(buf)
-                                    elif stream:
-                                        logger.warning(f"GSMTC: 缩略图大小异常: {stream.size} bytes")
-                                    else:
-                                        logger.warning("GSMTC: 无法打开缩略图流")
-                                except Exception as e:
-                                    logger.warning(f"GSMTC: 读取缩略图失败: {type(e).__name__}: {e}")
-                            else:
-                                logger.debug("GSMTC: 媒体源未提供缩略图")
-                    except Exception as e:
-                        logger.warning(f"GSMTC: 获取媒体属性失败 {e}")
-
-                    return info
-
-                except Exception as e:
-                    logger.error(f"GSMTC: 读取过程出错 {e}")
-                    return None
-
-            try:
-                if self._loop is None or self._loop.is_closed():
-                    self._loop = asyncio.new_event_loop()
-                    # asyncio.set_event_loop(self._loop)
-
-                result = self._loop.run_until_complete(_read())
-                return result
-            except RuntimeError as e:
-                logger.warning(f"GSMTC: 事件循环错误: {e}")
-                if self._loop and not self._loop.is_closed():
-                    self._loop.close()
-                self._loop = asyncio.new_event_loop()
-                # asyncio.set_event_loop(self._loop)
-                result = self._loop.run_until_complete(_read())
-                return result
-            except Exception as e:
-                logger.error(f"GSMTC: 执行失败 {e}")
-                return None
-
+            resp = self._session.get(url, timeout=8)
+            if resp.status_code == 200 and 'image' in resp.headers.get('Content-Type', ''):
+                data = resp.content
+                if 1024 < len(data) < 10 * 1024 * 1024:
+                    return data
         except Exception as e:
-            logger.error(f"GSMTC读取失败: {e}")
-            return None
-
-    def get_detail(self, song_id: int) -> Optional[SongDetail]:
+            logger.debug(f"获取封面失败: {e}")
         return None
 
-    def get_lyrics(self, song_id: int) -> Optional[Lyrics]:
-        return None
 
-    def get_cover(self, url: str) -> Optional[bytes]:
-        return None
+class KugouMusic:
+    """酷狗音乐源"""
 
-    def fetch_all(self, song_name: str, artist: str = "") -> Dict[str, Any]:
-        return {'song_id': None, 'detail': None, 'lyrics': None, 'cover': None}
-
-    def close(self):
-        if self._loop and not self._loop.is_closed():
-            try:
-                self._loop.close()
-            except Exception as e:
-                logger.debug(f"关闭事件循环失败: {e}")
-        self._manager = None
-        self._initialized = False
-
-
-class KugouMemoryReader:
-    """酷狗音乐：窗口标题 时间模拟"""
+    name = "KugouMusic"
 
     def __init__(self):
         self._available = True
@@ -745,19 +527,20 @@ class KugouMemoryReader:
         self._paused_time = 0.0
         self._pause_start = 0.0
         self._was_playing = True
-        self._duration_cache = {}
-        import ctypes
+        self._duration_cache: Dict[str, int] = {}
+        self._lyric_cache: Dict[str, Lyrics] = {}
+        self._cover_cache: Dict[str, bytes] = {}
+        self._session = requests.Session()
+        self._session.headers.update({'User-Agent': DEFAULT_USER_AGENT})
         self._user32 = ctypes.windll.user32
 
     @property
     def available(self) -> bool:
         return self._available
 
-    @property
-    def name(self) -> str:
-        return "KugouMemory"
 
-    def get_info(self) -> Optional[MediaInfo]:
+    def read(self) -> Optional[MediaInfo]:
+        """窗口标题模拟播放进度"""
         try:
             title, artist = self._parse_window_title()
             if not title:
@@ -773,15 +556,13 @@ class KugouMemoryReader:
                 self._pause_start = 0.0
                 self._was_playing = True
 
-            # 酷狗没法获取播放进度 没法监测暂停
+            # 酷狗无法获取真实播放进度/暂停，恒为播放中
             is_playing = True
 
-            dur_ms = self._get_duration(title, artist)
+            dur_ms = self.duration_from_title(title, artist)
 
-            # 就is_playing 一直为 True 模拟播放进度
             elapsed = now - self._song_start_time - self._paused_time
             position_ms = int(max(0, elapsed) * 1000)
-
             if dur_ms > 0 and position_ms > dur_ms:
                 position_ms = dur_ms
 
@@ -798,10 +579,121 @@ class KugouMemoryReader:
             logger.debug(f"酷狗读取失败: {e}")
             return None
 
+    def lyrics(self, media: MediaInfo) -> Optional[Lyrics]:
+        """按标题/歌手补全歌词"""
+        if not media:
+            return None
+        key = f"{media.title} - {media.artist}"
+        if key in self._lyric_cache:
+            return self._lyric_cache[key]
+        try:
+            dur = media.duration_ms or self.duration_from_title(media.title, media.artist)
+            keyword = f"{media.artist} - {media.title}"
+            search_url = (f"http://lyrics.kugou.com/search?"
+                          f"ver=1&man=yes&client=pc&keyword={keyword}"
+                          f"&duration={dur}&hash=")
+            resp = self._session.get(search_url, timeout=5)
+            if resp.status_code != 200:
+                return None
+            data = resp.json()
+            candidates = data.get('candidates', [])
+            if not candidates:
+                return None
+            c = candidates[0]
+            lyric_id = c.get('id')
+            accesskey = c.get('accesskey')
+            if not lyric_id or not accesskey:
+                return None
+            dl_url = (f"http://lyrics.kugou.com/download?"
+                      f"ver=1&client=pc&id={lyric_id}&accesskey={accesskey}&fmt=lrc&charset=utf8")
+            dl_resp = self._session.get(dl_url, timeout=5)
+            if dl_resp.status_code != 200:
+                return None
+            dl_data = dl_resp.json()
+            content_b64 = dl_data.get('content', '')
+            if not content_b64:
+                return None
+            lrc_text = base64.b64decode(content_b64).decode('utf-8', errors='ignore').strip()
+            if not lrc_text or len(lrc_text) < 10:
+                return None
+            lines = parse_lrc(lrc_text)
+            if not lines:
+                return None
+            ly = Lyrics(lines=lines, raw_lrc=lrc_text, song_id=0)
+            self._lyric_cache[key] = ly
+            return ly
+        except Exception as e:
+            logger.debug(f"酷狗歌词获取失败: {e}")
+            return None
+
+    def cover(self, media: MediaInfo) -> Optional[bytes]:
+        """按标题/歌手搜索封面"""
+        if not media:
+            return None
+        key = f"{media.title} - {media.artist}"
+        if key in self._cover_cache:
+            return self._cover_cache[key]
+        try:
+            lists = self._search(media.title, media.artist)
+            if lists:
+                cover_url = lists[0].get('Image', '').replace('/{size}', '')
+                if cover_url:
+                    cr = self._session.get(cover_url, timeout=8,
+                                           headers={'Referer': 'http://www.kugou.com/'})
+                    if cr.status_code == 200 and 1024 < len(cr.content) < 10 * 1024 * 1024:
+                        self._cover_cache[key] = cr.content
+                        return cr.content
+        except Exception as e:
+            logger.debug(f"酷狗封面获取失败: {e}")
+        return None
+
+    def duration(self, media: MediaInfo) -> int:
+        """补全时长（ms）"""
+        if media and media.duration_ms > 0:
+            return media.duration_ms
+        if media:
+            return self.duration_from_title(media.title, media.artist)
+        return 0
+
+    def control(self, action: str) -> bool:
+        return False
+
+    def close(self):
+        try:
+            self._session.close()
+        except Exception:
+            pass
+
+    def duration_from_title(self, title: str, artist: str) -> int:
+        """按标题/歌手搜索时长（ms，缓存）"""
+        cache_key = f"{title} - {artist}"
+        if cache_key in self._duration_cache:
+            return self._duration_cache[cache_key]
+        try:
+            lists = self._search(title, artist)
+            if lists:
+                dur_ms = int(lists[0].get('Duration', 0)) * 1000
+                self._duration_cache[cache_key] = dur_ms
+                return dur_ms
+        except Exception as e:
+            logger.debug(f"获取酷狗时长失败: {e}")
+        return 0
+
+    def _search(self, title: str, artist: str) -> list:
+        keyword = f"{title} {artist}"
+        url = f"http://songsearch.kugou.com/song_search_v2?keyword={keyword}&platform=WebFilter&format=json&page=1&pagesize=1"
+        resp = self._session.get(url, timeout=5)
+        if resp.status_code == 200:
+            data = resp.json()
+            if data.get('error_code') == 0:
+                return data.get('data', {}).get('lists', [])
+        return []
+
     def _parse_window_title(self) -> Tuple[str, str]:
         try:
             results = []
             WNDENUMPROC = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.wintypes.HWND, ctypes.wintypes.LPARAM)
+
             def cb(h, _):
                 cls_buf = ctypes.create_unicode_buffer(256)
                 self._user32.GetClassNameW(h, cls_buf, 256)
@@ -813,6 +705,7 @@ class KugouMemoryReader:
                     if t and ' - 酷狗音乐' in t and '桌面歌词' not in t:
                         results.append(t)
                 return True
+
             self._user32.EnumWindows(WNDENUMPROC(cb), 0)
             if results:
                 return self._fix_kugou_title(results[0])
@@ -839,250 +732,38 @@ class KugouMemoryReader:
                 return sub_parts[1].strip(), sub_parts[0].strip()
         return left, right
 
-    def _get_duration(self, title: str, artist: str) -> int:
-        cache_key = f"{title} - {artist}"
-        if cache_key in self._duration_cache:
-            return self._duration_cache[cache_key]
-        try:
-            keyword = f"{title} {artist}"
-            url = f"http://songsearch.kugou.com/song_search_v2?keyword={keyword}&platform=WebFilter&format=json&page=1&pagesize=1"
-            resp = requests.get(url, timeout=5,
-                                headers={'User-Agent': DEFAULT_USER_AGENT})  # 'Mozilla/5.0'
-            if resp.status_code == 200:
-                data = resp.json()
-                if data.get('error_code') == 0:
-                    lists = data.get('data', {}).get('lists', [])
-                    if lists:
-                        dur = lists[0].get('Duration', 0)
-                        dur_ms = int(dur) * 1000
-                        self._duration_cache[cache_key] = dur_ms
-                        return dur_ms
-        except Exception as e:
-            logger.debug(f"获取酷狗时长失败: {e}")
-        return 0
 
-    def get_lyrics(self, title: str, artist: str, duration_ms: int = 0):
-        import base64
-        cache_key = f"kg_lyric_{title} - {artist}"
-        if cache_key in self._duration_cache and isinstance(self._duration_cache.get(cache_key), Lyrics):
-            return self._duration_cache[cache_key]
-        try:
-            keyword = f"{artist} - {title}"
-            search_url = (f"http://lyrics.kugou.com/search?"
-                          f"ver=1&man=yes&client=pc&keyword={keyword}"
-                          f"&duration={duration_ms}&hash=")
-            resp = requests.get(search_url, timeout=5,
-                                headers={'User-Agent': DEFAULT_USER_AGENT})
-            if resp.status_code != 200:
-                return None
-            data = resp.json()
-            candidates = data.get('candidates', [])
-            if not candidates:
-                return None
-            c = candidates[0]
-            lyric_id = c.get('id')
-            accesskey = c.get('accesskey')
-            if not lyric_id or not accesskey:
-                return None
-            dl_url = (f"http://lyrics.kugou.com/download?"
-                     f"ver=1&client=pc&id={lyric_id}&accesskey={accesskey}&fmt=lrc&charset=utf8")
-            dl_resp = requests.get(dl_url, timeout=5,
-                                   headers={'User-Agent': DEFAULT_USER_AGENT})
-            if dl_resp.status_code != 200:
-                return None
-            dl_data = dl_resp.json()
-            content_b64 = dl_data.get('content', '')
-            if not content_b64:
-                return None
-            lrc_text = base64.b64decode(content_b64).decode('utf-8', errors='ignore').strip()
-            if not lrc_text or len(lrc_text) < 10:
-                return None
-            lines = self._parse_lrc(lrc_text)
-            if not lines:
-                return None
-            lyrics = Lyrics(lines=lines, raw_lrc=lrc_text, song_id=0)
-            self._duration_cache[cache_key] = lyrics
-            return lyrics
-        except Exception as e:
-            logger.debug(f"酷狗歌词获取失败: {e}")
-            return None
+class QQMusic:
+    """QQ音乐源"""
 
-    def get_cover(self, title: str, artist: str):
-        cache_key = f"kg_cover_{title} - {artist}"
-        if cache_key in self._duration_cache and isinstance(self._duration_cache.get(cache_key), bytes):
-            return self._duration_cache[cache_key]
-        try:
-            keyword = f"{title} {artist}"
-            url = f"http://songsearch.kugou.com/song_search_v2?keyword={keyword}&platform=WebFilter&format=json&page=1&pagesize=1"
-            resp = requests.get(url, timeout=5,
-                                headers={'User-Agent': DEFAULT_USER_AGENT})  # 'Mozilla/5.0'
-            if resp.status_code == 200:
-                data = resp.json()
-                if data.get('error_code') == 0:
-                    lists = data.get('data', {}).get('lists', [])
-                    if lists:
-                        cover_url = lists[0].get('Image', '').replace('/{size}', '')
-                        if cover_url:
-                            cr = requests.get(cover_url, timeout=8,
-                                             headers={'User-Agent': DEFAULT_USER_AGENT,  # 'Mozilla/5.0'
-                                                      'Referer': 'http://www.kugou.com/'})
-                            if cr.status_code == 200 and 1024 < len(cr.content) < 10 * 1024 * 1024:
-                                self._duration_cache[cache_key] = cr.content
-                                return cr.content
-        except Exception as e:
-            logger.debug(f"酷狗封面获取失败: {e}")
-        return None
-
-    @staticmethod
-    def _parse_lrc(lrc: str):
-        return parse_lrc(lrc)
-
-    def get_detail(self, song_id): return None
-
-    def fetch_all(self, song_name, artist=""):
-        result = {'song_id': None, 'detail': None, 'lyrics': None, 'cover': None}
-        dur = self._get_duration(song_name, artist)
-        if dur > 0:
-            result['detail'] = type('obj', (object,), {'duration': dur})()
-        lyrics = self.get_lyrics(song_name, artist, dur)
-        if lyrics:
-            result['lyrics'] = lyrics
-        cover = self.get_cover(song_name, artist)
-        if cover:
-            result['cover'] = cover
-        return result
-
-    def close(self):
-        pass
-
-
-class QQMusicReader:
-    """QQ音乐"""
+    name = "QQMusic"
 
     def __init__(self):
         self._available = self._check_deps()
         self._manager = None
         self._initialized = False
-        self._last_title_artist = ""
-        self._duration_cache = {}
         self._qq_hwnd = None
         self._uia_ready = False
         self._uia_attempted = False
+        self._uia_lib = None
         self._loop = None
-        import ctypes
+        self._duration_cache: Dict[str, int] = {}
+        self._lyric_cache: Dict[str, Lyrics] = {}
+        self._session = requests.Session()
+        self._session.headers.update({'User-Agent': DEFAULT_USER_AGENT})
         self._user32 = ctypes.windll.user32
-
-    def _find_qq_hwnd(self):
-        WNDENUMPROC = ctypes.WINFUNCTYPE(ctypes.c_bool, wintypes.HWND, wintypes.LPARAM)
-        best = [None, 0]
-        def cb(h, _):
-            cls_buf = ctypes.create_unicode_buffer(256)
-            title_buf = ctypes.create_unicode_buffer(512)
-            self._user32.GetClassNameW(h, cls_buf, 256)
-            self._user32.GetWindowTextW(h, title_buf, 512)
-            t = title_buf.value.strip()
-            cn = cls_buf.value.lower()
-            if 'qq' in t.lower() or ('txgui' in cn and 'qq' in t.lower()):
-                rc = wintypes.RECT()
-                self._user32.GetWindowRect(h, ctypes.byref(rc))
-                area = (rc.right - rc.left) * (rc.bottom - rc.top)
-                if area > best[1]:
-                    best = [h, area]
-            return True
-        self._user32.EnumWindows(WNDENUMPROC(cb), 0)
-        hwnd = best[0]
-        if hwnd:
-            rc = wintypes.RECT()
-            self._user32.GetWindowRect(hwnd, ctypes.byref(rc))
-            if (rc.right - rc.left) > 500 and (rc.bottom - rc.top) > 300:
-                return hwnd
-        return None
-
-    def _read_uia_progress(self):
-        import re
-        time_re = re.compile(r'^(\d{1,2}):(\d{2})$')
-        
-        if not self._uia_attempted:
-            self._uia_attempted = True
-            try:
-                import uiautomation as auto
-                self._uia_lib = auto
-            except ImportError:
-                return -1, 0
-        
-        if not self._uia_ready or not self._qq_hwnd:
-            hwnd = self._find_qq_hwnd()
-            if not hwnd:
-                return -1, 0
-            try:
-                win = self._uia_lib.ControlFromHandle(hwnd)
-                self._qq_win = win
-                self._qq_hwnd = hwnd
-                self._uia_ready = True
-            except Exception as e:
-                logger.debug(f"UIA控件获取失败: {e}")
-                return -1, 0
-        
-        try:
-            results = []
-            def scan(ctrl, depth=0):
-                try:
-                    n = ctrl.Name or ""
-                    if time_re.match(n.strip()) and getattr(ctrl, 'ControlTypeName', '') == "TextControl":
-                        r = ctrl.BoundingRectangle
-                        results.append((n.strip(), r.left))
-                    for child in ctrl.GetChildren():
-                        scan(child, depth + 1)
-                except Exception as e:
-                    logger.debug(f"UIA遍历控件失败: {e}")
-
-            scan(self._qq_win, 0)
-            
-            if len(results) >= 2:
-                results.sort(key=lambda x: x[1])
-                pos_str = results[0][0]
-                dur_str = results[1][0]
-                
-                m1 = time_re.match(pos_str)
-                m2 = time_re.match(dur_str)
-                if m1 and m2:
-                    pos_s = int(m1.group(1)) * 60 + int(m1.group(2))
-                    dur_s = int(m2.group(1)) * 60 + int(m2.group(2))
-                    return pos_s * 1000, dur_s * 1000
-            elif len(results) == 1:
-                m = time_re.match(results[0][0])
-                if m:
-                    pos_s = int(m.group(1)) * 60 + int(m.group(2))
-                    return pos_s * 1000, 0
-            
-            return -1, 0
-        except Exception as e:
-            logger.debug(f"UIA获取播放进度失败: {e}")
-            self._uia_ready = False
-            return -1, 0
-
-    def _check_deps(self) -> bool:
-        try:
-            from winsdk.windows.media.control import GlobalSystemMediaTransportControlsSessionManager
-            return True
-        except ImportError:
-            return False
 
     @property
     def available(self) -> bool:
         return self._available
 
-    @property
-    def name(self) -> str:
-        return "QQMusic"
-
-    def get_info(self) -> Optional[MediaInfo]:
+    def read(self) -> Optional[MediaInfo]:
+        """SMTC 会话 + UIA 读真实进度"""
         if not self._available:
             return None
         try:
             from winsdk.windows.media.control import (
                 GlobalSystemMediaTransportControlsSessionManager as MediaManager,
-                GlobalSystemMediaTransportControlsSessionPlaybackStatus as PlaybackStatus
             )
             import asyncio
 
@@ -1121,11 +802,7 @@ class QQMusicReader:
                     if dur_ms <= 0:
                         dur_ms = self._get_duration(title, artist)
 
-                    if uia_pos_ms >= 0:
-                        position_ms = uia_pos_ms
-                    else:
-                        position_ms = 0
-
+                    position_ms = uia_pos_ms if uia_pos_ms >= 0 else 0
                     if dur_ms > 0 and position_ms > dur_ms:
                         position_ms = dur_ms
 
@@ -1152,16 +829,13 @@ class QQMusicReader:
                             logger.debug(f"QQMusic: 获取封面失败: {e}")
 
                     return info
-
                 return None
 
             try:
                 if self._loop is None or self._loop.is_closed():
                     self._loop = asyncio.new_event_loop()
                     asyncio.set_event_loop(self._loop)
-
-                result = self._loop.run_until_complete(_read())
-                return result
+                return self._loop.run_until_complete(_read())
             except RuntimeError:
                 self._loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(self._loop)
@@ -1171,18 +845,20 @@ class QQMusicReader:
             logger.debug(f"QQ音乐读取失败: {e}")
             return None
 
-    def get_lyrics(self, title: str, artist: str, duration_ms: int = 0):
-        cache_key = f"qq_lyric_{title} - {artist}"
-        if cache_key in self._duration_cache and isinstance(self._duration_cache.get(cache_key), Lyrics):
-            return self._duration_cache[cache_key]
+    def lyrics(self, media: MediaInfo) -> Optional[Lyrics]:
+        """按标题/歌手补全歌词"""
+        if not media:
+            return None
+        key = f"{media.title} - {media.artist}"
+        if key in self._lyric_cache:
+            return self._lyric_cache[key]
         try:
-            keyword = f"{artist} - {title}"
+            keyword = f"{media.artist} - {media.title}"
             url = (f"https://c.y.qq.com/lyric/fcgi-bin/fcg_query_lyric_y.fcg?"
                    f"songmid=&g_tk=5381&format=json&incharset=utf8&outcharset=utf-8"
                    f"&nobase64=0&keyword={keyword}")
-            resp = requests.get(url, timeout=5,
-                                headers={'User-Agent': DEFAULT_USER_AGENT,
-                                         'Referer': 'https://y.qq.com/'})
+            resp = self._session.get(url, timeout=5,
+                                     headers={'Referer': 'https://y.qq.com/'})
             if resp.status_code != 200:
                 return None
             data = resp.json()
@@ -1191,14 +867,139 @@ class QQMusicReader:
                 return None
             lines = parse_lrc(lyric_str)
             if lines:
-                lyrics = Lyrics(lines=lines, raw_lrc=lyric_str, song_id=0)
-                self._duration_cache[cache_key] = lyrics
-                return lyrics
+                ly = Lyrics(lines=lines, raw_lrc=lyric_str, song_id=0)
+                self._lyric_cache[key] = ly
+                return ly
         except Exception as e:
             logger.debug(f"解析QQ音乐歌词失败: {e}")
         return None
 
+    def cover(self, media: MediaInfo) -> Optional[bytes]:
+        return None
+
+    def duration(self, media: MediaInfo) -> int:
+        """补全时长（ms）"""
+        if media and media.duration_ms > 0:
+            return media.duration_ms
+        if media:
+            return self._get_duration(media.title, media.artist)
+        return 0
+
+    def control(self, action: str) -> bool:
+        return False
+
+    def close(self):
+        if self._loop and not self._loop.is_closed():
+            try:
+                self._loop.close()
+            except Exception as e:
+                logger.debug(f"关闭事件循环失败: {e}")
+        try:
+            self._session.close()
+        except Exception:
+            pass
+        self._manager = None
+        self._initialized = False
+
+    def _check_deps(self) -> bool:
+        try:
+            from winsdk.windows.media.control import GlobalSystemMediaTransportControlsSessionManager
+            return True
+        except ImportError:
+            return False
+
+    def _find_qq_hwnd(self):
+        WNDENUMPROC = ctypes.WINFUNCTYPE(ctypes.c_bool, wintypes.HWND, wintypes.LPARAM)
+        best = [None, 0]
+
+        def cb(h, _):
+            cls_buf = ctypes.create_unicode_buffer(256)
+            title_buf = ctypes.create_unicode_buffer(512)
+            self._user32.GetClassNameW(h, cls_buf, 256)
+            self._user32.GetWindowTextW(h, title_buf, 512)
+            t = title_buf.value.strip()
+            cn = cls_buf.value.lower()
+            if 'qq' in t.lower() or ('txgui' in cn and 'qq' in t.lower()):
+                rc = wintypes.RECT()
+                self._user32.GetWindowRect(h, ctypes.byref(rc))
+                area = (rc.right - rc.left) * (rc.bottom - rc.top)
+                if area > best[1]:
+                    best = [h, area]
+            return True
+
+        self._user32.EnumWindows(WNDENUMPROC(cb), 0)
+        hwnd = best[0]
+        if hwnd:
+            rc = wintypes.RECT()
+            self._user32.GetWindowRect(hwnd, ctypes.byref(rc))
+            if (rc.right - rc.left) > 500 and (rc.bottom - rc.top) > 300:
+                return hwnd
+        return None
+
+    def _read_uia_progress(self):
+        time_re = re.compile(r'^(\d{1,2}):(\d{2})$')
+
+        if not self._uia_attempted:
+            self._uia_attempted = True
+            try:
+                import uiautomation as auto
+                self._uia_lib = auto
+            except ImportError:
+                return -1, 0
+
+        if not self._uia_ready or not self._qq_hwnd:
+            hwnd = self._find_qq_hwnd()
+            if not hwnd:
+                return -1, 0
+            try:
+                win = self._uia_lib.ControlFromHandle(hwnd)
+                self._qq_win = win
+                self._qq_hwnd = hwnd
+                self._uia_ready = True
+            except Exception as e:
+                logger.debug(f"UIA控件获取失败: {e}")
+                return -1, 0
+
+        try:
+            results = []
+
+            def scan(ctrl, depth=0):
+                try:
+                    n = ctrl.Name or ""
+                    if time_re.match(n.strip()) and getattr(ctrl, 'ControlTypeName', '') == "TextControl":
+                        r = ctrl.BoundingRectangle
+                        results.append((n.strip(), r.left))
+                    for child in ctrl.GetChildren():
+                        scan(child, depth + 1)
+                except Exception as e:
+                    logger.debug(f"UIA遍历控件失败: {e}")
+
+            scan(self._qq_win, 0)
+
+            if len(results) >= 2:
+                results.sort(key=lambda x: x[1])
+                pos_str = results[0][0]
+                dur_str = results[1][0]
+                m1 = time_re.match(pos_str)
+                m2 = time_re.match(dur_str)
+                if m1 and m2:
+                    pos_s = int(m1.group(1)) * 60 + int(m1.group(2))
+                    dur_s = int(m2.group(1)) * 60 + int(m2.group(2))
+                    return pos_s * 1000, dur_s * 1000
+            elif len(results) == 1:
+                m = time_re.match(results[0][0])
+                if m:
+                    pos_s = int(m.group(1)) * 60 + int(m.group(2))
+                    return pos_s * 1000, 0
+
+            return -1, 0
+        except Exception as e:
+            logger.debug(f"UIA获取播放进度失败: {e}")
+            self._uia_ready = False
+            return -1, 0
+
     def _get_duration(self, title: str, artist: str) -> int:
+        """按标题/歌手搜索时长（ms，缓存）"""
         cache_key = f"{title} - {artist}"
         if cache_key in self._duration_cache:
             return self._duration_cache[cache_key]
@@ -1207,112 +1008,278 @@ class QQMusicReader:
             url = (f"https://c.y.qq.com/soso/fcgi-bin/client_search_cp?"
                    f"cr=1&new_json=1&format=json&aggr=1&lossless=0"
                    f"&n=1&w={keyword}")
-            resp = requests.get(url, timeout=5,
-                                headers={'User-Agent': DEFAULT_USER_AGENT,
-                                         'Referer': 'https://y.qq.com/'})
+            resp = self._session.get(url, timeout=5,
+                                     headers={'Referer': 'https://y.qq.com/'})
             if resp.status_code != 200:
                 return 0
             data = resp.json()
             song_list = data.get('data', {}).get('song', {}).get('list', [])
             if song_list:
-                dur = int(song_list[0].get('interval', 0))
-                dur_ms = dur * 1000
+                dur_ms = int(song_list[0].get('interval', 0)) * 1000
                 self._duration_cache[cache_key] = dur_ms
                 return dur_ms
         except Exception as e:
             logger.debug(f"获取QQ音乐时长失败: {e}")
         return 0
 
-    def get_cover(self, title: str, artist: str):
-        return None
 
-    def get_detail(self, song_id): return None
+class GsmTc:
+    """Windows SMTC 源"""
 
-    def fetch_all(self, song_name, artist=""):
-        result = {'song_id': None, 'detail': None, 'lyrics': None, 'cover': None}
-        lyrics = self.get_lyrics(song_name, artist)
-        if lyrics:
-            result['lyrics'] = lyrics
-        return result
-
-    def close(self):
-        pass
-
-
-class MediaProvider:
-    """调度器"""
+    name = "GSMTC"
+    STATUS_MAP = {}
 
     def __init__(self):
-        self._sources = [
-            NeteaseCloudMusic(),
-            QQMusicReader(),
-            KugouMemoryReader(),
-            GSMTCReader(),
-        ]
-        self._last_media_key: str = ""
+        self._manager = None
+        self._initialized = False
+        self._available = self._check_deps()
+        self._loop = None
+        self._loop_lock = threading.Lock()
+        self._had_session = False
+        self._last_media_key = ""
+        if self._available:
+            try:
+                from winsdk.windows.media.control import GlobalSystemMediaTransportControlsSessionPlaybackStatus as PlaybackStatus
+                self.STATUS_MAP = {
+                    PlaybackStatus.CLOSED: "closed", PlaybackStatus.OPENED: "opened",
+                    PlaybackStatus.CHANGING: "changing", PlaybackStatus.STOPPED: "stopped",
+                    PlaybackStatus.PLAYING: "playing", PlaybackStatus.PAUSED: "paused",
+                }
+                logger.info("GSMTC: 初始化成功")
+            except Exception as e:
+                logger.warning(f"GSMTC: 初始化失败 {e}")
 
-    def get_info(self) -> Optional[MediaInfo]:
-        for i, source in enumerate(self._sources):
-            if source.available:
+    @property
+    def available(self) -> bool:
+        return self._available
+
+
+    def read(self) -> Optional[MediaInfo]:
+        """读取当前 SMTC 会话"""
+        try:
+            from winsdk.windows.media.control import GlobalSystemMediaTransportControlsSessionManager as MediaManager
+            import asyncio
+
+            async def _read():
                 try:
-                    info = source.get_info()
-                    if info and info.is_valid():
-                        media_key = f"{info.title}|{info.artist}"
-                        if media_key != self._last_media_key:
-                            self._last_media_key = media_key
-                            # logger.info(f"媒体源 [{i}] {source.name}: 成功获取媒体信息 - {info.title} - {info.artist}")
-                        return info
-                    else:
-                        logger.debug(f"媒体源 [{i}] {source.name}: 无效信息")
+                    if not self._initialized or self._manager is None:
+                        self._manager = await MediaManager.request_async()
+                        self._initialized = True
+
+                    session = self._manager.get_current_session()
+                    if not session:
+                        self._had_session = False
+                        return None
+                    self._had_session = True
+
+                    info = MediaInfo()
+
+                    try:
+                        app = session.source_app_user_model_id
+                        info.app_name = app.split('.')[-1] if app and '.' in app else app or ""
+                        logger.debug(f"GSMTC: 应用名称={info.app_name}")
+                    except Exception as e:
+                        logger.warning(f"GSMTC: 获取应用名失败 {e}")
+
+                    try:
+                        pb = session.get_playback_info()
+                        if pb:
+                            info.playback_status = self.STATUS_MAP.get(pb.playback_status, "unknown")
+                            info.is_playing = pb.playback_status.value == 4
+                    except Exception as e:
+                        logger.warning(f"GSMTC: 获取播放状态失败 {e}")
+
+                    try:
+                        tl = session.get_timeline_properties()
+                        if tl:
+                            info.position_ms = max(0, int(tl.position.total_seconds() * 1000))
+                            info.duration_ms = max(0, int(tl.end_time.total_seconds() * 1000))
+                    except Exception as e:
+                        logger.warning(f"GSMTC: 获取时间线失败 {e}")
+
+                    try:
+                        props = await session.try_get_media_properties_async()
+                        if props:
+                            info.title = props.title or ""
+                            info.artist = props.artist or ""
+                            info.album = props.album_title or ""
+                            info.title_artist = f"{info.title} - {info.artist}" if info.artist else info.title
+
+                            if hasattr(props, 'thumbnail') and props.thumbnail:
+                                try:
+                                    from winsdk.windows.storage.streams import Buffer, InputStreamOptions
+                                    stream = await props.thumbnail.open_read_async()
+                                    if stream and 0 < stream.size < 10 * 1024 * 1024:
+                                        buf = Buffer(stream.size)
+                                        await stream.read_async(buf, buf.capacity, InputStreamOptions.READ_AHEAD)
+                                        info.thumbnail_data = bytes(buf)
+                                except Exception as e:
+                                    logger.warning(f"GSMTC: 读取缩略图失败: {type(e).__name__}: {e}")
+                    except Exception as e:
+                        logger.warning(f"GSMTC: 获取媒体属性失败 {e}")
+
+                    return info
+
                 except Exception as e:
-                    logger.error(f"媒体源 [{i}] {source.name}: 执行异常 {e}")
+                    logger.error(f"GSMTC: 读取过程出错 {e}")
+                    return None
+
+            with self._loop_lock:
+                try:
+                    if self._loop is None or self._loop.is_closed():
+                        self._loop = asyncio.new_event_loop()
+                    return self._loop.run_until_complete(_read())
+                except RuntimeError as e:
+                    logger.warning(f"GSMTC: 事件循环错误: {e}")
+                    if self._loop and not self._loop.is_closed():
+                        self._loop.close()
+                    self._loop = asyncio.new_event_loop()
+                    return self._loop.run_until_complete(_read())
+                except Exception as e:
+                    logger.error(f"GSMTC: 执行失败 {e}")
+                    return None
+
+        except Exception as e:
+            logger.error(f"GSMTC读取失败: {e}")
+            return None
+
+    def lyrics(self, media: MediaInfo) -> Optional[Lyrics]:
         return None
 
-    def get_source(self, name: str):
-        for source in self._sources:
-            if source.name == name:
-                return source
+    def cover(self, media: MediaInfo) -> Optional[bytes]:
         return None
 
-    def add_source(self, source):
-        self._sources.insert(0, source)
+    def duration(self, media: MediaInfo) -> int:
+        return 0
+
+    def control(self, action: str) -> bool:
+        """发送播放控制命令 (action: play/pause/next/prev)"""
+        if not self._available:
+            return False
+        try:
+            from winsdk.windows.media.control import GlobalSystemMediaTransportControlsSessionManager as MediaManager
+            import asyncio
+
+            async def _exec():
+                if not self._initialized or self._manager is None:
+                    self._manager = await MediaManager.request_async()
+                    self._initialized = True
+                session = self._manager.get_current_session()
+                if not session:
+                    return False
+                if action == "play":
+                    return await session.try_play_async()
+                elif action == "pause":
+                    return await session.try_pause_async()
+                elif action == "next":
+                    return await session.try_skip_next_async()
+                elif action == "prev":
+                    return await session.try_skip_previous_async()
+                return False
+
+            with self._loop_lock:
+                if self._loop is None or self._loop.is_closed():
+                    self._loop = asyncio.new_event_loop()
+                return self._loop.run_until_complete(_exec())
+        except Exception as e:
+            logger.warning(f"GSMTC: 控制命令失败 {action}: {e}")
+            return False
+
+    def play_pause(self) -> bool:
+        """切换播放/暂停"""
+        try:
+            info = self.read()
+            if info and info.is_playing:
+                return self.control("pause")
+            return self.control("play")
+        except Exception:
+            return self.control("play")
+
+    def next_track(self) -> bool:
+        return self.control("next")
+
+    def prev_track(self) -> bool:
+        return self.control("prev")
 
     def close(self):
-        for source in self._sources:
-            source.close()
+        if self._loop and not self._loop.is_closed():
+            try:
+                self._loop.close()
+            except Exception as e:
+                logger.debug(f"关闭事件循环失败: {e}")
+        self._manager = None
+        self._initialized = False
+
+    def _check_deps(self) -> bool:
+        try:
+            from winsdk.windows.media.control import GlobalSystemMediaTransportControlsSessionManager
+            return True
+        except ImportError:
+            return False
 
 
-# _provider = MediaProvider()
-_provider: Optional[MediaProvider] = None
-
-def _get_provider() -> MediaProvider:
-    global _provider
-    if _provider is None:
-        _provider = MediaProvider()
-    return _provider
+_netease = NeteaseCloudMusic()
+_qq = QQMusic()
+_kugou = KugouMusic()
+_gsmtc = GsmTc()
+_SERVICES = (_netease, _qq, _kugou, _gsmtc)
 
 
 def get_media_info() -> Optional[MediaInfo]:
-    return _get_provider().get_info()
+    for s in _SERVICES:
+        if s.available:
+            try:
+                info = s.read()
+                if info and info.is_valid():
+                    return info
+            except Exception as e:
+                logger.error(f"媒体源 [{s.name}] 读取异常: {e}")
+    return None
+
+
+def get_service(app_name: str):
+    """切到对应源"""
+    al = (app_name or "").lower()
+    if "kugou" in al:
+        return _kugou
+    if "qqmusic" in al or al in ("qq音乐", "qq音乐播放器"):
+        return _qq
+    if "netease" in al or "cloudmusic" in al:
+        return _netease
+    for s in _SERVICES:
+        if s.name.lower() == al:
+            return s
+    return _gsmtc
+
 
 def get_netease() -> NeteaseCloudMusic:
-    return _get_provider().get_source("NeteaseCloudMusic")
+    return _netease
 
-def get_gstmtc() -> GSMTCReader:
-    return _get_provider().get_source("GSMTC")
 
-def fetch_all_info(song_name: str, artist: str = "") -> Dict[str, Any]:
-    provider = _get_provider()
-    kg = provider.get_source("KugouMemory")
-    if kg and kg.available:
-        result = kg.fetch_all(song_name, artist)
-        if result.get('lyrics') or result.get('cover'):
-            return result
-    ncm = get_netease()
-    if ncm:
-        return ncm.fetch_all(song_name, artist)
-    return {'song_id': None, 'detail': None, 'lyrics': None, 'cover': None}
+def get_gstmtc() -> GsmTc:
+    return _gsmtc
+
+
+def media_play_pause() -> bool:
+    return _gsmtc.play_pause()
+
+
+def media_control(action: str) -> bool:
+    """向当前 SMTC 会话发送控制命令（play/pause/next/prev）"""
+    return _gsmtc.control(action)
+
+
+def media_next() -> bool:
+    return _gsmtc.next_track()
+
+
+def media_prev() -> bool:
+    return _gsmtc.prev_track()
+
 
 def close():
-    if _provider is not None:
-        _provider.close()
+    for s in _SERVICES:
+        try:
+            s.close()
+        except Exception:
+            pass

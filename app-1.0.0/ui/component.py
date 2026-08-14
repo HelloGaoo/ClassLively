@@ -70,18 +70,19 @@ from PyQt6.QtGui import (
     QPen,
     QPixmap,
     QDrag,
+    QFontDatabase,
 )
 from PyQt6.QtSvg import QSvgRenderer
 from PyQt6.QtWidgets import (
     QFileIconProvider, QGridLayout, QLabel, QSizePolicy, QWidget, QVBoxLayout, QHBoxLayout, QApplication, QGraphicsOpacityEffect,
     QStackedWidget, QListWidgetItem, QFileDialog
 )
-from qfluentwidgets import InfoBar, isDarkTheme, RoundMenu, Action, FluentWindow, setTheme, ScrollArea, PushButton, ToolButton, TransparentToolButton, StrongBodyLabel, CardWidget, BodyLabel, ComboBox, SpinBox, SwitchButton, HorizontalFlipView, VerticalFlipView, PrimaryPushButton, Pivot, MessageBoxBase, ProgressBar, LineEdit, ColorPickerButton, ListWidget, Slider, TextEdit, CaptionLabel, SubtitleLabel
+from qfluentwidgets import InfoBar, isDarkTheme, RoundMenu, Action, FluentWindow, setTheme, ScrollArea, PushButton, ToolButton, TransparentToolButton, StrongBodyLabel, CardWidget, BodyLabel, ComboBox, SpinBox, SwitchButton, HorizontalFlipView, VerticalFlipView, PrimaryPushButton, Pivot, MessageBoxBase, ProgressBar, LineEdit, ColorPickerButton, ListWidget, Slider, TextEdit, CaptionLabel, SubtitleLabel, FluentIcon
 from win32com.shell import shell
 
 from core.config import cfg, save_cfg
 from core.utils import tr, FUI, get_cached_content, save_cache
-from services.media import MediaInfo, Lyrics, get_media_info, fetch_all_info, close as close_media
+from services.media import MediaInfo, Lyrics, get_media_info, get_service, close as close_media, media_control, media_next, media_prev
 from services.news import NewsService
 from core.constants import BASE_DIR, DATA_CONFIG, DATA_CLASSPHOTOS, DATA_NOTES, load_qss, NEWS_ICONS, get_resPath, APP_ICON
 from resource.software_list import get_software_icon_path
@@ -1756,7 +1757,7 @@ class DraggableContainer(DraggableWidget):
             painter.drawRoundedRect(QRectF(self.rect()).adjusted(1, 1, -1, -1), 4, 4)
 
             display_name = get_component_display_name(self.component_id)
-            font = QFont("HarmonyOS Sans")
+            font = QFont()
             font.setPixelSize(14)
             painter.setFont(font)
             painter.setPen(QColor(0, 0, 0, 100) if not isDarkTheme() else QColor(255, 255, 255, 100))
@@ -1767,453 +1768,240 @@ class DraggableContainer(DraggableWidget):
 
 
 
-class LyricsWidget(QWidget):
-    """歌词显示控件"""
 
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self._original_text = ""
-        self._text_size = 14
-        self._lyrics = None
-        self._lyrics_color = "#FFFFFFB3"
+class MediaPlayerComponent(DraggableContainer):
+    """媒体播放器组件"""
+    _FONT_STACK = ("'HarmonyOS Sans', 'HarmonyOS Sans SC', 'HarmonyOS Sans TC', "
+                   "'HarmonyOS Sans HC', 'Microsoft YaHei UI', 'Microsoft YaHei', "
+                   "'PingFang SC', 'Segoe UI', sans-serif")
 
-        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
-        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        self.setFixedHeight(self._text_size + 8)
+    _TEXT_QSS = (
+        "color: {color};"
+        "font-size: {size}px;"
+        "font-weight: {weight};"
+        "font-family: {family};"
+        "background: transparent;"
+    )
 
-    def set_text_size(self, size: int):
-        self._text_size = max(size, 10)
-        self.setFixedHeight(self._text_size + 8)
-        self.update()
+    _BTN_QSS = (
+        "TransparentToolButton {{"
+        "    background: transparent; border: none; padding: 0px; margin: 0px; color: {fg};"
+        "}}"
+        "TransparentToolButton:hover {{"
+        "    background: transparent; border: none; color: {fg};"
+        "}}"
+        "TransparentToolButton:pressed {{"
+        "    background: transparent; border: none; color: {fg};"
+        "}}"
+    )
 
-    def set_lyrics(self, lyrics):
-        self._lyrics = lyrics
-        if lyrics and not lyrics.is_empty() and lyrics.lines:
-            line = lyrics.lines[0]
-            text = line.text if line else ""
-        else:
-            text = ""
-        self._update_text(text)
+    _BG_QSS = (
+        "#mediaWidget {{"
+        "    background-color: {bg};"
+        "    border-radius: {radius}px;"
+        "    border: {border};"
+        "}}"
+    )
 
-    def set_lyrics_color(self, color: str):
-        self._lyrics_color = color
-        self.update()
+    _media_ready = pyqtSignal(object, bool)  # 媒体信息, 是否完整刷新
+    _detail_ready = pyqtSignal(dict)         # 在线补全结果 {lyrics/cover/thumb/duration}
+    _sync_done = pyqtSignal()                # 播放/暂停命令已发出
 
-    def update_position(self, ms: int):
-        if not self._lyrics or self._lyrics.is_empty():
-            return
-        advance = cfg.mediaLyricsAdvance.value
-        adjusted_ms = ms + advance
-        _, idx = self._lyrics.get_line_at_time(adjusted_ms)
-        if idx >= 0 and idx < len(self._lyrics.lines):
-            text = self._lyrics.lines[idx].text
-        else:
-            text = ""
-        self._update_text(text)
-
-    def _update_text(self, text):
-        self._original_text = text
-        self.update()
-
-    def paintEvent(self, event):
-        p = QPainter(self)
-        p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        p.setRenderHint(QPainter.RenderHint.TextAntialiasing)
-
-        if not self._original_text:
-            p.end()
-            return
-
-        font = QFont("HarmonyOS Sans", self._text_size)
-        font.setWeight(QFont.Weight.DemiBold)
-        p.setFont(font)
-
-        fm = p.fontMetrics()
-        available = max(self.width() - 4, 0)
-        elided = fm.elidedText(self._original_text, Qt.TextElideMode.ElideRight, available)
-
-        lyrics_color = QColor(self._lyrics_color)
-        p.setPen(lyrics_color)
-        p.drawText(0, 0, self.width(), self.height(),
-                   Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
-                   elided)
-        p.end()
-
-    def clear(self):
-        self._original_text = ""
-        self._lyrics = None
-        self.update()
-
-
-class MediaProgressBar(ProgressBar):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setTextVisible(False)
-        self.apply_style()
-
-    def apply_style(self):
-        height = cfg.mediaProgressHeight.value
-        self.setFixedHeight(height)
-
-    def paintEvent(self, event):
-        p = QPainter(self)
-        p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        p.setPen(Qt.PenStyle.NoPen)
-
-        track_color = QColor(cfg.mediaProgressTrackColor.value)
-        p.setBrush(track_color)
-        h = self.height()
-        p.drawRoundedRect(0, 1, self.width(), h - 2, 3, 3)
-
-        if self.value() > 0:
-            w = int(self.width() * self.value() / self.maximum()) if self.maximum() > 0 else 0
-            # allow parent widget to override progress color (e.g. follow wallpaper)
-            progress_color = QColor(cfg.mediaProgressColor.value)
-            parent_widget = self.parent()
-            if parent_widget and hasattr(parent_widget, '_override_progress_color') and parent_widget._override_progress_color:
-                progress_color = parent_widget._override_progress_color
-            p.setBrush(progress_color)
-            p.drawRoundedRect(0, 1, w, h - 2, 3, 3)
-
-        p.end()
-
-
-class FetchWorker(QObject):
-    finished = pyqtSignal(dict)
-    def __init__(self, title: str, artist: str):
-        super().__init__()
-        self.title = title
-        self.artist = artist
-    
-    def run(self):
-        try:
-            info = fetch_all_info(self.title, self.artist)
-            self.finished.emit(info)
-        except Exception as e:
-            logger.debug(f"获取歌曲信息失败: {e}")
-            self.finished.emit({})
-
-
-class _MediaFetchWorker(QObject):
-    """获取(QThread)媒体信息回传主线程"""
-    finished = pyqtSignal(object, bool)
-
-    def __init__(self, full=True):
-        super().__init__()
-        self._full = full
-
-    def run(self):
-        m = None
-        try:
-            m = get_media_info()
-            if not m or not m.is_valid():
-                m = None
-        except Exception as e:
-            logger.error(f"媒体信息获取异常: {e}")
-        self.finished.emit(m, self._full)
-
-
-class _KugouThumbWorker(QObject):
-    """获取(QThread)酷狗图"""
-    finished = pyqtSignal(object)
-
-    def run(self):
-        info = None
-        try:
-            from services.media import get_gstmtc
-            gsmtc = get_gstmtc()
-            if gsmtc and gsmtc.available:
-                info = gsmtc.get_info()
-        except Exception:
-            pass
-        self.finished.emit(info)
-
-
-class MediaWidget(QWidget):
-    """媒体信息显示控件"""
-
-    _fetch_done = pyqtSignal(object, bool)
-
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setObjectName("mediaWidget")
-        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+    def __init__(self, parent, component_data):
+        super().__init__(parent, component_id=component_data["id"], layout_direction="vertical")
+        self.setObjectName("mediaContainer")
+        self._home = parent
 
         self._media: Optional[MediaInfo] = None
         self._lyrics: Optional[Lyrics] = None
-        self._last_ta = ""
         self._cover: Optional[QPixmap] = None
-        self._has_gstmtc_cover: bool = False
+        self._last_ta = ""
+        self._has_thumb = False
         self._fetching = False
         self._pending_full = False
+        self._detail_fetching = False
         self._duration = 0
         self._position = 0
         self._playing = False
-        self._thread = None
-        self._worker = None
-        self._kugou_thread = None
-        self._kugou_worker = None
+        self._playing_sync_pending = False
+        self._sync_retries = 0
         self._info_cache = OrderedDict()
         self._rapid_update_count = 0
         self._normal_interval = cfg.mediaUpdateInterval.value * 1000
-        # 由父组件 MediaPlayerComponent 注入的缩放因子
-        self._scale_factor = 1.0
 
         self._init_ui()
-        self._setup_timer()
-        self._apply_config()
+        self._init_timers()
+        self._init_config()
         self._init_cover_animation()
-        self._fetch_done.connect(self._on_fetched)
+        self._apply_config()
+        self._media_ready.connect(self._on_media)
+        self._detail_ready.connect(self._on_detail)
+        self._sync_done.connect(self._on_sync_done)
+        self.start()
 
-    def _scaled_px(self, base_px: int) -> int:
-        """按当前缩放因子缩放像素值"""
-        return max(1, int(base_px * self._scale_factor))
-
-    @staticmethod
-    def _qss_color(color_val):
-        if isinstance(color_val, QColor):
-            c = color_val
-        elif color_val == "primary":
-            from qfluentwidgets import Theme, isDarkTheme
-            c = QColor(0, 0, 0) if not isDarkTheme() else QColor(255, 255, 255)
-        else:
-            if hasattr(color_val, 'name'):
-                color_val = color_val.name()
-            c = QColor(color_val)
-        return f"rgba({c.red()}, {c.green()}, {c.blue()}, {round(c.alpha() / 255, 2)})"
+    # UI ----------------------------------------
 
     def _init_ui(self):
-        self.setStyleSheet(load_qss('home.qss'))
+        self.inner_layout.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
+        self.inner_layout.setContentsMargins(0, 0, 0, 0)
+        self.inner_layout.setSpacing(0)
 
-        main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(16, 14, 16, 12)
-        main_layout.setSpacing(0)
+        content = QWidget(self)
+        content.setObjectName("mediaWidget")
+        content.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        content.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        self._content = content
 
-        top_row = QHBoxLayout()
-        top_row.setSpacing(18)
-        top_row.setContentsMargins(0, 0, 0, 0)
+        root = QHBoxLayout(content)
+        root.setContentsMargins(16, 20, 12, 20)
+        root.setSpacing(14)
 
-        self._cover_lbl = QLabel()
+        # 左侧封面
+        self._cover_lbl = QLabel(content)
         self._cover_lbl.setObjectName("mediaCoverLabel")
         self._cover_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._default_cover()
-        top_row.addWidget(self._cover_lbl, 0, Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
+        self._cover_lbl.setScaledContents(False)
+        self._cover_lbl.setFixedSize(160, 160)
+        root.addWidget(self._cover_lbl, 0, Qt.AlignmentFlag.AlignVCenter)
 
-        right_col = QVBoxLayout()
-        right_col.setSpacing(6)
-        right_col.setContentsMargins(0, 2, 0, 0)
+        # 右侧
+        right_wrap = QWidget(content)
+        right_col = QVBoxLayout(right_wrap)
+        right_col.setContentsMargins(0, 0, 2, 0)
+        right_col.setSpacing(0)
 
-        self._title = SubtitleLabel(tr("media.not_playing"))  # 未在播放
+        top_block = QVBoxLayout()
+        top_block.setContentsMargins(0, 0, 0, 0)
+        top_block.setSpacing(2)
+
+        self._title = QLabel(tr("media.not_playing"))
         self._title.setObjectName("mediaTitleLabel")
         self._title.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
-        right_col.addWidget(self._title)
+        self._title.setWordWrap(False)
+        self._title.setFixedHeight(28)
+        top_block.addWidget(self._title, 0)
 
-        self._artist = CaptionLabel("")
+        self._artist = QLabel("")
         self._artist.setObjectName("mediaArtistLabel")
         self._artist.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
-        right_col.addWidget(self._artist)
+        self._artist.setWordWrap(False)
+        self._artist.setFixedHeight(16)
+        top_block.addWidget(self._artist, 0)
 
-        self._lyrics_w = LyricsWidget()
-        self._lyrics_w.setObjectName("mediaLyricsWidget")
-        right_col.addWidget(self._lyrics_w)
+        right_col.addLayout(top_block, 0)
+        right_col.addSpacing(8)
 
-        prog = QWidget()
-        prog.setObjectName("mediaProgressContainer")
-        pl = QHBoxLayout(prog)
-        pl.setContentsMargins(0, 4, 0, 0)
-        pl.setSpacing(8)
+        # 歌词
+        self._lyrics_lbl = QLabel("")
+        self._lyrics_lbl.setObjectName("mediaLyricsLabel")
+        self._lyrics_lbl.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        self._lyrics_lbl.setWordWrap(True)
+        right_col.addWidget(self._lyrics_lbl, 1)
 
-        self._time = CaptionLabel("0:00")
-        self._time.setObjectName("mediaTimeLabel")
-        self._time.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
-        pl.addWidget(self._time)
+        # 进度 / 时间 / 按钮
+        bottom_block = QVBoxLayout()
+        bottom_block.setContentsMargins(0, 0, 0, 0)
+        bottom_block.setSpacing(4)
 
-        self._bar = MediaProgressBar()
+        self._bar = ProgressBar(content)
         self._bar.setRange(0, 100)
-        pl.addWidget(self._bar, 1)
+        bottom_block.addWidget(self._bar, 0)
 
-        self._dur = CaptionLabel("0:00")
-        self._dur.setObjectName("mediaDurationLabel")
-        self._dur.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-        pl.addWidget(self._dur)
+        self._time_lbl = QLabel("00:00 / 00:00")
+        self._time_lbl.setObjectName("mediaTimeLabel")
+        self._time_lbl.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        self._time_lbl.setMinimumHeight(14)
+        bottom_block.addWidget(self._time_lbl, 0)
 
-        self._prog_container = prog
-        right_col.addWidget(self._prog_container)
+        btn_row = QHBoxLayout()
+        btn_row.setContentsMargins(0, 2, 0, 0)
+        btn_row.setSpacing(16)
+        btn_row.addStretch(1)
 
-        top_row.addLayout(right_col, 1)
-        main_layout.addLayout(top_row)
+        self._btn_prev = TransparentToolButton(content)
+        self._btn_prev.setIconSize(QSize(20, 20))
+        self._btn_prev.setFixedSize(28, 28)
+        self._btn_prev.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        self._btn_prev.clicked.connect(self._on_prev)
+        btn_row.addWidget(self._btn_prev, 0, Qt.AlignmentFlag.AlignVCenter)
 
-        self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        self._btn_play = TransparentToolButton(content)
+        self._btn_play.setIconSize(QSize(24, 24))
+        self._btn_play.setFixedSize(32, 32)
+        self._btn_play.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        self._btn_play.clicked.connect(self._on_play_pause)
+        btn_row.addWidget(self._btn_play, 0, Qt.AlignmentFlag.AlignVCenter)
+
+        self._btn_next = TransparentToolButton(content)
+        self._btn_next.setIconSize(QSize(20, 20))
+        self._btn_next.setFixedSize(28, 28)
+        self._btn_next.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        self._btn_next.clicked.connect(self._on_next)
+        btn_row.addWidget(self._btn_next, 0, Qt.AlignmentFlag.AlignVCenter)
+
+        btn_row.addStretch(1)
+        bottom_block.addLayout(btn_row, 0)
+
+        right_col.addLayout(bottom_block, 0)
+        root.addWidget(right_wrap, 1)
+
+        self.inner_layout.addWidget(content, 1)
+
+        self._set_natural_size(400, 200)
+        self.setMinimumSize(200, 100)
+        self._size_explicitly_set = True
+        self.resize(400, 200)
 
     def _default_cover(self):
-        sz = self._scaled_px(cfg.mediaCoverSize.value)
-        radius = cfg.mediaCoverBorderRadius.value
+        sz = 160
+        radius = 8
         pm = QPixmap(sz, sz)
         pm.fill(Qt.GlobalColor.transparent)
         p = QPainter(pm)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         p.setPen(Qt.PenStyle.NoPen)
 
-        border_color = QColor(cfg.mediaCoverBorderColor.value)
-        p.setBrush(border_color)
+        from qfluentwidgets import isDarkTheme
+        if isDarkTheme():
+            bg = QColor(40, 40, 48)
+            icon_color = QColor(180, 180, 190, 160)
+        else:
+            bg = QColor(230, 230, 235)
+            icon_color = QColor(120, 120, 130, 140)
+        p.setBrush(bg)
         p.drawRoundedRect(0, 0, sz, sz, radius, radius)
 
-        inner_color = QColor(255, 255, 255, 25)
-        p.setBrush(inner_color)
-        p.drawRoundedRect(2, 2, sz - 4, sz - 4, max(radius - 2, 2), max(radius - 2, 2))
-
-        shadow_color = QColor(0, 0, 0, 40)
-        for i in range(3):
-            p.setPen(Qt.PenStyle.NoPen)
-            p.setBrush(QColor(0, 0, 0, 15 - i * 4))
-            offset = (i + 1) * 2
-            p.drawRoundedRect(offset, offset, sz, sz, radius, radius)
+        # 音符图标
+        p.setBrush(icon_color)
+        p.setPen(icon_color)
+        cx, cy = sz / 2, sz / 2
+        note_w = sz * 0.28
+        note_h = sz * 0.38
+        head_w = sz * 0.18
+        head_h = sz * 0.13
+        p.drawEllipse(QRectF(cx - note_w * 0.5, cy + note_h * 0.25, head_w, head_h))
+        stem_w = max(sz * 0.025, 1.5)
+        stem_h = note_h
+        p.drawRect(QRectF(cx + note_w * 0.4 - stem_w, cy - note_h * 0.6, stem_w, stem_h))
+        path = QPainterPath()
+        path.moveTo(cx + note_w * 0.4, cy - note_h * 0.6)
+        path.cubicTo(cx + note_w * 0.8, cy - note_h * 0.4,
+                     cx + note_w * 0.6, cy - note_h * 0.1,
+                     cx + note_w * 0.4, cy)
+        p.setBrush(Qt.BrushStyle.NoBrush)
+        p.setPen(QPen(icon_color, max(sz * 0.025, 1.5)))
+        p.drawPath(path)
         p.end()
         self._cover_lbl.setPixmap(pm)
 
-    def _setup_timer(self):
-        self._timer = QTimer(self)
-        self._timer.timeout.connect(self._update)
-        self._prog_timer = QTimer(self)
-        self._prog_timer.timeout.connect(self._update_progress)
-
-    def _apply_config(self):
-        sz = max(cfg.mediaTextSize.value, 10)
-        title_color = self._qss_color(cfg.mediaTitleColor.value)
-        artist_color = self._qss_color(cfg.mediaArtistColor.value)
-        time_color = self._qss_color(cfg.mediaTimeColor.value)
-        lyrics_color = cfg.mediaLyricsColor.value
-
-        self._title.setStyleSheet(
-            f"font-size: {self._scaled_px(sz + 2)}px; font-weight: 600;"
-            f"color: {title_color};"
-            f"font-family: 'HarmonyOS Sans', 'Microsoft YaHei', 'SimHei', sans-serif;"
-        )
-        self._artist.setStyleSheet(
-            f"font-size: {self._scaled_px(sz)}px;"
-            f"color: {artist_color};"
-            f"font-family: 'HarmonyOS Sans', 'Microsoft YaHei', 'SimHei', sans-serif;"
-        )
-        self._time.setStyleSheet(f"color: {time_color};")
-        self._dur.setStyleSheet(f"color: {time_color};")
-        self._lyrics_w.set_text_size(self._scaled_px(cfg.mediaLyricsSize.value))
-        self._lyrics_w.set_lyrics_color(lyrics_color)
-
-        cover_sz = self._scaled_px(cfg.mediaCoverSize.value)
-        self._cover_lbl.setFixedSize(cover_sz, cover_sz)
-        if self._cover and not self._cover.isNull():
-            cover_with_shadow = self._add_cover_shadow(self._cover, cover_sz)
-            self._cover_lbl.setPixmap(cover_with_shadow)
-        else:
-            self._default_cover()
-
-        self._bar.apply_style()
-        # 如果嵌入在 MediaPlayerComponent 中，不设置固定大小
-        if not self._is_embedded():
-            self.setFixedSize(cfg.mediaWidth.value, cfg.mediaHeight.value)
-        self._apply_background_style()
-
-    def _is_embedded(self):
-        """检查是否嵌入在 MediaPlayerComponent 中"""
-        parent = self.parentWidget()
-        return parent is not None and parent.objectName() == "mediaContainer"
-
-    def _get_wallpaper_color(self):
-        """提取壁纸主色 失败返回None"""
-        try:
-            home = self.parent()
-            mw = getattr(home, 'mainWindow', None) if home is not None else None
-            if mw and hasattr(mw, 'wallpaper') and mw.wallpaper:
-                return mw.wallpaper.get_dominant_color()
-        except Exception:
-            pass
-        return None
-
-    @staticmethod
-    def _get_system_accent_color():
-        """AccentPalette[2]读取系统主题色 失败none"""
-        import winreg
-        try:
-            key = winreg.OpenKey(winreg.HKEY_CURRENT_USER,
-                r'Software\Microsoft\Windows\CurrentVersion\Explorer\Accent')
-            palette = winreg.QueryValueEx(key, 'AccentPalette')[0]
-            winreg.CloseKey(key)
-            if len(palette) >= 12:
-                b, g, r = palette[8], palette[9], palette[10]
-                return QColor(r, g, b)
-        except Exception:
-            pass
-        return None
-
-    def _apply_background_style(self):
-        # 独立处理进度条颜色：支持 'wallpaper' / 'system' / 具体颜色值
-        progress_color_val = cfg.mediaProgressColor.value
-        actual_progress_value = progress_color_val.name() if hasattr(progress_color_val, 'name') else progress_color_val
-        if actual_progress_value == 'wallpaper':
-            self._override_progress_color = self._get_wallpaper_color()
-        elif actual_progress_value == 'system':
-            self._override_progress_color = self._get_system_accent_color()
-        elif actual_progress_value != 'primary':
-            self._override_progress_color = QColor(actual_progress_value)
-        else:
-            self._override_progress_color = None
-
-        if not cfg.mediaUseCustomBg.value:
-            self.setStyleSheet("")
-            from qfluentwidgets import isDarkTheme
-            text_color = '#FFFFFF' if isDarkTheme() else '#000000'
-        else:
-            bg_opacity = cfg.mediaBgOpacity.value
-            border_radius = cfg.mediaBorderRadius.value
-
-            from qfluentwidgets import isDarkTheme
-            if isDarkTheme():
-                c = QColor(30, 30, 30)
-            else:
-                c = QColor(255, 255, 255)
-            c.setAlpha(int(255 * bg_opacity / 100))
-
-            if c.alpha() == 0:
-                bg_css = "background-color: transparent;"
-            else:
-                bg_css = f"background-color: {self._qss_color(c)};"
-
-            self.setStyleSheet(
-                f"#mediaWidget {{"
-                f"{bg_css}"
-                f"border-radius: {border_radius}px;"
-                f"}}"
-            )
-
-            bright = (c.red() * 299 + c.green() * 587 + c.blue() * 114) / 1000
-            text_color = '#000000' if bright > 160 else '#FFFFFF'
-
-        title_color_hex = text_color
-        artist_color_hex = text_color + '66'
-        time_color_hex = text_color + 'CC'
-        try:
-            base_title = self._title.styleSheet().split('color:')[0]
-        except Exception:
-            base_title = ''
-        try:
-            base_artist = self._artist.styleSheet().split('color:')[0]
-        except Exception:
-            base_artist = ''
-        self._title.setStyleSheet(base_title + f"color: {title_color_hex};")
-        self._artist.setStyleSheet(base_artist + f"color: {artist_color_hex};")
-        self._time.setStyleSheet(f"color: {time_color_hex};")
-        self._dur.setStyleSheet(f"color: {time_color_hex};")
-        self._lyrics_w.set_lyrics_color(cfg.mediaLyricsColor.value)
-
     def _add_cover_shadow(self, pixmap: QPixmap, size: int) -> QPixmap:
-        radius = cfg.mediaCoverBorderRadius.value
+        radius = 10
         result = QPixmap(size + 8, size + 8)
         result.fill(Qt.GlobalColor.transparent)
 
         p = QPainter(result)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
 
-        shadow_color = QColor(0, 0, 0, 50)
         for i in range(4):
             p.setPen(Qt.PenStyle.NoPen)
             p.setBrush(QColor(0, 0, 0, 20 - i * 4))
@@ -2235,11 +2023,149 @@ class MediaWidget(QWidget):
         p.end()
         return result
 
+    def _load_cover(self, data: bytes):
+        pm = QPixmap()
+        pm.loadFromData(data)
+        if not pm.isNull():
+            self._cover = pm
+            sz = 160
+            cover_with_shadow = self._add_cover_shadow(pm, sz)
+            self._cover_lbl.setPixmap(cover_with_shadow)
+
+            self._cover_anim.stop()
+            self._cover_opacity.setOpacity(0.0)
+            self._cover_anim.setStartValue(0.0)
+            self._cover_anim.setEndValue(1.0)
+            self._cover_anim.start()
+
+    # 配置 ----------------------------------------
+
+    def _init_config(self):
+        self._style_timer = QTimer(self)
+        self._style_timer.setSingleShot(True)
+        self._style_timer.setInterval(150)
+        self._style_timer.timeout.connect(self._apply_config)
+        cfg.themeChanged.connect(self._schedule_style_update)
+        cfg.componentCardOpacity.valueChanged.connect(self._schedule_style_update)
+        cfg.componentCardRadius.valueChanged.connect(self._schedule_style_update)
+        cfg.showMediaInfo.valueChanged.connect(self._on_visibility_changed)
+
+    def _schedule_style_update(self):
+        if hasattr(self, '_style_timer'):
+            self._style_timer.start()
+
+    @staticmethod
+    def _qss_color(color_val):
+        if isinstance(color_val, QColor):
+            c = color_val
+        elif color_val == "primary":
+            from qfluentwidgets import Theme, isDarkTheme
+            c = QColor(0, 0, 0) if not isDarkTheme() else QColor(255, 255, 255)
+        else:
+            if hasattr(color_val, 'name'):
+                color_val = color_val.name()
+            c = QColor(color_val)
+        return f"rgba({c.red()}, {c.green()}, {c.blue()}, {round(c.alpha() / 255, 2)})"
+
+    def _apply_config(self):
+        from qfluentwidgets import isDarkTheme
+        dark = isDarkTheme()
+        if dark:
+            title_c = QColor(245, 245, 250, 255)      # F5F5FA
+            artist_c = QColor(230, 230, 235, 200)
+            time_c = QColor(220, 220, 225, 150)
+            lyrics_c = QColor(235, 235, 240, 170)
+            btn_fg = QColor(255, 255, 255, 235)       # 深色模式白图标
+        else:
+            title_c = QColor(31, 31, 31, 255)         # 1F1F1F
+            artist_c = QColor(60, 60, 67, 214)
+            time_c = QColor(60, 60, 67, 138)
+            lyrics_c = QColor(44, 44, 46, 153)
+            btn_fg = QColor(0, 0, 0, 220)             # 浅色模式黑图标
+
+        def _text_qss(color, size, weight):
+            return self._TEXT_QSS.format(
+                color=self._qss_color(color), size=size, weight=weight, family=self._FONT_STACK)
+
+        self._title.setStyleSheet(_text_qss(title_c, 19, 700))
+        self._artist.setStyleSheet(_text_qss(artist_c, 11, 500))
+        self._time_lbl.setStyleSheet(_text_qss(time_c, 10, 500))
+        self._lyrics_lbl.setStyleSheet(_text_qss(lyrics_c, 12, 700))
+
+        # 图标
+        from qfluentwidgets.common.icon import Theme as FTheme
+        icon_theme = FTheme.DARK if dark else FTheme.LIGHT
+        self._btn_prev.setIcon(FluentIcon.LEFT_ARROW.icon(icon_theme))
+        self._btn_next.setIcon(FluentIcon.RIGHT_ARROW.icon(icon_theme))
+        self._update_play_icon(icon_theme)
+
+        # 按钮
+        btn_qss = self._BTN_QSS.format(fg=self._qss_color(btn_fg))
+        for btn in (self._btn_prev, self._btn_play, self._btn_next):
+            btn.setStyleSheet(btn_qss)
+            btn.setIconSize(btn.iconSize())  # 触发重绘
+
+        # 封面尺寸
+        self._cover_lbl.setFixedSize(160, 160)
+        if self._cover and not self._cover.isNull():
+            cover_with_shadow = self._add_cover_shadow(self._cover, 160)
+            self._cover_lbl.setPixmap(cover_with_shadow)
+        else:
+            self._default_cover()
+
+        # 进度条
+        self._bar.setFixedHeight(3)
+        self._apply_bg_style()
+
+    def _apply_bg_style(self):
+        # 背景样式
+        if not cfg.mediaUseCustomBg.value:
+            from qfluentwidgets import isDarkTheme
+            opacity = cfg.componentCardOpacity.value / 100.0
+            radius = cfg.componentCardRadius.value
+            if isDarkTheme():
+                c = QColor(18, 18, 22)
+                border_color = "rgba(255, 255, 255, 0.06)"
+            else:
+                c = QColor(255, 255, 255)
+                border_color = "rgba(0, 0, 0, 0.06)"
+            c.setAlpha(int(255 * opacity))
+            bg = "transparent" if c.alpha() == 0 else self._qss_color(c)
+            self._content.setStyleSheet(
+                self._BG_QSS.format(bg=bg, radius=radius, border=f"1px solid {border_color}")
+            )
+        else:
+            bg_opacity = cfg.mediaBgOpacity.value
+            border_radius = cfg.mediaBorderRadius.value
+
+            from qfluentwidgets import isDarkTheme
+            if isDarkTheme():
+                c = QColor(30, 30, 30)
+            else:
+                c = QColor(255, 255, 255)
+            c.setAlpha(int(255 * bg_opacity / 100))
+
+            bg = "transparent" if c.alpha() == 0 else self._qss_color(c)
+            self._content.setStyleSheet(
+                self._BG_QSS.format(bg=bg, radius=border_radius, border="none")
+            )
+
+    # 定时器 / 生命周期 ----------------------------------------
+
+    def _init_timers(self):
+        self._timer = QTimer(self)
+        self._timer.timeout.connect(self._poll)
+        self._prog_timer = QTimer(self)
+        self._prog_timer.timeout.connect(self._update_progress)
+        self._sync_confirm_timer = QTimer(self)
+        self._sync_confirm_timer.setSingleShot(True)
+        self._sync_confirm_timer.timeout.connect(self._sync_confirm_poll)
+
     def _init_cover_animation(self):
-        self._cover_opacity = QGraphicsOpacityEffect(self)
+        self._cover_opacity = QGraphicsOpacityEffect(self._cover_lbl)
         self._cover_opacity.setOpacity(1.0)
         self._cover_lbl.setGraphicsEffect(self._cover_opacity)
-        
+
         self._cover_anim = QPropertyAnimation(self._cover_opacity, QByteArray(b"opacity"))
         self._cover_anim.setDuration(300)
         self._cover_anim.setEasingCurve(QEasingCurve.Type.OutCubic)
@@ -2247,41 +2173,66 @@ class MediaWidget(QWidget):
     def start(self):
         self._timer.start(cfg.mediaUpdateInterval.value * 1000)
         self._prog_timer.start(1000)
-        self._fetch_in_thread(full=True)
+        self._spawn_media_fetch(full=True)
 
-    def _fetch_in_thread(self, full=True):
+    def stop(self):
+        self._timer.stop()
+        self._prog_timer.stop()
+        try:
+            self._style_timer.stop()
+            self._sync_confirm_timer.stop()
+        except Exception:
+            pass
+
+    def _on_visibility_changed(self):
+        self.setVisible(cfg.showMediaInfo.value)
+
+    def apply_scale(self, factor):
+        self._scale_factor = factor
+        self._apply_config()
+
+    def closeEvent(self, event):
+        self.stop()
+        super().closeEvent(event)
+
+    def __del__(self):
+        try:
+            self.stop()
+        except Exception:
+            pass
+
+    # 数据 ----------------------------------------
+
+    def _poll(self):
+        self._spawn_media_fetch(full=True)
+
+    def _spawn_media_fetch(self, full=True):
         if self._fetching:
             if full:
                 self._pending_full = True
             return
         self._fetching = True
         self._pending_full = False
-        self._thread = QThread()
-        self._worker = _MediaFetchWorker(full)
-        self._worker.moveToThread(self._thread)
-        self._thread.started.connect(self._worker.run)
-        self._worker.finished.connect(self._on_worker_done)
-        self._thread.start()
+        threading.Thread(target=self._media_worker, args=(full,), daemon=True).start()
 
-    def _on_worker_done(self, m, full):
-        if self._thread:
-            self._thread.quit()
-            self._thread.wait(2000)
-            self._thread.deleteLater()
-            self._thread = None
-        if self._worker:
-            self._worker.deleteLater()
-            self._worker = None
-        self._fetch_done.emit(m, full)
+    def _media_worker(self, full):
+        m = None
+        try:
+            m = get_media_info()
+            if not m or not m.is_valid():
+                m = None
+        except Exception as e:
+            logger.error(f"媒体信息获取异常: {e}")
+        self._media_ready.emit(m, full)
 
-    def _on_fetched(self, m, full):
+    def _on_media(self, m, full):
         self._fetching = False
         if not cfg.showMediaInfo.value:
             return
         if not m or not m.is_valid():
             self._no_media()
             if self._pending_full:
-                QTimer.singleShot(100, lambda: self._fetch_in_thread(full=True))
+                QTimer.singleShot(100, lambda: self._spawn_media_fetch(full=True))
             return
         is_new_song = m.title_artist != self._last_ta
         if is_new_song:
@@ -2300,46 +2251,50 @@ class MediaWidget(QWidget):
                 if self._rapid_update_count == 0:
                     self._timer.setInterval(self._normal_interval)
             if self._pending_full:
-                QTimer.singleShot(100, lambda: self._fetch_in_thread(full=True))
+                QTimer.singleShot(100, lambda: self._spawn_media_fetch(full=True))
         else:
-            if m.position_ms > self._position:
+            if m.position_ms > 0:
                 self._position = m.position_ms
-            self._playing = m.is_playing
-            self._duration = m.duration_ms
-            if getattr(m, 'thumbnail_data', None) and not self._has_gstmtc_cover:
-                self._has_gstmtc_cover = True
+            if not self._playing_sync_pending:
+                self._playing = m.is_playing
+            if m.duration_ms > 0:
+                self._duration = m.duration_ms
+            self._update_play_icon()
+            if getattr(m, 'thumbnail_data', None) and not self._has_thumb:
+                self._has_thumb = True
                 self._load_cover(m.thumbnail_data)
             if self._duration > 0:
                 self._bar.setValue(min(100, int(self._position / self._duration * 100)))
-                self._time.setText(self._fmt(self._position))
-                self._dur.setText(self._fmt(self._duration))
+                self._time_lbl.setText(f"{self._fmt(self._position)} / {self._fmt(self._duration)}")
+            else:
+                self._time_lbl.setText(f"{self._fmt(self._position)} / --:--")
             if self._playing and self._lyrics and not self._lyrics.is_empty():
-                self._lyrics_w.update_position(self._position)
-
-    def stop(self):
-        self._timer.stop()
-        self._prog_timer.stop()
-
-    def _update(self):
-        self._fetch_in_thread(full=True)
+                self._update_lyrics(self._position)
+            self._check_play_sync(m.is_playing)
+            if self._pending_full:
+                self._pending_full = False
+                QTimer.singleShot(100, lambda: self._spawn_media_fetch(full=True))
 
     def _no_media(self):
         self._title.setText(tr("media.not_playing"))  # 未在播放
         self._title.setWordWrap(False)
         self._artist.setText("")
         self._artist.show()
-        self._lyrics_w.clear()
-        self._lyrics_w.show()
+        self._lyrics_lbl.setText("")
+        self._lyrics_lbl.show()
         self._bar.setValue(0)
-        self._time.setText("0:00")
-        self._dur.setText("0:00")
+        self._time_lbl.setText("00:00 / 00:00")
         self._default_cover()
         self._media = None
         self._lyrics = None
         self._last_ta = ""
-        self._has_gstmtc_cover = False
+        self._has_thumb = False
         self._playing = False
         self._duration = 0
+        self._playing_sync_pending = False
+        self._sync_retries = 0
+        self._sync_confirm_timer.stop()
+        self._update_play_icon()
         self._prog_timer.stop()
         if cfg.showMediaInfo.value:
             self.show()
@@ -2352,58 +2307,64 @@ class MediaWidget(QWidget):
             self._last_ta = m.title_artist
             self._position = m.position_ms
             self._playing = m.is_playing
-            self._duration = m.duration_ms
-            self._has_gstmtc_cover = False
-            
+            if m.duration_ms > 0:
+                self._duration = m.duration_ms
+            self._has_thumb = False
+
             app_name = getattr(m, 'app_name', '') or ''
             is_web_browser = any(browser in app_name.lower() for browser in ['chrome', 'edge', 'firefox', 'msedge'])
-            
+
             self._cover_anim.stop()
             self._default_cover()
             self._cover = None
             self._lyrics = None
-            self._lyrics_w.clear()
+            self._lyrics_lbl.setText("")
             self._cover_lbl.repaint()
-            self._lyrics_w.repaint()
+            self._lyrics_lbl.repaint()
 
             if is_web_browser and not artist:
                 self._title.setText(title)
                 self._title.setWordWrap(True)
                 self._artist.hide()
-                self._lyrics_w.hide()
+                self._lyrics_lbl.hide()
             else:
                 self._title.setText(title)
                 self._title.setWordWrap(False)
                 self._artist.setText(artist)
                 self._artist.show()
-                self._lyrics_w.show()
+                self._lyrics_lbl.show()
 
             if getattr(m, 'thumbnail_data', None):
-                self._has_gstmtc_cover = True
+                self._has_thumb = True
                 self._load_cover(m.thumbnail_data)
-            elif app_name == 'Kugou':
-                self._fetch_kugou_thumbnail()
             elif is_web_browser:
-                self._has_gstmtc_cover = True
+                self._has_thumb = True
 
             if not is_web_browser:
-                self._fetch(title, artist)
+                self._fetch(m)
 
-        self._playing = m.is_playing
-        if m.position_ms > self._position and m.position_ms > 0:
+        seek_jump = False
+        if m.position_ms > 0:
+            seek_jump = abs(m.position_ms - self._position) > self._normal_interval + 1500
             self._position = m.position_ms
+        # 点击播放/暂停后等待后台确认 SMTC 生效前旧状态不覆盖图标
+        if not seek_jump and not self._playing_sync_pending:
+            self._playing = m.is_playing
         if m.duration_ms > 0:
             self._duration = m.duration_ms
 
-        self._prog_container.show()
+        self._update_play_icon()
         if self._duration > 0:
             self._bar.setValue(min(100, int(self._position / self._duration * 100)))
-            self._time.setText(self._fmt(self._position))
-            self._dur.setText(self._fmt(self._duration))
+            self._time_lbl.setText(f"{self._fmt(self._position)} / {self._fmt(self._duration)}")
         else:
             self._bar.setValue(0)
-            self._time.setText(self._fmt(self._position))
+            self._time_lbl.setText(f"{self._fmt(self._position)} / --:--")
 
+        if self._playing and self._lyrics and not self._lyrics.is_empty():
+            self._update_lyrics(self._position)
+
+        self._check_play_sync(m.is_playing)
         self._cover_lbl.setVisible(cfg.showMediaCover.value)
 
     def _update_progress(self):
@@ -2411,102 +2372,138 @@ class MediaWidget(QWidget):
             self._position = min(self._position + self._prog_timer.interval(), self._duration)
             pct = min(100, int(self._position / self._duration * 100))
             self._bar.setValue(pct)
-            self._time.setText(self._fmt(self._position))
-        self._fetch_in_thread(full=False)
+            self._time_lbl.setText(f"{self._fmt(self._position)} / {self._fmt(self._duration)}")
+            if self._lyrics and not self._lyrics.is_empty():
+                self._update_lyrics(self._position)
 
     @staticmethod
     def _fmt(ms: int) -> str:
         s = max(0, ms // 1000)
         return f"{s // 60}:{s % 60:02d}"
 
-    def _load_cover(self, data: bytes):
-        pm = QPixmap()
-        pm.loadFromData(data)
-        if not pm.isNull():
-            self._cover = pm
-            sz = cfg.mediaCoverSize.value
-            cover_with_shadow = self._add_cover_shadow(pm, sz)
-            self._cover_lbl.setPixmap(cover_with_shadow)
+    def _update_lyrics(self, ms: int):
+        if not self._lyrics or self._lyrics.is_empty():
+            return
+        advance = cfg.mediaLyricsAdvance.value
+        _, idx = self._lyrics.get_line_at_time(ms + advance)
+        text = self._lyrics.lines[idx].text if 0 <= idx < len(self._lyrics.lines) else ""
+        self._lyrics_lbl.setText(text)
 
-            self._cover_anim.stop()
-            self._cover_opacity.setOpacity(0.0)
-            self._cover_anim.setStartValue(0.0)
-            self._cover_anim.setEndValue(1.0)
-            self._cover_anim.start()
+    # 补全----------------------------------------
 
-    def _fetch(self, title: str, artist: str):
-        cache_key = f"{title} - {artist}"
+    def _fetch(self, m: MediaInfo):
+        cache_key = m.title_artist
         if cache_key in self._info_cache:
             info = self._info_cache.pop(cache_key)
-            self._info_cache[cache_key] = info  # 插入到末尾（LRU）
-            self._apply_fetched_info(info)
+            self._info_cache[cache_key] = info  # LRU 刷新
+            self._on_detail(info)
             return
-
-        if getattr(self, '_detail_fetching', False):
+        if self._detail_fetching:
             return
         self._detail_fetching = True
+        threading.Thread(target=self._fetch_detail, args=(m,), daemon=True).start()
 
-        self._detail_worker = FetchWorker(title, artist)
-        self._detail_thread = QThread()
-        self._detail_worker.moveToThread(self._detail_thread)
-        self._detail_thread.started.connect(self._detail_worker.run)
-        self._detail_worker.finished.connect(self._on_fetch_finished)
-        self._detail_worker.finished.connect(self._detail_thread.quit)
-        self._detail_thread.finished.connect(self._cleanup_detail_thread)
-        self._detail_thread.start()
-    
-    def _on_fetch_finished(self, info: dict):
-        cache_key = f"{self._media.title} - {self._media.artist}" if self._media else ""
-        if cache_key:
-            self._info_cache[cache_key] = info
-            if len(self._info_cache) > 50:
-                self._info_cache.popitem(last=False)
-        self._apply_fetched_info(info)
-    
-    def _apply_fetched_info(self, info: dict):
+    def _fetch_detail(self, m: MediaInfo):
+        result = {}
         try:
-            if info.get('detail'):
-                self._duration = info['detail'].duration
-            if info.get('cover') and cfg.showMediaCover.value and not self._has_gstmtc_cover:
-                self._load_cover(info['cover'])
-            self._lyrics = info.get('lyrics')
-            self._lyrics_w.set_lyrics(self._lyrics)
+            svc = get_service(m.app_name)
+            if svc:
+                result['lyrics'] = svc.lyrics(m)
+                cover = svc.cover(m)
+                if cover:
+                    result['cover'] = cover
+                dur = svc.duration(m)
+                if dur:
+                    result['duration'] = dur
+            # 酷狗等：借用 SMTC 会话缩略图作封面
+            if m.app_name == 'Kugou':
+                gsmtc = get_service("GSMTC")
+                if gsmtc:
+                    gi = gsmtc.read()
+                    if gi and gi.thumbnail_data:
+                        result['thumb'] = gi.thumbnail_data
         except Exception as e:
-            logger.debug(f"应用歌曲信息失败: {e}")
-        finally:
-            self._detail_fetching = False
+            logger.debug(f"获取歌曲信息失败: {e}")
+        self._detail_ready.emit(result)
 
-    def _cleanup_detail_thread(self):
-        if hasattr(self, '_detail_thread') and self._detail_thread:
-            self._detail_thread.deleteLater()
-            self._detail_thread = None
-        if hasattr(self, '_detail_worker') and self._detail_worker:
-            self._detail_worker.deleteLater()
-            self._detail_worker = None
+    def _on_detail(self, result: dict):
+        self._detail_fetching = False
+        m = self._media
+        if not m:
+            return
+        key = m.title_artist
+        self._info_cache[key] = result
+        if len(self._info_cache) > 50:
+            self._info_cache.popitem(last=False)
+        if result.get('duration'):
+            self._duration = result['duration']
+        if cfg.showMediaCover.value and not self._has_thumb:
+            thumb = result.get('thumb') or result.get('cover')
+            if thumb:
+                self._has_thumb = True
+                self._load_cover(thumb)
+        lyrics = result.get('lyrics')
+        if lyrics:
+            self._lyrics = lyrics
+            self._update_lyrics(self._position)
 
-    def _fetch_kugou_thumbnail(self):
-        self._kugou_thread = QThread()
-        self._kugou_worker = _KugouThumbWorker()
-        self._kugou_worker.moveToThread(self._kugou_thread)
-        self._kugou_thread.started.connect(self._kugou_worker.run)
-        self._kugou_worker.finished.connect(self._on_kugou_done)
-        self._kugou_thread.start()
+    # 播放控制 ----------------------------------------
 
-    def _on_kugou_done(self, info):
-        if self._kugou_thread:
-            self._kugou_thread.quit()
-            self._kugou_thread.wait(2000)
-            self._kugou_thread.deleteLater()
-            self._kugou_thread = None
-        if self._kugou_worker:
-            self._kugou_worker.deleteLater()
-            self._kugou_worker = None
-        if info and getattr(info, 'thumbnail_data', None):
-            self._fetch_done.emit(info, False)
+    def _on_play_pause(self):
+        target = not self._playing
+        self._playing = target
+        self._playing_sync_pending = True
+        self._sync_retries = 0
+        self._update_play_icon()
+        action = "pause" if not target else "play"
+        threading.Thread(target=self._control_worker, args=(action,), daemon=True).start()
 
-    def update_settings(self):
-        self._apply_config()
-        self.update()
+    def _control_worker(self, action: str):
+        try:
+            media_control(action)
+        except Exception:
+            pass
+        self._sync_done.emit()
+
+    def _on_sync_done(self):
+        self._sync_confirm_timer.start(60)
+
+    def _sync_confirm_poll(self):
+        self._spawn_media_fetch(full=True)
+
+    def _check_play_sync(self, is_playing: bool):
+        """播放/暂停切换确认"""
+        if not self._playing_sync_pending:
+            return
+        if is_playing == self._playing:
+            self._playing_sync_pending = False
+            self._sync_retries = 0
+            return
+        self._sync_retries += 1
+        if self._sync_retries >= 6:
+            self._playing_sync_pending = False
+            self._sync_retries = 0
+            return
+        self._sync_confirm_timer.start(300)
+
+    def _on_next(self):
+        self._cover_anim.stop()
+        self._cover_opacity.setOpacity(0.0)
+        threading.Thread(target=media_next, daemon=True).start()
+        QTimer.singleShot(800, lambda: self._spawn_media_fetch(full=True))
+
+    def _on_prev(self):
+        self._cover_anim.stop()
+        self._cover_opacity.setOpacity(0.0)
+        threading.Thread(target=media_prev, daemon=True).start()
+        QTimer.singleShot(800, lambda: self._spawn_media_fetch(full=True))
+
+    def _update_play_icon(self, icon_theme=None):
+        if icon_theme is None:
+            from qfluentwidgets.common.icon import Theme as FTheme
+            icon_theme = FTheme.DARK if isDarkTheme() else FTheme.LIGHT
+        icon = FluentIcon.PAUSE_BOLD.icon(icon_theme) if self._playing else FluentIcon.PLAY.icon(icon_theme)
+        self._btn_play.setIcon(icon)
 
     def clear_cache(self):
         self._info_cache.clear()
@@ -3439,7 +3436,7 @@ class QuickLaunchDock(QWidget):
 
 # 组件样式类
 py_datetime = datetime
-FONT_FAMILY = '"HarmonyOS Sans", "Microsoft YaHei", "SimHei", sans-serif'
+FONT_FAMILY = '"HarmonyOS Sans"'
 
 
 def render_svg_icon(icon_path: str, size: int, dpr: float = 1.0) -> QPixmap:
@@ -4902,63 +4899,6 @@ class SchoolInfoComponent(DraggableContainer):
         self._update_info()
 
 
-class MediaPlayerComponent(DraggableContainer):
-    """媒体播放器组件"""
-
-    def __init__(self, parent, component_data: dict):
-        super().__init__(parent, component_id=component_data["id"], layout_direction="vertical")
-        self.setObjectName("mediaContainer")
-        self._home = parent
-        self._setup_ui()
-        self._setup_timer()
-
-    def _setup_ui(self):
-        self.mediaWidget = MediaWidget(self)
-        self.mediaWidget.setObjectName("mediaWidget")
-        self.mediaWidget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-        self.mediaWidget.setMinimumSize(1, 1)
-        self.mediaWidget.setMaximumSize(16777215, 16777215)
-
-        layout = self.inner_layout
-        layout.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(0)
-        layout.addWidget(self.mediaWidget, 1)
-
-        nat_w = cfg.mediaWidth.value
-        nat_h = cfg.mediaHeight.value
-        self._set_natural_size(nat_w, nat_h)
-        self.setMinimumSize(150, 80)
-        self._size_explicitly_set = True
-        self.resize(nat_w, nat_h)
-
-        # 同步尺寸变化
-        cfg.mediaWidth.valueChanged.connect(self._sync_media_size)
-        cfg.mediaHeight.valueChanged.connect(self._sync_media_size)
-
-    def _sync_media_size(self):
-        """同步尺寸变化"""
-        self.resize(cfg.mediaWidth.value, cfg.mediaHeight.value)
-        if hasattr(self.mediaWidget, '_apply_config'):
-            self.mediaWidget._apply_config()
-
-    def apply_scale(self, factor):
-        # 将缩放因子传递给 MediaWidget，让其缩放字体/封面/歌词
-        if self.mediaWidget is not None:
-            self.mediaWidget._scale_factor = factor
-            if hasattr(self.mediaWidget, '_apply_config'):
-                self.mediaWidget._apply_config()
-
-    def _setup_timer(self):
-        cfg.showMediaInfo.valueChanged.connect(self._on_visibility_changed)
-
-    def _on_visibility_changed(self):
-        if cfg.showMediaInfo.value:
-            self.show()
-        else:
-            self.hide()
-
-
 class QuickLaunchDockComponent(DraggableContainer):
     """快捷启动栏组件"""
 
@@ -5225,7 +5165,7 @@ class _DayCell(QWidget):
         mid = h * 0.62  # 分割线位置 62% 给日期
 
         # 日期数字
-        day_font = QFont("HarmonyOS Sans")
+        day_font = QFont()
         day_font.setPixelSize(int(sz * 0.46))
         painter.setFont(day_font)
 
@@ -5250,7 +5190,7 @@ class _DayCell(QWidget):
 
         # 节日文字
         if self._sub_text and self._is_current_month:
-            sub_font = QFont('Microsoft YaHei')
+            sub_font = QFont()
             sub_font.setPixelSize(int(sz * 0.35))  # 节日字号
             sub_font.setBold(True)
             painter.setFont(sub_font)
@@ -8802,7 +8742,9 @@ class TimeColumnWidget(QWidget):
 
         self._label_widget = BodyLabel(label, self)
         self._label_widget.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._label_widget.setFont(QFont(FONT_FAMILY, 12))
+        font = QFont()
+        font.setPointSize(12)
+        self._label_widget.setFont(font)
         lay.addWidget(self._label_widget)
 
         self._up_btn = ToolButton(FUI.CHEVRON_UP, self)
@@ -8812,7 +8754,10 @@ class TimeColumnWidget(QWidget):
 
         self._value_label = StrongBodyLabel(f"{self._value:02d}", self)
         self._value_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._value_label.setFont(QFont(FONT_FAMILY, 28, QFont.Weight.Bold))
+        font = QFont()
+        font.setPointSize(28)
+        font.setWeight(QFont.Weight.Bold)
+        self._value_label.setFont(font)
         self._value_label.setFixedHeight(44)
         lay.addWidget(self._value_label, 0, Qt.AlignmentFlag.AlignCenter)
 
@@ -8848,7 +8793,10 @@ class TimerTimeDisplayWidget(QWidget):
         lay.setAlignment(Qt.AlignmentFlag.AlignCenter)
         lay.setContentsMargins(0, 0, 0, 0)
         self._label = StrongBodyLabel("00:00:00", self)
-        self._label.setFont(QFont(FONT_FAMILY, 48, QFont.Weight.Bold))
+        font = QFont()
+        font.setPointSize(48)
+        font.setWeight(QFont.Weight.Bold)
+        self._label.setFont(font)
         self._label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         lay.addWidget(self._label)
 
@@ -9101,7 +9049,8 @@ class NavItemCell(QWidget):
         self.setCursor(Qt.CursorShape.PointingHandCursor)
 
         # 统一字体，避免宋体
-        self._font = QFont("HarmonyOS Sans", 9)
+        self._font = QFont()
+        self._font.setPointSize(9)
         self._font.setStyleHint(QFont.StyleHint.SansSerif)
         self.setFont(self._font)
 
@@ -9168,7 +9117,8 @@ class NavItemCell(QWidget):
         # 文字区域固定高度（2 行）
         text_h = max(28, int(side * 0.22))
         self.textLabel.setFixedHeight(text_h)
-        font = QFont("HarmonyOS Sans", max(8, int(side / 16)))
+        font = QFont()
+        font.setPointSize(max(8, int(side / 16)))
         font.setStyleHint(QFont.StyleHint.SansSerif)
         self.textLabel.setFont(font)
 
@@ -9254,7 +9204,8 @@ class NavigationPage(QWidget):
         self._placeholder = BodyLabel(self)
         self._placeholder.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._placeholder.setText(tr("nav_page.empty_hint"))
-        ph_font = QFont("HarmonyOS Sans", 10)
+        ph_font = QFont()
+        ph_font.setPointSize(10)
         ph_font.setStyleHint(QFont.StyleHint.SansSerif)
         self._placeholder.setFont(ph_font)
         self._updatePlaceholderColor()

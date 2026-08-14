@@ -809,8 +809,8 @@ class AdvancedPage(SettingsSubPage):
 
         app = QApplication.instance()
         if app:
-            font_loaded = _load_app_fonts()
-            apply_fonts(app, use_harmonyos=font_loaded)
+            _load_app_fonts()
+            apply_fonts(app)
         current_theme = cfg.themeMode.value
         clear_qss_cache()
         setTheme(current_theme)

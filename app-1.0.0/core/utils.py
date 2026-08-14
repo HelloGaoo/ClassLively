@@ -115,14 +115,25 @@ HARMONYOS_FONT_FILES = [
 ]
 HARMONYOS_FONT_FAMILIES = [
     "HarmonyOS Sans",
-    "Microsoft YaHei",
-    "SimHei",
-    "sans-serif"
+    "HarmonyOS Sans SC",
+    "HarmonyOS Sans TC",
+    "HarmonyOS Sans HC",
 ]
-FALLBACK_FONT_FAMILIES = [
+
+FONT_FAMILY_CANDIDATES = [
+    "HarmonyOS Sans",
+    "HarmonyOS Sans SC",
+    "HarmonyOS Sans TC",
+    "HarmonyOS Sans HC",
+    "HarmonyOS Sans B",
+    "HarmonyOS Sans Headline",
+    "Microsoft YaHei UI",
     "Microsoft YaHei",
-    "SimHei",
-    "sans-serif"
+    "PingFang SC",
+    "Source Han Sans SC",
+    "Segoe UI",
+    "Arial",
+    "sans-serif",
 ]
 
 
@@ -140,46 +151,50 @@ def _check_fonts_installed() -> bool:
 
 
 def _install_system_fonts() -> bool:
-    if _check_fonts_installed():
-        return True
     system_font_dir = os.path.join(os.environ['WINDIR'], 'Fonts')
+    os.makedirs(system_font_dir, exist_ok=True)
     local_font_dir = _get_fontdir()
     if not os.path.exists(local_font_dir):
         logger.warning(f"字体目录不存在：{local_font_dir}")
         return False
-    
+
     installed_any = False
     try:
         for font_file in HARMONYOS_FONT_FILES:
             local_font_path = os.path.join(local_font_dir, font_file)
             system_font_path = os.path.join(system_font_dir, font_file)
-            if os.path.exists(local_font_path) and not os.path.exists(system_font_path):
+            if os.path.exists(local_font_path):
                 try:
                     shutil.copy2(local_font_path, system_font_path)
+                    logger.debug(f"已复制字体到系统目录：{font_file}")
+                except Exception as e:
+                    logger.warning(f"复制字体失败 {font_file}：{e}")
+
+                try:
                     from Glimpseon_native import install_font
                     result = install_font(system_font_path)
                     if result > 0:
                         installed_any = True
-                        logger.debug(f"已安装字体：{font_file}")
+                        logger.debug(f"已注册字体：{font_file}")
                     else:
-                        logger.warning(f"AddFontResourceW：{font_file}")
+                        logger.warning(f"AddFontResourceW 注册失败：{font_file}")
                 except Exception as e:
-                    logger.warning(f"安装字体失败 {font_file}：{e}")
-                    continue
+                    logger.warning(f"注册字体失败 {font_file}：{e}")
+
         if installed_any:
             try:
                 HWND_BROADCAST = 0xFFFF
                 WM_FONTCHANGE = 0x001D
                 SMTO_ABORTIFHUNG = 0x0002
-                
+
                 result = ctypes.wintypes.DWORD()
-                send_result = ctypes.windll.user32.SendMessageTimeoutW(
-                    HWND_BROADCAST, WM_FONTCHANGE, 0, 0, 
+                ctypes.windll.user32.SendMessageTimeoutW(
+                    HWND_BROADCAST, WM_FONTCHANGE, 0, 0,
                     SMTO_ABORTIFHUNG, 500, ctypes.byref(result)
                 )
             except Exception as e:
                 logger.warning(f"字体变更失败：{e}")
-        
+
         return True
     except Exception as e:
         logger.warning(f"安装字体失败：{e}")
@@ -191,17 +206,18 @@ def _load_app_fonts(max_retries: int = 3, retry_delay: float = 0.1) -> bool:
     if not os.path.exists(font_dir):
         logger.warning(f"字体目录不存在：{font_dir}")
         return False
-    
+
     font_loaded = False
     failed_fonts = []
-    
+    registered_families = []
+
     for font_file in HARMONYOS_FONT_FILES:
         font_path = os.path.join(font_dir, font_file)
         if not os.path.exists(font_path):
             logger.warning(f"字体文件不存在：{font_path}")
             failed_fonts.append(font_file)
             continue
-        
+
         loaded = False
         for attempt in range(max_retries):
             try:
@@ -209,6 +225,7 @@ def _load_app_fonts(max_retries: int = 3, retry_delay: float = 0.1) -> bool:
                 if font_id != -1:
                     loaded = True
                     font_loaded = True
+                    registered_families.extend(QFontDatabase.applicationFontFamilies(font_id))
                     logger.debug(f"成功加载字体：{font_file}")
                     break
                 else:
@@ -218,13 +235,16 @@ def _load_app_fonts(max_retries: int = 3, retry_delay: float = 0.1) -> bool:
                 logger.warning(f"加载字体 {font_file} 错误：{e}")
                 if attempt < max_retries - 1:
                     time.sleep(retry_delay)
-        
+
         if not loaded:
             failed_fonts.append(font_file)
             logger.warning(f"字体加载失败：{font_file}")
 
+    if registered_families:
+        global HARMONYOS_FONT_FAMILIES
+        HARMONYOS_FONT_FAMILIES = list(dict.fromkeys([*registered_families, *HARMONYOS_FONT_FAMILIES]))
+
     if font_loaded:
-        pass
         if failed_fonts:
             logger.warning(f"字体加载失败：{', '.join(failed_fonts)}")
     else:
@@ -232,23 +252,69 @@ def _load_app_fonts(max_retries: int = 3, retry_delay: float = 0.1) -> bool:
     return font_loaded
 
 
-def apply_fonts(app: QApplication, use_harmonyos: bool = True):
-    if use_harmonyos:
-        setFontFamilies(HARMONYOS_FONT_FAMILIES, save=False)
-        app.setFont(QFont("HarmonyOS Sans", 10))
-        logger.info("字体已设置为：HarmonyOS Sans")
-    else:
-        setFontFamilies(FALLBACK_FONT_FAMILIES, save=False)
-        app.setFont(QFont("Microsoft YaHei", 10))
-        logger.info("字体已设置为：Microsoft YaHei")
+def resolve_font_family() -> str:
+    available_families = set(QFontDatabase.families())
+    preferred_candidates = HARMONYOS_FONT_FAMILIES + FONT_FAMILY_CANDIDATES
+    for family in preferred_candidates:
+        if family in available_families:
+            return family
+
+    for family in sorted(available_families):
+        if "HarmonyOS" in family or "Harmony" in family:
+            return family
+
+    for family in FONT_FAMILY_CANDIDATES:
+        if family in available_families and family not in {"sans-serif"}:
+            return family
+
+    return "Microsoft YaHei UI"
+
+
+def apply_fonts(app: QApplication):
+    font_family = resolve_font_family()
+    fallback_families = [
+        "Microsoft YaHei UI",
+        "Microsoft YaHei",
+        "PingFang SC",
+        "Source Han Sans SC",
+        "Segoe UI",
+        "sans-serif",
+    ]
+    if font_family not in fallback_families:
+        fallback_families.insert(0, font_family)
+
+    substitution_chain = [family for family in [font_family, *fallback_families] if family and family != "sans-serif"]
+    for family_name in ["HarmonyOS Sans", "HarmonyOS Sans SC", "HarmonyOS Sans TC", "HarmonyOS Sans HC", "HarmonyOS Sans B"]:
+        try:
+            QFont.insertSubstitutions(family_name, substitution_chain)
+        except Exception:
+            try:
+                QFont.insertSubstitutions(family_name, [font_family, *fallback_families])
+            except Exception as e:
+                logger.warning(f"插入字体替代规则失败 {family_name}: {e}")
+
+    setFontFamilies(fallback_families, save=False)
+
+    font = QFont(font_family, 10)
+    app.setFont(font)
+    css_family = ", ".join(f"'{family}'" for family in fallback_families)
+    app.setStyleSheet(
+        app.styleSheet() + "\n"
+        "QWidget, QLabel, QPushButton, QComboBox, QLineEdit, QTextEdit, "
+        "QPlainTextEdit, QCheckBox, QRadioButton, QGroupBox, QTabWidget, "
+        "QTabBar, QAbstractItemView, QMenu, QToolTip, QStatusBar, "
+        "QSpinBox, QDoubleSpinBox, QDateTimeEdit, QHeaderView {{ "
+        f"font-family: {css_family}; }}"
+    )
+    logger.info(f"字体已设置为：{font_family}")
 
 
 def initialize_fonts(app: QApplication, install_to_system: bool = True):
     if install_to_system:
         _install_system_fonts()
     
-    font_loaded = _load_app_fonts(max_retries=3, retry_delay=0.1)
-    apply_fonts(app, use_harmonyos=font_loaded)
+    _load_app_fonts(max_retries=3, retry_delay=0.1)
+    apply_fonts(app)
     logger.info("字体初始化完成")
 
 
@@ -812,6 +878,9 @@ _ICON_NAME_MAP = {
     "SAVE": "save",
     "CLOSE": "dismiss",
     "PLAY": "play",
+    "PAUSE": "pause",
+    "PREVIOUS": "previous",
+    "NEXT": "next",
 
     # 界面类
     "HOME": "home",
