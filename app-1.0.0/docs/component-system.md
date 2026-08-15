@@ -1,5 +1,6 @@
 # 组件系统
 
+> [!NOTE]
 > 编写者：HelloGaoo　最后修改：2026/08/15
 
 Glimpseon 定位是桌面信息看板，已编写了注册组件等函数，每个组件独立类，与主页面沟通能做到拖拽、删除、配置相关操作
@@ -197,7 +198,8 @@ QWidget
 
 `ComponentConfigDialog(MessageBoxBase)`：组件配置弹窗。
 
-> **约束：配置面板必须 parent 到 MainWindow（而非组件或设置窗口），以确保正确的 z-order（不被主界面遮挡）。每个组件配置独立存储。**
+> [!IMPORTANT]
+> 约束：配置面板必须 parent 到 MainWindow（而非组件或设置窗口），以确保正确的 z-order（不被主界面遮挡）。每个组件配置独立存储。
 
 ### 4.5 组件库窗口
 
@@ -250,7 +252,8 @@ QWidget
 
 ## 6. 手写画板（WritingPadComponent）
 
-> **注意**：本章算法部分由 AI 基于源码（`ui/component.py` 中 `_WritingOverlay`，约 L7094–L7853）生成，如与实际实现有出入，请以源码为准。
+> [!NOTE]
+> 本章算法部分由 AI 基于源码（`ui/component.py` 中 `_WritingOverlay`，约 L7094–L7853）生成，如与实际实现有出入，请以源码为准。
 
 手写画板主要是 `_WritingOverlay`（全屏透明覆盖层，`FramelessWindowHint | Tool`，`WA_TranslucentBackground`）。通过 Windows `WM_POINTER` 只读触控点（`PT_TOUCH`），并防止 Qt 重复派发 mouse event。擦除功能采用**定时器循环驱动**，参考项目 Inkeys 的算法实现。
 
@@ -396,7 +399,8 @@ painter.drawEllipse(pos, diameter / 2.0, diameter / 2.0)
 
 ## 7. 媒体组件
 
-> **注意**：本章由 AI 基于源码（`ui/component.py` 中 `MediaPlayerComponent` L1772）生成，如与实际实现有出入，请以源码为准。
+> [!NOTE]
+> 本章由 AI 基于源码（`ui/component.py` 中 `MediaPlayerComponent` L1772）生成，如与实际实现有出入，请以源码为准。
 
 媒体组件为**单一** **`MediaPlayerComponent`**（`DraggableContainer` 子类），后台从 `services.media` 获取正在播放的媒体信息（标题/艺术家/封面/进度/歌词）。
 
@@ -508,6 +512,7 @@ self._timer.setInterval(500)   # 切到 500ms 快速间隔
   保存 → PageManager.save() → home_layout.json
 ```
 
+> [!IMPORTANT]
 > 组件加载必须在 splash 期间**同步完成**，避免 `QTimer.singleShot(0)` 导致主窗口显示后才加载的延迟。
 
 ***
@@ -597,6 +602,7 @@ class CheckinComponent(DraggableContainer):
 COMPONENT_STYLES["checkin"]["default"]["class"] = CheckinComponent
 ```
 
+> [!WARNING]
 > 绑定放在末尾是因为 `COMPONENT_STYLES` 在 L109 定义时类还未定义，必须延后到类定义之后赋值。漏掉此步会导致 `load_components` 报「组件样式未注册」并跳过。
 
 **步骤 4：（可选）加入组件库展示**

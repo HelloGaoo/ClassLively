@@ -1,5 +1,6 @@
 # 核心模块（core/）
 
+> [!NOTE]
 > 编写者：HelloGaoo　最后修改：2026/08/14
 
 `core/` 所有路径、常量、配置、日志、工具函数集中于此，被 `ui/`、`services/`、主程序复用。
@@ -99,6 +100,7 @@ def clear_qss_cache()
 | `Other`        | `closeAction`、`allowMultipleInstances`、`debugMode`、`enableGpuAcceleration`、`autoStart`、`autoOpenOnIdle`、`idleMinutes`、`autoOpenMaximize`、`autoCheckUpdate`、`autoUpdate`、`minimizeNotificationCount`、`scrollBannerBgHeight`、`scrollBannerMouseThrough` |
 | `Download`     | `downloadSource`、`downloadItemsPerPage`                                                                                                                                                                                                               |
 
+> [!NOTE]
 > 完整配置项与默认值见 [配置系统](configuration.md)。
 
 ### 3.3 自动保存机制
@@ -381,5 +383,6 @@ for attr_name in dir(cfg):
 - `save_record(record, record_path)` / `load_record(record_path)`
 - `deactivate_version(version_dir)`：置 `current=0`。
 
+> [!NOTE]
 > `partial=true` 表示升级不完整，启动器与 `_detect_app_dir` 均会跳过该版本。
 

@@ -1,5 +1,6 @@
 # 架构总览
 
+> [!NOTE]
 > 编写者：HelloGaoo　最后修改：2026/08/13
 
 ## 1. 技术栈
@@ -91,7 +92,10 @@ Glimpseon 可与以下外部系统集成（见 [core/linkage.py](file:///e:/2605
 
 时间状态枚举 `TimeState`：`NONE / PREPARE_ON_CLASS / ON_CLASS / BREAKING / AFTER_SCHOOL`。
 
-> **实现说明**：早期尝试过 ClassIsland / ClassWidgets 的进程通信 / http 方式进行联动，稳定性原因最终直接找软件目录 读软件json
+> [!NOTE]
+> 早期尝试过进程通信 / http 方式进行联动
+>
+> 稳定性原因最终直接找软件目录 读软件json配置
 
 ## 7. 数据目录
 

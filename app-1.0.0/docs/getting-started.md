@@ -1,5 +1,6 @@
 # 快速开始
 
+> [!NOTE]
 > 编写者：HelloGaoo　最后修改：2026/08/15
 
 ## 1. 环境要求
@@ -11,6 +12,7 @@
 | 构建工具   | CMake ≥ 3.15、Visual Studio（MSVC，支持 C++17）、pybind11 |
 | GPU    | 可选；启用 `enableGpuAcceleration` 时使用 OpenGLES         |
 
+> [!WARNING]
 > 原生扩展需匹配 Python 版本。仓库已附 `Glimpseon_native.cp311-win_amd64.pyd`，若用其它 Python 版本需自行重新编译（见 [原生扩展](native-extension.md)）。
 
 ## 2. 获取代码
@@ -70,6 +72,7 @@ cd app-1.0.0
 python GlimpseonMain.py
 ```
 
+> [!NOTE]
 > 直接运行时无环境变量，[core/paths.py](file:///e:/260523/py/Glimpseon/app-1.0.0/core/paths.py) 会回退为基于 `__file__` 推导 `PACKAGE_ROOT`（上三级，`paths.py` 位于 `app-*/core/`，三级父目录即包根）。
 
 ## 5. 首次运行
@@ -96,6 +99,7 @@ python GlimpseonMain.py
 - **日志位置**：`data/log/`，格式 `precise_time|level|caller|module:line|message`。
 - **多开**：`cfg.allowMultipleInstances = True` 或 DebugMode 下可绕过单例锁。
 
+> [!NOTE]
 > os：其实我觉得这个调试模式非常没用
 
 8\. 常见问题

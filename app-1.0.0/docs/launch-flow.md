@@ -1,5 +1,6 @@
 # 启动流程
 
+> [!NOTE]
 > 编写者：HelloGaoo　最后修改：2026/08/13
 
 本文档梳理从用户启动到主窗口就绪的完整时序，涵盖启动器、闪屏、向导、主窗口、预加载各阶段。
@@ -25,6 +26,7 @@ find_and_launch()
   └─ subprocess.run([python, GlimpseonMain.py], env)
 ```
 
+> [!NOTE]
 > 参考自 ClassIsland 的启动器设计。
 
 ***
@@ -225,6 +227,7 @@ tray_icon.show()
 sys.exit(app.exec())
 ```
 
+> [!NOTE]
 > **顺序说明**：当前实现是先 `splash.close()` 再 `window.showMaximized()`。`close` 前的 `allow_ui_update(0.06)` 让事件循环处理完闪屏末帧与待绘制事件，避免主窗口显示瞬间的白屏。
 
 ***

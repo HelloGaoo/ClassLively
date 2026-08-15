@@ -1,5 +1,6 @@
 # 配置系统
 
+> [!NOTE]
 > 编写者：HelloGaoo　最后修改：2026/08/14
 
 [源码](file:///e:/260523/py/Glimpseon/app-1.0.0/core/config.py)
