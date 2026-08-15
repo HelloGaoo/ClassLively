@@ -42,6 +42,17 @@ class PoetryService:
                 logger.debug(f"一言 请求成功：{response.status_code}")
                 text = response.text.strip()
                 if text:
+                    try:
+                        data = response.json()
+                        hitokoto = str(data.get("hitokoto", "")).strip()
+                        if hitokoto:
+                            source = data.get("from") or data.get("from_who")
+                            if source:
+                                return f"{hitokoto}——{source}"
+                            return hitokoto
+                    except Exception:
+                        pass
+                    # 非 json
                     return text
                 logger.warning("一言 返回空内容")
                 return FALLBACK_POETRY

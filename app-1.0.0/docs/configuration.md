@@ -110,7 +110,7 @@ cfg.clockSize.value = 100   # 修改即触发保存
 | 键                      | 默认                                  | 范围 / 选项                            | 备注     |
 | ---------------------- | ----------------------------------- | ---------------------------------- | ------ |
 | `ShowPoetry`           | `True`                              | bool                               | <br /> |
-| `PoetryApiUrl`         | `https://www.ffapi.cn/int/v1/shici` | 字符串                                | <br /> |
+| `PoetryApiUrl`         | `https://v1.hitokoto.cn/` | 字符串                                | <br /> |
 | `PoetryUpdateInterval` | `10m`                               | `never/5m/10m/30m/1h/3h/6h/12h/1d` | <br /> |
 | `PoetrySize`           | `16`                                | 12\~50                             | <br /> |
 | `PoetryTextColor`      | `#FFFFFF`                           | 颜色                                 | <br /> |

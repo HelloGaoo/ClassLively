@@ -204,7 +204,7 @@ class Config(QConfig):
         "Weather", "ShowWeather", True, BoolValidator()
     )
     poetryApiUrl = ConfigItem(
-        "Poetry", "PoetryApiUrl", "https://www.ffapi.cn/int/v1/shici"
+        "Poetry", "PoetryApiUrl", "https://v1.hitokoto.cn/"
     )
     poetryUpdateInterval = OptionsConfigItem(
         "Poetry", "PoetryUpdateInterval", "10m", OptionsValidator(["never", "5m", "10m", "30m", "1h", "3h", "6h", "12h", "1d"])
@@ -513,7 +513,7 @@ def default_cfg():
         },
         "Poetry": {
             "ShowPoetry": True,
-            "PoetryApiUrl": "https://www.ffapi.cn/int/v1/shici",
+            "PoetryApiUrl": "https://v1.hitokoto.cn/",
             "PoetryUpdateInterval": "10m",
             "PoetrySize": 16,
             "PoetryTextColor": "#FFFFFF"

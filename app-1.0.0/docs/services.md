@@ -1,7 +1,7 @@
 # 服务模块（services/）
 
 > [!NOTE]
-> 编写者：HelloGaoo　最后修改：2026/08/14
+> 编写者：HelloGaoo　最后修改：2026/08/15
 
 `services/` 是数据获取层，从网络或系统获取外部数据。所有服务统一使用 `core.utils` 的文件缓存机制（`save_cache` / `get_cached_content`）减少请求。
 
@@ -48,7 +48,7 @@
 
 ### 2.1 配置
 
-- API：`cfg.poetryApiUrl`，默认 `https://www.ffapi.cn/int/v1/shici`
+- API：`cfg.poetryApiUrl`，默认 `https://v1.hitokoto.cn/`
 - 回退文案：`tr("poetry.default")`
 - 刷新间隔：`cfg.poetryUpdateInterval`
 
@@ -56,7 +56,7 @@
 
 | 方法                         | 作用                      |
 | -------------------------- | ----------------------- |
-| `get_poetry(api_url=None)` | 直接请求 API，返回纯文本；失败返回回退文案 |
+| `get_poetry(api_url=None)` | 请求 API，解析 JSON（提取 `hitokoto` 正文与 `from`/`from_who` 出处，拼为 `正文——出处`）；非 JSON（如 `?encode=text` 纯文本）按原文本返回；失败返回回退文案 |
 | `get_poetry_with_cache()`  | 带缓存读取，缓存键 `"poetry"`    |
 
 ***

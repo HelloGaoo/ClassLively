@@ -4403,9 +4403,19 @@ class PoetryOneLineComponent(DraggableContainer):
     def __init__(self, parent, component_data: dict):
         super().__init__(parent, component_id=component_data["id"], layout_direction="vertical")
         self.setObjectName("poetryContainer")
-        self._home = parent
+        self._home = self._resolve_home(parent)
         self._setup_ui()
         self._setup_timer()
+
+    @staticmethod
+    def _resolve_home(parent):
+        """向上查找 HomeInterface"""
+        w = parent
+        while w is not None:
+            if hasattr(w, 'poetry_updated') and hasattr(w, '_cached_poetry'):
+                return w
+            w = w.parent()
+        return parent
 
     def _setup_ui(self):
         self.poetryLabel = BodyLabel("")
@@ -4478,8 +4488,14 @@ class PoetryOneLineComponent(DraggableContainer):
             return
         self.show()
 
+        text = None
         if hasattr(self._home, '_cached_poetry') and self._home._cached_poetry:
-            self.poetryLabel.setText(self._format_poetry(self._home._cached_poetry))
+            text = self._home._cached_poetry
+        if not text:
+            from core.utils import get_cached_content
+            text = get_cached_content("poetry")
+        if text:
+            self.poetryLabel.setText(self._format_poetry(text))
         else:
             self.poetryLabel.setText("")
 
