@@ -21,6 +21,8 @@ import os
 import re
 import time
 
+import shiboken6
+
 from PyQt6.QtCore import (
     QDate,
     QEasingCurve,
@@ -1349,6 +1351,12 @@ class HomeInterface(QWidget, TranslatableWidget):
 
         logger.info(f"拖拽列表共有 {len(self._draggable_widgets)} 个组件，设置draggable={enabled}")
 
+        # 清理被删除的组件引用
+        self._draggable_widgets = [
+            w for w in self._draggable_widgets
+            if w is not None and shiboken6.isValid(w)
+        ]
+
         for widget in self._draggable_widgets:
             if widget and hasattr(widget, 'setDraggable'):
                 try:
@@ -1398,8 +1406,12 @@ class HomeInterface(QWidget, TranslatableWidget):
 
         if hasattr(self, '_draggable_widgets'):
             for widget in self._draggable_widgets:
-                if widget and hasattr(widget, 'onParentResize'):
-                    widget.onParentResize()
+                if (widget is not None and shiboken6.isValid(widget)
+                        and hasattr(widget, 'onParentResize')):
+                    try:
+                        widget.onParentResize()
+                    except RuntimeError:
+                        pass
 
         self._updateBottomBarPosition()
 

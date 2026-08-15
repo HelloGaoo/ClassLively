@@ -75,7 +75,7 @@ from PyQt6.QtGui import (
 from PyQt6.QtSvg import QSvgRenderer
 from PyQt6.QtWidgets import (
     QFileIconProvider, QGridLayout, QLabel, QSizePolicy, QWidget, QVBoxLayout, QHBoxLayout, QApplication, QGraphicsOpacityEffect,
-    QStackedWidget, QListWidgetItem, QFileDialog
+    QStackedWidget, QListWidgetItem, QFileDialog, QLayout
 )
 from qfluentwidgets import InfoBar, isDarkTheme, RoundMenu, Action, FluentWindow, setTheme, ScrollArea, PushButton, ToolButton, TransparentToolButton, StrongBodyLabel, CardWidget, BodyLabel, ComboBox, SpinBox, SwitchButton, HorizontalFlipView, VerticalFlipView, PrimaryPushButton, Pivot, MessageBoxBase, ProgressBar, LineEdit, ColorPickerButton, ListWidget, Slider, TextEdit, CaptionLabel, SubtitleLabel, FluentIcon
 from win32com.shell import shell
@@ -825,6 +825,10 @@ class DraggableWidget(QWidget):
                 self.setMinimumSize(self._saved_min_size)
                 del self._saved_min_size
             self.setCursor(QCursor(Qt.CursorShape.OpenHandCursor))
+            if hasattr(self, '_scale_timer'):
+                self._scale_timer.stop()
+            if hasattr(self, '_apply_scale_now'):
+                self._apply_scale_now()
             self._save_position()
             event.accept()
             return
@@ -1483,9 +1487,12 @@ class DraggableContainer(DraggableWidget):
         # _scale_factor 由 resizeEvent 根据当前尺寸 / natural_size 计算，
         # 子类在样式方法中用 self._scaled_px(base) 缩放字体/图标，apply_scale 重应用样式
         self._scale_factor = 1.0
+        self._applied_factor = 1.0  # 上次已应用到样式的缩放因子
         self._natural_size = None
         self._size_explicitly_set = False
         self._applying_scale = False
+        # 布局边距/间距基准值缓存
+        self._layout_bases = None
         # 卡片背景标准配置 11**14年了终于统一背景了。。。
         self._bg_opacity = None
         self._corner_radius = None
@@ -1505,6 +1512,9 @@ class DraggableContainer(DraggableWidget):
         self._resize_debounce_timer = QTimer(self)
         self._resize_debounce_timer.setSingleShot(True)
         self._resize_debounce_timer.timeout.connect(self._on_resize_debounce)
+        self._scale_timer = QTimer(self)
+        self._scale_timer.setInterval(30)
+        self._scale_timer.timeout.connect(self._apply_scale_now)
         """下面这些到pass 都是更新样式相关"""
         cfg.componentCardOpacity.valueChanged.connect(self._on_card_config_changed)
         cfg.componentCardRadius.valueChanged.connect(self._on_card_config_changed)
@@ -1545,13 +1555,38 @@ class DraggableContainer(DraggableWidget):
         sh = self.height() / nh
         # 取小 下限 0.3
         new_factor = max(0.3, min(sw, sh))
-        if abs(new_factor - self._scale_factor) < 0.02:
-            return False
+        changed = abs(new_factor - self._scale_factor) >= 0.02
         self._scale_factor = new_factor
-        return True
+        return changed
 
     def apply_scale(self, factor: float):
         pass
+
+    def _scale_layouts(self):
+        """缩放子布局的边距与间距"""
+        if self._layout_bases is None:
+            self._layout_bases = {}
+        f = self._scale_factor
+        for layout in self.findChildren(QLayout):
+            base = self._layout_bases.get(id(layout))
+            if base is None:
+                m = layout.contentsMargins()
+                base = (m.left(), m.top(), m.right(), m.bottom(), layout.spacing())
+                self._layout_bases[id(layout)] = base
+            layout.setContentsMargins(*(int(round(x * f)) for x in base[:4]))
+            layout.setSpacing(int(round(base[4] * f)))
+
+    def _apply_scale_now(self):
+        """立即应用"""
+        if self._applying_scale:
+            return
+        self._applying_scale = True
+        try:
+            self.apply_scale(self._scale_factor)
+            self._scale_layouts()
+            self._applied_factor = self._scale_factor
+        finally:
+            self._applying_scale = False
 
 
     def _card_bg_css(self, obj_name=None, bg_mode=None,
@@ -1699,12 +1734,14 @@ class DraggableContainer(DraggableWidget):
             self._delete_button.reposition()
         if self._config_button and self._config_button.isVisible():
             self._config_button.reposition()
-        if not self._applying_scale and self._recompute_scale():
-            self._applying_scale = True
-            try:
-                self.apply_scale(self._scale_factor)
-            finally:
-                self._applying_scale = False
+        if not self._applying_scale:
+            if getattr(self, '_resizing', False):
+                self._recompute_scale()
+                if abs(self._scale_factor - self._applied_factor) > 0.001:
+                    if not self._scale_timer.isActive():
+                        self._scale_timer.start()
+            elif self._recompute_scale():
+                self._apply_scale_now()
         self._resize_debounce_timer.start(50)
 
     def moveEvent(self, event):
@@ -1949,9 +1986,9 @@ class MediaPlayerComponent(DraggableContainer):
         self._size_explicitly_set = True
         self.resize(400, 200)
 
-    def _default_cover(self):
-        sz = 160
-        radius = 8
+    def _default_cover(self, sz: int = None):
+        sz = self._scaled_px(160) if sz is None else sz
+        radius = self._scaled_px(8)
         pm = QPixmap(sz, sz)
         pm.fill(Qt.GlobalColor.transparent)
         p = QPainter(pm)
@@ -1992,8 +2029,9 @@ class MediaPlayerComponent(DraggableContainer):
         self._cover_lbl.setPixmap(pm)
 
     def _add_cover_shadow(self, pixmap: QPixmap, size: int) -> QPixmap:
-        radius = 10
-        result = QPixmap(size + 8, size + 8)
+        radius = self._scaled_px(10)
+        pad = self._scaled_px(8)
+        result = QPixmap(size + pad, size + pad)
         result.fill(Qt.GlobalColor.transparent)
 
         p = QPainter(result)
@@ -2002,7 +2040,7 @@ class MediaPlayerComponent(DraggableContainer):
         for i in range(4):
             p.setPen(Qt.PenStyle.NoPen)
             p.setBrush(QColor(0, 0, 0, 20 - i * 4))
-            offset = (i + 1) * 2
+            offset = (i + 1) * self._scaled_px(2)
             p.drawRoundedRect(offset, offset, size, size, radius, radius)
 
         rounded = QPixmap(size, size)
@@ -2016,7 +2054,7 @@ class MediaPlayerComponent(DraggableContainer):
         p2.drawPixmap(0, 0, pixmap.scaled(size, size, Qt.AspectRatioMode.KeepAspectRatioByExpanding, Qt.TransformationMode.SmoothTransformation))
         p2.end()
 
-        p.drawPixmap(4, 4, rounded)
+        p.drawPixmap(pad // 2, pad // 2, rounded)
         p.end()
         return result
 
@@ -2025,7 +2063,7 @@ class MediaPlayerComponent(DraggableContainer):
         pm.loadFromData(data)
         if not pm.isNull():
             self._cover = pm
-            sz = 160
+            sz = self._scaled_px(160)
             cover_with_shadow = self._add_cover_shadow(pm, sz)
             self._cover_lbl.setPixmap(cover_with_shadow)
 
@@ -2084,10 +2122,10 @@ class MediaPlayerComponent(DraggableContainer):
             return self._TEXT_QSS.format(
                 color=self._qss_color(color), size=size, weight=weight, family=FONT_FAMILY)
 
-        self._title.setStyleSheet(_text_qss(title_c, 19, 700))
-        self._artist.setStyleSheet(_text_qss(artist_c, 11, 500))
-        self._time_lbl.setStyleSheet(_text_qss(time_c, 10, 500))
-        self._lyrics_lbl.setStyleSheet(_text_qss(lyrics_c, 12, 700))
+        self._title.setStyleSheet(_text_qss(title_c, self._scaled_px(19), 700))
+        self._artist.setStyleSheet(_text_qss(artist_c, self._scaled_px(11), 500))
+        self._time_lbl.setStyleSheet(_text_qss(time_c, self._scaled_px(10), 500))
+        self._lyrics_lbl.setStyleSheet(_text_qss(lyrics_c, self._scaled_px(12), 700))
 
         # 图标
         from qfluentwidgets.common.icon import Theme as FTheme
@@ -2100,18 +2138,31 @@ class MediaPlayerComponent(DraggableContainer):
         btn_qss = self._BTN_QSS.format(fg=self._qss_color(btn_fg))
         for btn in (self._btn_prev, self._btn_play, self._btn_next):
             btn.setStyleSheet(btn_qss)
-            btn.setIconSize(btn.iconSize())  # 触发重绘
+        icon_prev = self._scaled_px(20)
+        self._btn_prev.setIconSize(QSize(icon_prev, icon_prev))
+        self._btn_prev.setFixedSize(self._scaled_px(28), self._scaled_px(28))
+        icon_play = self._scaled_px(24)
+        self._btn_play.setIconSize(QSize(icon_play, icon_play))
+        self._btn_play.setFixedSize(self._scaled_px(32), self._scaled_px(32))
+        self._btn_next.setIconSize(QSize(icon_prev, icon_prev))
+        self._btn_next.setFixedSize(self._scaled_px(28), self._scaled_px(28))
+
+        # 行高
+        self._title.setFixedHeight(self._scaled_px(28))
+        self._artist.setFixedHeight(self._scaled_px(16))
+        self._time_lbl.setMinimumHeight(self._scaled_px(14))
 
         # 封面尺寸
-        self._cover_lbl.setFixedSize(160, 160)
+        sz = self._scaled_px(160)
+        self._cover_lbl.setFixedSize(sz, sz)
         if self._cover and not self._cover.isNull():
-            cover_with_shadow = self._add_cover_shadow(self._cover, 160)
+            cover_with_shadow = self._add_cover_shadow(self._cover, sz)
             self._cover_lbl.setPixmap(cover_with_shadow)
         else:
-            self._default_cover()
+            self._default_cover(sz)
 
         # 进度条
-        self._bar.setFixedHeight(3)
+        self._bar.setFixedHeight(self._scaled_px(3))
         self._apply_bg_style()
 
     def _apply_bg_style(self):
@@ -3282,7 +3333,7 @@ class QuickLaunchDock(QWidget):
             return
 
         dark = isDarkTheme()
-        radius = max(0, cfg.componentCardRadius.value)
+        radius = max(0, int(cfg.componentCardRadius.value * self._scale_factor))
         op = max(0.0, min(1.0, cfg.componentCardOpacity.value / 100.0))
 
         path = QPainterPath()
@@ -3322,7 +3373,7 @@ class QuickLaunchDock(QWidget):
         p.setCompositionMode(QPainter.CompositionMode.CompositionMode_SourceOver)
 
         pen = QPen(brd_c)
-        pen.setWidth(1)
+        pen.setWidth(max(1, int(1 * self._scale_factor)))
         p.setPen(pen)
         p.setBrush(Qt.BrushStyle.NoBrush)
         p.drawPath(path)
@@ -3361,10 +3412,10 @@ class QuickLaunchDock(QWidget):
                 )
             else:
                 p.setBrush(QColor(120, 120, 120, 60))
-                p.setPen(QPen(QColor(120, 120, 120, 100), 1))
+                p.setPen(QPen(QColor(120, 120, 120, 100), max(1, int(1 * self._scale_factor))))
                 r = QRectF(cx - s / 2, top, s, s)
-                p.drawRoundedRect(r, 8, 8)
-                p.setPen(QPen(QColor(180, 180, 180, 150), 2))
+                p.drawRoundedRect(r, 8 * self._scale_factor, 8 * self._scale_factor)
+                p.setPen(QPen(QColor(180, 180, 180, 150), max(1, int(2 * self._scale_factor))))
                 font = p.font()
                 font.setPixelSize(int(s * 0.4))
                 p.setFont(font)
@@ -4169,7 +4220,7 @@ class WeatherWeeklyComponent(WeatherComponentBase):
             row_layout.addWidget(spacer)
             row_layout.addWidget(high_label)
 
-            self._forecast_rows.append((day_label, icon_label, low_label, high_label))
+            self._forecast_rows.append((row, day_label, icon_label, low_label, high_label, spacer))
             bottom_layout.addWidget(row)
 
         layout.addWidget(top, 3)
@@ -4246,7 +4297,7 @@ class WeatherWeeklyComponent(WeatherComponentBase):
         num_days = min(4, len(self._forecast_rows), len(days))
 
         for i in range(num_days):
-            day_label, icon_label, low_label, high_label = self._forecast_rows[i]
+            row, day_label, icon_label, low_label, high_label, spacer = self._forecast_rows[i]
             d = now + timedelta(days=i)
             day_data = days[i]
 
@@ -4297,7 +4348,11 @@ class WeatherWeeklyComponent(WeatherComponentBase):
             line-height: 1.0;
         """)
 
-        for day_label, icon_label, low_label, high_label in self._forecast_rows:
+        for row, day_label, icon_label, low_label, high_label, spacer in self._forecast_rows:
+            row.setFixedHeight(self._scaled_px(20))
+            day_label.setFixedWidth(self._scaled_px(40))
+            spacer.setFixedWidth(self._scaled_px(8))
+            high_label.setFixedWidth(self._scaled_px(28))
             day_label.setStyleSheet(f"""
                 color: {color_str};
                 font-size: {self._scaled_px(11)}px;
@@ -4329,7 +4384,11 @@ class WeatherWeeklyComponent(WeatherComponentBase):
             pm = render_svg_icon(self._current_icon_path, self._scaled_px(48), dpr)
             if not pm.isNull():
                 self.currentIconLabel.setPixmap(pm)
-        for i, (day_label, icon_label, low_label, high_label) in enumerate(self._forecast_rows):
+        for i, (row, day_label, icon_label, low_label, high_label, spacer) in enumerate(self._forecast_rows):
+            row.setFixedHeight(self._scaled_px(20))
+            day_label.setFixedWidth(self._scaled_px(40))
+            spacer.setFixedWidth(self._scaled_px(8))
+            high_label.setFixedWidth(self._scaled_px(28))
             icon_label.setFixedSize(self._scaled_px(18), self._scaled_px(18))
             p = self._daily_icon_paths[i] if i < len(self._daily_icon_paths) else None
             if p and os.path.exists(p):
@@ -4950,7 +5009,7 @@ class QuickLaunchDockComponent(DraggableContainer):
             size = cfg.quickLaunchIconSize.value if hasattr(cfg, 'quickLaunchIconSize') else 14
             self._placeholder.setStyleSheet(f"""
                 color: {color};
-                font-size: {max(12, int(size * 0.22))}px;
+                font-size: {self._scaled_px(max(12, int(size * 0.22)))}px;
                 font-family: {FONT_FAMILY};
                 background-color: transparent;
             """)
@@ -5462,6 +5521,10 @@ class _TimetableRow(QWidget):
 
     def addWidget(self, w, stretch=0):
         self._content_layout.addWidget(w, stretch)
+
+    def apply_scale(self, factor: float):
+        """调整内部固定尺寸"""
+        self._progress.setFixedHeight(max(1, int(3 * factor)))
 
     def setProgress(self, pct):
         """0~100"""
@@ -6015,6 +6078,8 @@ class TimetablePreviewComponent(DraggableContainer):
         """)
 
     def apply_scale(self, factor):
+        for row in self._schedule_rows:
+            row.apply_scale(factor)
         self._apply_style()
 
     def showEvent(self, e):
@@ -6048,6 +6113,7 @@ class TimetableNowLessonComponent(DraggableContainer):
 
         self._read_config(component_data.get("config", {}))
 
+        self._size_explicitly_set = True
         self._setup_ui()
         self._connect_timetable_page()
 
@@ -6241,6 +6307,8 @@ class TimetableNowLessonComponent(DraggableContainer):
             left = main_item.widget().findChild(QWidget)
             if left:
                 left.setMinimumWidth(self._scaled_px(100))
+        if getattr(self, '_bottom_progress', None):
+            self._bottom_progress.setFixedHeight(self._scaled_px(6))
         self._apply_style()
 
     def _connect_timetable_page(self):
@@ -6580,6 +6648,8 @@ class CalculatorComponent(DraggableContainer):
         raw_text = re.sub(r'<[^>]+>', '', text)
         raw_text = raw_text.replace('\r', '').replace('\n', '').replace('<br/>', ' ')
         font = label.font()
+        base_size = self._scaled_px(base_size)
+        min_size = self._scaled_px(min_size)
         size = base_size
         font.setPixelSize(size)
         if label.width() <= 0:
@@ -6648,6 +6718,15 @@ class CalculatorComponent(DraggableContainer):
         sz_op = self._scaled_px(28)
         sz_num = self._scaled_px(24)
         sz_hist = self._scaled_px(14)
+        btn_radius = self._scaled_px(radius)
+
+        self.history_display.setMinimumHeight(self._scaled_px(24))
+        self.history_display.setMaximumHeight(self._scaled_px(36))
+        self.display.setMinimumHeight(self._scaled_px(80))
+        self.display.setMaximumHeight(self._scaled_px(140))
+
+        pad_x = self._scaled_px(8)
+        pad_y = self._scaled_px(6)
 
         self.display.setTextFormat(Qt.TextFormat.RichText)
         self.display.setStyleSheet(f"""
@@ -6657,12 +6736,12 @@ class CalculatorComponent(DraggableContainer):
             font-weight: 300;
             background-color: transparent;
             border: none;
-            padding: 6px 8px;
+            padding: {pad_y}px {pad_x}px;
             line-height: 1.2;
             white-space: nowrap;
         """)
 
-        self.history_display.setStyleSheet(f"color: rgba(255, 255, 255, 0.5); font-size: {sz_hist}px; background: transparent; border: none; padding: 0 8px;")
+        self.history_display.setStyleSheet(f"color: rgba(255, 255, 255, 0.5); font-size: {sz_hist}px; background: transparent; border: none; padding: 0 {pad_x}px;")
 
         operator_keys = {"÷", "×", "−", "+", "="}
         for text, btn in self.buttons.items():
@@ -6674,7 +6753,7 @@ class CalculatorComponent(DraggableContainer):
                         font-family: {FONT_FAMILY};
                         background-color: {btn_op_bg};
                         border: none;
-                        border-radius: {radius}px;
+                        border-radius: {btn_radius}px;
                     }}
                     PushButton:pressed {{
                         background-color: rgba(255, 159, 10, 0.7);
@@ -6688,7 +6767,7 @@ class CalculatorComponent(DraggableContainer):
                         font-family: {FONT_FAMILY};
                         background-color: {btn_num_bg};
                         border: none;
-                        border-radius: {radius}px;
+                        border-radius: {btn_radius}px;
                     }}
                     PushButton:pressed {{
                         background-color: {btn_num_press};
@@ -7940,14 +8019,14 @@ class WritingPadComponent(DraggableContainer):
     def _build_tool_btn(self, icon, text, checked=False):
         """构建工具按钮"""
         container = QWidget(self)
-        container.setFixedSize(self.BTN_W, self.BTN_H)
+        container.setFixedSize(self._scaled_px(self.BTN_W), self._scaled_px(self.BTN_H))
         container.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         layout = QVBoxLayout(container)
         layout.setContentsMargins(2, 6, 2, 4)
         layout.setSpacing(3)
 
         icon_lb = QLabel(container)
-        icon_lb.setFixedSize(24, 24)
+        icon_lb.setFixedSize(self._scaled_px(24), self._scaled_px(24))
         icon_lb.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(icon_lb, 0, Qt.AlignmentFlag.AlignCenter)
 
@@ -7967,21 +8046,24 @@ class WritingPadComponent(DraggableContainer):
 
     def _style_tool_btn(self, container):
         sz_text = self._scaled_px(12)
+        isize = self._scaled_px(24)
+        rad = self._scaled_px(6)
+        container._icon_lb.setFixedSize(isize, isize)
         if container._checked:
             container.setStyleSheet(
-                "QWidget{background:rgba(0,120,212,180);border-radius:6px;}"
+                f"QWidget{{background:rgba(0,120,212,180);border-radius:{rad}px;}}"
             )
-            container._icon_lb.setPixmap(container._icon.icon().pixmap(24, 24))
+            container._icon_lb.setPixmap(container._icon.icon().pixmap(isize, isize))
             container._text_lb.setStyleSheet(
                 f"font-size:{sz_text}px;font-weight:600;font-family:{FONT_FAMILY};"
                 f"color:#ffffff;border:none;background:transparent;"
             )
         else:
             container.setStyleSheet(
-                "QWidget{background:transparent;border-radius:6px;}"
+                f"QWidget{{background:transparent;border-radius:{rad}px;}}"
                 "QWidget:hover{background:rgba(255,255,255,25);}"
             )
-            container._icon_lb.setPixmap(container._icon.icon().pixmap(24, 24))
+            container._icon_lb.setPixmap(container._icon.icon().pixmap(isize, isize))
             container._text_lb.setStyleSheet(
                 f"font-size:{sz_text}px;font-family:{FONT_FAMILY};"
                 f"color:#aaaaaa;border:none;background:transparent;"
@@ -8015,10 +8097,10 @@ class WritingPadComponent(DraggableContainer):
         self._undo_box.mousePressEvent = lambda ev: self._undo_last_stroke()
 
         # 分隔
-        sep = QLabel(self)
-        sep.setFixedSize(1, 36)
-        sep.setStyleSheet("background:rgba(128,128,128,80);border:none;")
-        layout.addWidget(sep)
+        self._sep = QLabel(self)
+        self._sep.setFixedSize(self._scaled_px(1), self._scaled_px(36))
+        self._sep.setStyleSheet("background:rgba(128,128,128,80);border:none;")
+        layout.addWidget(self._sep)
 
         # 透明
         self._trans_box = self._build_tool_btn(FUI.BLUR, "透明")
@@ -8133,7 +8215,10 @@ class WritingPadComponent(DraggableContainer):
         for box in (self._mouse_box, self._pen_box, self._eraser_box,
                     self._undo_box, self._trans_box, self._white_box):
             if hasattr(box, '_update_style'):
+                box.setFixedSize(self._scaled_px(self.BTN_W), self._scaled_px(self.BTN_H))
                 box._update_style()
+        if getattr(self, '_sep', None):
+            self._sep.setFixedSize(self._scaled_px(1), self._scaled_px(36))
 
 
 class ClassAlbumBaseComponent(DraggableContainer):
@@ -8209,6 +8294,10 @@ class ClassAlbumBaseComponent(DraggableContainer):
                 self._item_w = s.width()
                 self._item_h = s.height()
                 self._recomposite_all()
+
+    def apply_scale(self, factor):
+        if hasattr(self, 'flip_view') and self.flip_view:
+            self.flip_view.setBorderRadius(self._scaled_px(8))
 
     def _prepare_image(self, pixmap):
         """缩放到 itemSize 内并合成到画布居中"""
@@ -8440,13 +8529,17 @@ class StickyNoteComponent(DraggableContainer):
         colors = self._colors
         sz_date = self._scaled_px(11)
         sz_editor = self._scaled_px(13)
+        pad_ed_top = self._scaled_px(4)
+        pad_ed_sides = self._scaled_px(12)
+        dot_radius = self._scaled_px(5)
         self.setStyleSheet(f"""
             #stickyNoteContainer {{
                 background-color: {colors['bg']};
-                border-radius: {cfg.componentCardRadius.value}px;
+                border-radius: {self._scaled_px(cfg.componentCardRadius.value)}px;
                 border: 1px solid {colors['header']};
             }}
         """)
+        self._color_dot.setStyleSheet(f"border-radius: {dot_radius}px;")
         self._date_label.setStyleSheet(f"color: {colors['text']}; font-size: {sz_date}px; font-family: {FONT_FAMILY}; background: transparent;")
         self._editor.setStyleSheet(f"""
             TextEdit {{
@@ -8455,7 +8548,7 @@ class StickyNoteComponent(DraggableContainer):
                 color: {colors['text']};
                 font-size: {sz_editor}px;
                 font-family: {FONT_FAMILY};
-                padding: 4px 12px 12px 12px;
+                padding: {pad_ed_top}px {pad_ed_sides}px {pad_ed_sides}px {pad_ed_sides}px;
                 selection-background-color: {colors['header']};
             }}
             TextEdit:focus {{
@@ -8465,7 +8558,11 @@ class StickyNoteComponent(DraggableContainer):
 
     def apply_scale(self, factor):
         self._header.setFixedHeight(self._scaled_px(36))
-        self._color_dot.setFixedSize(self._scaled_px(10), self._scaled_px(10))
+        ds = self._scaled_px(10)
+        self._color_dot.setFixedSize(ds, ds)
+        dot_pm = QPixmap(ds, ds)
+        dot_pm.fill(QColor(self._colors['header']))
+        self._color_dot.setPixmap(dot_pm)
         self._apply_style()
 
     def _on_text_changed(self):
@@ -8738,6 +8835,7 @@ class TimeColumnWidget(QWidget):
         self._min_val = min_val
         self._max_val = max_val
         self._value = max(min_val, min(max_val, default))
+        self._scale = 1.0
         self.setFixedWidth(80)
         self._init_ui(label)
 
@@ -8785,6 +8883,20 @@ class TimeColumnWidget(QWidget):
     def value(self) -> int:
         return self._value
 
+    def apply_scale(self, factor: float):
+        self._scale = factor
+        self.setFixedWidth(max(1, int(80 * factor)))
+        for btn in (self._up_btn, self._down_btn):
+            btn.setFixedSize(max(1, int(40 * factor)), max(1, int(28 * factor)))
+        self._value_label.setFixedHeight(max(1, int(44 * factor)))
+        f = QFont()
+        f.setPointSizeF(max(1.0, 12 * factor))
+        self._label_widget.setFont(f)
+        f = QFont()
+        f.setPointSizeF(max(1.0, 28 * factor))
+        f.setWeight(QFont.Weight.Bold)
+        self._value_label.setFont(f)
+
     def wheelEvent(self, event):
         if event.angleDelta().y() > 0:
             self.set_value(self._value + 1)
@@ -8809,6 +8921,12 @@ class TimerTimeDisplayWidget(QWidget):
 
     def set_time(self, h: int, m: int, s: int):
         self._label.setText(f"{h:02d}:{m:02d}:{s:02d}")
+
+    def apply_scale(self, factor: float):
+        f = QFont()
+        f.setPointSizeF(max(1.0, 48 * factor))
+        f.setWeight(QFont.Weight.Bold)
+        self._label.setFont(f)
 
 
 class TimerCountdownComponent(DraggableContainer):
@@ -9029,6 +9147,10 @@ class TimerCountdownComponent(DraggableContainer):
             btn.setFixedSize(self._scaled_px(120), self._scaled_px(32))
         for btn in (self._ts_pause, self._ts_cancel, self._cd_pause, self._cd_cancel):
             btn.setFixedSize(self._scaled_px(80), self._scaled_px(30))
+        for col in (self._hh_col, self._mm_col, self._ss_col):
+            col.apply_scale(factor)
+        self._timer_display.apply_scale(factor)
+        self._cd_display.apply_scale(factor)
 
     def cleanup(self):
         self._timer.stop()
