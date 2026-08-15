@@ -2,7 +2,7 @@
 
 > 编写者：HelloGaoo　最后修改：2026/08/13
 
-Glimpseon 是一款基于 PyQt6  Fluent Widgets 的 Windows 桌面信息看板，集成壁纸管理、天气、一言、媒体信息、课程表、通知、软件下载等功能。
+Glimpseon 是一款基于 PyQt6 Fluent Widgets 的 Windows 桌面信息看板，集成壁纸管理、天气、一言、媒体信息、课程表、通知、软件下载等功能。
 
 本目录是面向开发者 / 维护者的技术文档，按模块组织。建议按下列顺序阅读：
 
