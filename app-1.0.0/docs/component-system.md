@@ -1,6 +1,6 @@
 # 组件系统
 
-> 编写者：HelloGaoo　最后修改：2026/08/14
+> 编写者：HelloGaoo　最后修改：2026/08/15
 
 Glimpseon 定位是桌面信息看板，已编写了注册组件等函数，每个组件独立类，与主页面沟通能做到拖拽、删除、配置相关操作
 
@@ -224,6 +224,21 @@ QWidget
 - 拖拽：`DraggableWidget` 处理鼠标事件，按 `ResizeMode` 限制方向。
 - 吸附：基于 `GridLayoutService` 的格子坐标对齐。
 - 碰撞：`check_collision` 阻止重叠放置。
+- 缩放：**整体等比缩放**——拖拽右下角圆弧柄时 `scale = max(scale_w, scale_h)` 等比缩放外框；内部所有视觉元素（字号/图标/图片/固定尺寸/边距/间距）跟随 `_scale_factor` 同步等比变化。
+
+#### 缩放机制（DraggableContainer）
+
+| 成员                    | 作用                                                                                                                          |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `_scale_factor`       | 当前缩放因子，由 `resizeEvent` 按 `当前尺寸 / natural_size` 的宽高最小值计算（`min(sw, sh)`），下限 0.3；始终跟随最新尺寸，变化 ≥0.02 时才要求重应用样式                   |
+| `_scaled_px(base)`    | `max(1, int(base * _scale_factor))`，子类字号/图标/固定尺寸/圆角统一经它缩放                                                                   |
+| `apply_scale(factor)` | 子类按 factor 重应用样式；由基类在缩放变化时调用                                                                                                |
+| `_scale_layouts()`    | 遍历 `findChildren(QLayout)`，按 `_scale_factor` 等比缩放所有子布局的 `contentsMargins` 与 `spacing`；首次调用缓存基准值（`_layout_bases`），后续始终基于基准重算 |
+| `_applied_factor`     | 上次已应用到样式的缩放因子，判断是否还有未应用的差异                                                                                                  |
+| `_scale_timer`        | 拖拽缩放节流定时器（周期 30ms）                                                                                                          |
+| `_apply_scale_now()`  | 统一入口：执行 `apply_scale` + `_scale_layouts` 并同步 `_applied_factor`                                                              |
+
+流程：拖拽缩放 → `resizeEvent` 更新 `_scale_factor` → 与 `_applied_factor` 差异>0.001时启动 `_scale_timer` → 每 30ms 周期触发 `_apply_scale_now()` 跟随 → 松手停止定时器应用最终状态（`mouseReleaseEvent`）。
 
 ### 5.3 多页与页面状态
 
@@ -570,7 +585,8 @@ class CheckinComponent(DraggableContainer):
 
 - 通过 `component_data["config"]` 读取独立配置。
 - 实现主题切换响应（`_apply_style` / 重载 `_onThemeChanged`）。
-- 若需随网格缩放，实现 `apply_scale(factor)`。
+- 若需随缩放，实现 `apply_scale(factor)`：内部字号/图标/固定尺寸/圆角一律用 `self._scaled_px(base)`；子布局边距/间距由基类 `_scale_layouts()` 自动等比缩放，无需手动处理。
+- **初始化与** **`apply_scale`** **必须同步**：`_setup_ui` 中用过 `_scaled_px` 的固定尺寸（行高/列宽/图标底图等），`apply_scale` 中必须重新设置，否则缩放后停留在原尺寸。
 - 调用 `self._set_natural_size(w, h)` 设自然尺寸，`self._size_explicitly_set = True`。
 
 **步骤 3：绑定 class**
@@ -620,11 +636,12 @@ ComponentDefinition(
 
 ### 9.5 常见坑
 
-| 现象                   | 原因                                               |
-| -------------------- | ------------------------------------------------ |
-| 「组件样式未注册」日志，组件不出现    | 步骤 3 的 `class` 绑定遗漏，或 `type`/`style` 拼写不一致       |
-| 组件库无卡片，但手动改 json 能加载 | 步骤 4 的 `BUILTIN_COMPONENT_DEFINITIONS` 未追加       |
-| 配置弹窗被主界面遮挡           | 弹窗未 parent 到 MainWindow                          |
-| 缩放后内部元素不变            | 未实现 `apply_scale(factor)`                        |
-| 切主题样式不更新             | 未在 `_apply_style` 中重读主题色 / 未连 `cfg.themeChanged` |
+| 现象                   | 原因                                                               |
+| -------------------- | ---------------------------------------------------------------- |
+| 「组件样式未注册」日志，组件不出现    | 步骤 3 的 `class` 绑定遗漏，或 `type`/`style` 拼写不一致                       |
+| 组件库无卡片，但手动改 json 能加载 | 步骤 4 的 `BUILTIN_COMPONENT_DEFINITIONS` 未追加                       |
+| 配置弹窗被主界面遮挡           | 弹窗未 parent 到 MainWindow                                          |
+| 缩放后内部元素不变            | 未实现 `apply_scale(factor)`；或已实现但字号/尺寸仍硬编码，需改用 `self._scaled_px()` |
+| 缩放后固定尺寸停留在初始值        | `_setup_ui` 用了 `_scaled_px` 但 `apply_scale` 未重设（行高/列宽/图标底图等）     |
+| 切主题样式不更新             | 未在 `_apply_style` 中重读主题色 / 未连 `cfg.themeChanged`                 |
 

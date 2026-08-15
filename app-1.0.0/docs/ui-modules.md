@@ -1,6 +1,6 @@
 # UI 模块（ui/）
 
-> 编写者：HelloGaoo　最后修改：2026/08/14
+> 编写者：HelloGaoo　最后修改：2026/08/15
 
 `ui/` 是基于 PyQt6 Fluent Widgets 的界面层。所有界面通过 `MainWindow.addSubInterface()` 注册到 FluentWindow 导航。每个界面通过 `load_qss()` 加载对应主题 QSS，并实现 `_onThemeChanged` 响应主题切换。
 
@@ -65,7 +65,7 @@ NavigationPage 提示文字颜色随主题：深色 `rgba(230,230,230,0.95)`，�
 | 类                                       | 作用                                   |
 | --------------------------------------- | ------------------------------------ |
 | `DraggableWidget(QWidget)`              | 可拖拽组件基类（移动、缩放手柄、选中框、编辑/删除按钮）         |
-| `DraggableContainer(DraggableWidget)`   | 带配置存储的容器基类，所有具体组件的父类                 |
+| `DraggableContainer(DraggableWidget)`   | 带配置存储的容器基类（整体等比缩放：`_scale_factor` / `_scaled_px` / `_scale_layouts`），所有具体组件的父类 |
 | `ComponentManager`                      | 组件实例生命周期 / 布局 / 持久化管理                |
 | `ComponentConfigDialog(MessageBoxBase)` | 组件配置弹窗（独立配置，parent 到 MainWindow）     |
 | `ComponentCard(CardWidget)`             | 组件库中的卡片项                             |
@@ -79,6 +79,7 @@ NavigationPage 提示文字颜色随主题：深色 `rgba(230,230,230,0.95)`，�
 - 调整柄：右下角圆弧柄（`arc_r=18`），外层 7px + 内层 4px，非 8 点方形手柄。
 - 编辑模式：`_GridOverlay` 网格 + `GuideLineOverlay` 参考线（无黑色遮罩）。
 - 组件移动事件必须触发按钮重新定位。
+- 缩放：拖拽右下角圆弧柄**整体缩放**——内部字号/图标/图片/固定尺寸/边距/间距随 `_scale_factor` 等比变化（`_scaled_px` + `_scale_layouts`）；拖拽中 30ms 节流重应用，松手最终落位（详见 [component-system.md](component-system.md) 5.2）。
 
 ### 3.3 内置组件清单
 

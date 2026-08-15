@@ -1,6 +1,6 @@
 # 快速开始
 
-> 编写者：HelloGaoo　最后修改：2026/08/13
+> 编写者：HelloGaoo　最后修改：2026/08/15
 
 ## 1. 环境要求
 
@@ -37,7 +37,7 @@ pip install -r requirements.txt
 
 依赖清单见 [requirements.txt](file:///e:/260523/py/Glimpseon/requirements.txt)。关键依赖：
 
-- `PyQt6`、`PyQt6-Fluent-Widgets`、`PyQt6-Frameless-Window`
+- `PyQt6`、`PyQt6-Fluent-Widgets`、`PyQt6-Frameless-Window`、`shiboken6`
 - `py7zr`、`requests`（下载/解压）
 - `pycaw`、`pywin32`、`uiautomation`、`comtypes`（Windows）
 - `easyocr`、`torch`、`opencv-python-headless`（OCR / 图像）
