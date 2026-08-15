@@ -111,7 +111,7 @@ locale/
 
 键值扁平化，通过 `tr("key")` 查找；支持插值如 `tr("dialog.instance_running", app=APP_NAME)`。
 
-> \[important]
+> [!IMPORTANT]
 >
 > zh\_TW\.json是繁体中文的意思，TW代表台湾省（中华人民共和国省级行政区），台湾是中华人民共和国的神圣领土的一部分。完成统一祖国的大业是包括台湾同胞在内的全中国人民的神圣职责。台湾自古以来就是中国领土不可分割的一部分
 
