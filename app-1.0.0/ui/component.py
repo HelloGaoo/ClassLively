@@ -1590,8 +1590,16 @@ class DraggableContainer(DraggableWidget):
 
 
     def _card_bg_css(self, obj_name=None, bg_mode=None,
-                     bg_color=None, opacity=None, radius=None):
-        """生成卡片背景"""
+                     bg_color=None, opacity=None, radius=None, border=None):
+        """生成卡片背景
+            obj_name: 目标 objectName，默认 self.objectName()
+            bg_mode: "opacity" 跟随全局不透明度 / "custom" 使用自定义颜色
+            bg_color: custom 模式下的背景颜色
+            opacity: 不透明度(0-100)，默认取组件配置，未配置则跟随全局 componentCardOpacity
+            radius: 圆角(px)，默认取组件配置，未配置则跟随全局 componentCardRadius
+            border: 可选边框样式（如 "1px solid rgba(0,0,0,0.06)"）
+        """
+        # 心疼啊这一轮5,340,002token花了两块多
         obj_name = obj_name or self.objectName()
         if not obj_name:
             return ""
@@ -1606,15 +1614,18 @@ class DraggableContainer(DraggableWidget):
         else:
             c = QColor(30, 30, 30) if is_dark else QColor(255, 255, 255)
             c.setAlpha(int(255 * op_val / 100.0))
-        return (f"#{obj_name} {{ background-color: rgba({c.red()}, {c.green()}, "
-                f"{c.blue()}, {c.alpha() / 255:.2f}); border-radius: {rd_val}px; }}")
+        css = (f"#{obj_name} {{ background-color: rgba({c.red()}, {c.green()}, "
+               f"{c.blue()}, {c.alpha() / 255:.2f}); border-radius: {rd_val}px;")
+        if border:
+            css += f" border: {border};"
+        return css + " }"
 
     def _apply_card_style(self, target=None, obj_name=None, bg_mode=None,
-                          bg_color=None, opacity=None, radius=None):
+                          bg_color=None, opacity=None, radius=None, border=None):
         """应用卡片背景到 target 默认 self"""
         target = target or self
         obj_name = obj_name or target.objectName()
-        css = self._card_bg_css(obj_name, bg_mode, bg_color, opacity, radius)
+        css = self._card_bg_css(obj_name, bg_mode, bg_color, opacity, radius, border)
         if css:
             target.setStyleSheet(css)
 
@@ -1825,14 +1836,6 @@ class MediaPlayerComponent(DraggableContainer):
         "}}"
         "TransparentToolButton:pressed {{"
         "    background: transparent; border: none; color: {fg};"
-        "}}"
-    )
-
-    _BG_QSS = (
-        "#mediaWidget {{"
-        "    background-color: {bg};"
-        "    border-radius: {radius}px;"
-        "    border: {border};"
         "}}"
     )
 
@@ -2166,23 +2169,8 @@ class MediaPlayerComponent(DraggableContainer):
         self._apply_bg_style()
 
     def _apply_bg_style(self):
-        # 背景样式
-        if not cfg.mediaUseCustomBg.value:
-            from qfluentwidgets import isDarkTheme
-            opacity = cfg.componentCardOpacity.value / 100.0
-            radius = cfg.componentCardRadius.value
-            if isDarkTheme():
-                c = QColor(18, 18, 22)
-                border_color = "rgba(255, 255, 255, 0.06)"
-            else:
-                c = QColor(255, 255, 255)
-                border_color = "rgba(0, 0, 0, 0.06)"
-            c.setAlpha(int(255 * opacity))
-            bg = "transparent" if c.alpha() == 0 else self._qss_color(c)
-            self._content.setStyleSheet(
-                self._BG_QSS.format(bg=bg, radius=radius, border=f"1px solid {border_color}")
-            )
-        else:
+        # 背景样式 统一走 DraggableContainer 的卡片背景方法 (_apply_card_style)
+        if cfg.mediaUseCustomBg.value:
             bg_opacity = cfg.mediaBgOpacity.value
             border_radius = cfg.mediaBorderRadius.value
 
@@ -2193,10 +2181,24 @@ class MediaPlayerComponent(DraggableContainer):
                 c = QColor(255, 255, 255)
             c.setAlpha(int(255 * bg_opacity / 100))
 
-            bg = "transparent" if c.alpha() == 0 else self._qss_color(c)
-            self._content.setStyleSheet(
-                self._BG_QSS.format(bg=bg, radius=border_radius, border="none")
-            )
+            self._apply_card_style(
+                target=self._content, bg_mode="custom", bg_color=c,
+                radius=border_radius, border="none")
+        else:
+            from qfluentwidgets import isDarkTheme
+            if isDarkTheme():
+                border_color = "rgba(255, 255, 255, 0.06)"
+            else:
+                border_color = "rgba(0, 0, 0, 0.06)"
+            self._apply_card_style(
+                target=self._content,
+                opacity=self._bg_opacity, radius=self._corner_radius,
+                border=f"1px solid {border_color}")
+
+    def apply_config(self, config: dict):
+        """应用组件配置（含背景配置）"""
+        super().apply_config(config)
+        self._apply_bg_style()
 
     # 定时器 / 生命周期 ----------------------------------------
 
@@ -5018,7 +5020,8 @@ class QuickLaunchDockComponent(DraggableContainer):
         self._update_apps()
 
     def _apply_style(self):
-        self.setStyleSheet("#quickLaunchContainer { background: transparent; }")
+        # 组件容器背景 统一走 _apply_card_style
+        self._apply_card_style()
         if self._placeholder:
             is_dark = isDarkTheme()
             color = "#cccccc" if is_dark else "#666666"
@@ -5977,8 +5980,10 @@ class TimetablePreviewComponent(DraggableContainer):
         sz_subj = self._scaled_px(20)
         sz_time = self._scaled_px(15)
         sz_empty = self._scaled_px(15)
-
+        bg_css = self._card_bg_css()
         self.setStyleSheet(f"""
+            {bg_css}
+
             /* 滚动区域 */
             #timetableScroll {{
                 background: transparent;
@@ -8548,10 +8553,11 @@ class StickyNoteComponent(DraggableContainer):
         pad_ed_top = self._scaled_px(4)
         pad_ed_sides = self._scaled_px(12)
         dot_radius = self._scaled_px(5)
+        # 便签背景 统一走 _card_bg_css（custom 模式保留便签颜色，圆角跟随全局设置）
+        bg_css = self._card_bg_css(bg_mode="custom", bg_color=colors["bg"])
         self.setStyleSheet(f"""
+            {bg_css}
             #stickyNoteContainer {{
-                background-color: {colors['bg']};
-                border-radius: {self._scaled_px(cfg.componentCardRadius.value)}px;
                 border: 1px solid {colors['header']};
             }}
         """)
