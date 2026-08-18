@@ -77,7 +77,7 @@ from PyQt6.QtWidgets import (
     QFileIconProvider, QGridLayout, QLabel, QSizePolicy, QWidget, QVBoxLayout, QHBoxLayout, QApplication, QGraphicsOpacityEffect,
     QStackedWidget, QListWidgetItem, QFileDialog, QLayout
 )
-from qfluentwidgets import InfoBar, isDarkTheme, RoundMenu, Action, FluentWindow, setTheme, ScrollArea, PushButton, ToolButton, TransparentToolButton, StrongBodyLabel, CardWidget, BodyLabel, ComboBox, SpinBox, SwitchButton, HorizontalFlipView, VerticalFlipView, PrimaryPushButton, Pivot, MessageBoxBase, ProgressBar, LineEdit, ColorPickerButton, ListWidget, Slider, TextEdit, CaptionLabel, SubtitleLabel, FluentIcon
+from qfluentwidgets import InfoBar, isDarkTheme, RoundMenu, Action, FluentWindow, setTheme, ScrollArea, PushButton, ToolButton, TransparentToolButton, StrongBodyLabel, CardWidget, BodyLabel, ComboBox, SpinBox, SwitchButton, HorizontalFlipView, VerticalFlipView, PrimaryPushButton, Pivot, MessageBoxBase, ProgressBar, LineEdit, ColorPickerButton, ListWidget, Slider, TextEdit, CaptionLabel, SubtitleLabel, FluentIcon, qconfig
 from win32com.shell import shell
 
 from core.config import cfg, save_cfg
@@ -1520,6 +1520,7 @@ class DraggableContainer(DraggableWidget):
         cfg.componentCardRadius.valueChanged.connect(self._on_card_config_changed)
 
         cfg.themeChanged.connect(self._on_card_config_changed)
+        qconfig.themeChangedFinished.connect(self._on_card_config_changed)
 
     def _on_card_config_changed(self):
         self._apply_card_style()

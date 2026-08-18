@@ -42,6 +42,7 @@ from qfluentwidgets import (
     SwitchButton,
     SwitchSettingCard,
     Theme,
+    isDarkTheme,
     qconfig,
     setTheme,
     setThemeColor,
@@ -1087,7 +1088,10 @@ class SettingsWindow(FluentWindow):
 
     def _applyTheme(self):
         theme = cfg.themeMode.value
-        setTheme(theme)
+        if theme == Theme.AUTO:
+            theme = Theme.DARK if isDarkTheme() else Theme.LIGHT
+        if theme != cfg.theme:
+            setTheme(theme)
         qss = load_qss('setting.qss')
         if qss:
             self.setStyleSheet(qss)
