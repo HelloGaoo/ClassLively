@@ -1,7 +1,7 @@
 # 组件系统
 
-> [!NOTE]
-> 编写者：HelloGaoo　最后修改：2026/08/15
+> \[!NOTE]
+> 编写者：HelloGaoo　最后修改：2026/08/18
 
 Glimpseon 定位是桌面信息看板，已编写了注册组件等函数，每个组件独立类，与主页面沟通能做到拖拽、删除、配置相关操作
 
@@ -198,7 +198,7 @@ QWidget
 
 `ComponentConfigDialog(MessageBoxBase)`：组件配置弹窗。
 
-> [!IMPORTANT]
+> \[!IMPORTANT]
 > 约束：配置面板必须 parent 到 MainWindow（而非组件或设置窗口），以确保正确的 z-order（不被主界面遮挡）。每个组件配置独立存储。
 
 ### 4.5 组件库窗口
@@ -242,7 +242,50 @@ QWidget
 
 流程：拖拽缩放 → `resizeEvent` 更新 `_scale_factor` → 与 `_applied_factor` 差异>0.001时启动 `_scale_timer` → 每 30ms 周期触发 `_apply_scale_now()` 跟随 → 松手停止定时器应用最终状态（`mouseReleaseEvent`）。
 
-### 5.3 多页与页面状态
+### 5.3 统一卡片背景（DraggableContainer）
+
+> \[!IMPORTANT]
+> **所有组件必须使用**：`_apply_card_style()` / `_card_bg_css()`。背景跟随全局设置 `componentCardOpacity` / `componentCardRadius`（浅色 `rgb(255,255,255)`，深色 `rgb(30,30,30)`，透明度=全局卡片透明度），支持组件覆盖。
+
+基类 `DraggableContainer` 提供了统一的卡片背景：
+
+| 成员                       | 说明                                                                                      |
+| ------------------------ | --------------------------------------------------------------------------------------- |
+| `_bg_opacity`            | 组件级不透明度覆盖（0\~100）；`None` 时回退全局 `cfg.componentCardOpacity.value`                         |
+| `_corner_radius`         | 组件级圆角覆盖（px）；`None` 时回退全局 `cfg.componentCardRadius.value`                                |
+| `_bg_mode`               | `"opacity"`（默认，跟随全局透明度）/ `"custom"`（使用 `_bg_color`）                                     |
+| `_bg_color`              | `"custom"` 模式下的背景颜色（如 `"#ffffff"`）                                                      |
+| `_card_bg_css(...)`      | 返回一段 QSS：`#objName { background-color: rgba(...); border-radius: Npx; [border: ...;] }` |
+| `_apply_card_style(...)` | 把该 QSS 应用到 `target`（默认 `self`，取 `target.objectName()`）                                  |
+
+`_apply_card_style(target=None, obj_name=None, bg_mode=None, bg_color=None, opacity=None, radius=None, border=None)`：
+
+- `opacity` / `radius` 传 `None` 即使用 `self._bg_opacity` / `self._corner_radius`，再为 `None` 则回退全局设置。
+- `border` 可选，用于给背景追加边框（如 `"1px solid rgba(0,0,0,0.06)"`，媒体播放器用）。
+
+`cfg.componentCardOpacity`、`cfg.componentCardRadius` 或 `cfg.themeChanged` 变化时，基类自动触发 `_on_card_config_changed()` → 重应用背景并调用子类 `_apply_style()`，因此全局设置/主题变化无需每个组件单独监听。组件级 `bg_opacity` / `corner_radius` 由配置面板写入 `component_data["config"]`，经基类 `apply_config(config)` 读取生效。
+
+**组件在** **`_apply_style()`** **中的两种标准写法（二选一）：**
+
+```python
+# 写法 A：背景与子控件样式分离（推荐）
+def _apply_style(self):
+    self._apply_card_style()                 # 容器背景跟随全局设置
+    self.someLabel.setStyleSheet("...")      # 子控件只设文字/透明背景
+
+# 写法 B：整份样式表覆盖 self 时，把卡片背景拼到最前面
+def _apply_style(self):
+    bg_css = self._card_bg_css()             # 用统一方法生成容器背景
+    self.setStyleSheet(f"""
+        {bg_css}
+        #someContainer {{ ... }}
+    """)
+```
+
+> \[!WARNING]
+> 写法 B 必须把 `{self._card_bg_css()}` 拼进 `setStyleSheet`，因为 `setStyleSheet` 会**整体替换**原样式表——若只调 `_apply_card_style()` 再 `setStyleSheet(...)`，背景会被覆盖丢失（今日课表 `TimetablePreviewComponent` 曾因此无背景）。
+
+### 5.4 多页与页面状态
 
 - `PageIndicator`：多页小圆点。
   - **响应左/右键点击切换页**
@@ -252,7 +295,7 @@ QWidget
 
 ## 6. 手写画板（WritingPadComponent）
 
-> [!NOTE]
+> \[!NOTE]
 > 本章算法部分由 AI 基于源码（`ui/component.py` 中 `_WritingOverlay`，约 L7094–L7853）生成，如与实际实现有出入，请以源码为准。
 
 手写画板主要是 `_WritingOverlay`（全屏透明覆盖层，`FramelessWindowHint | Tool`，`WA_TranslucentBackground`）。通过 Windows `WM_POINTER` 只读触控点（`PT_TOUCH`），并防止 Qt 重复派发 mouse event。擦除功能采用**定时器循环驱动**，参考项目 Inkeys 的算法实现。
@@ -399,7 +442,7 @@ painter.drawEllipse(pos, diameter / 2.0, diameter / 2.0)
 
 ## 7. 媒体组件
 
-> [!NOTE]
+> \[!NOTE]
 > 本章由 AI 基于源码（`ui/component.py` 中 `MediaPlayerComponent` L1772）生成，如与实际实现有出入，请以源码为准。
 
 媒体组件为**单一** **`MediaPlayerComponent`**（`DraggableContainer` 子类），后台从 `services.media` 获取正在播放的媒体信息（标题/艺术家/封面/进度/歌词）。
@@ -512,7 +555,7 @@ self._timer.setInterval(500)   # 切到 500ms 快速间隔
   保存 → PageManager.save() → home_layout.json
 ```
 
-> [!IMPORTANT]
+> \[!IMPORTANT]
 > 组件加载必须在 splash 期间**同步完成**，避免 `QTimer.singleShot(0)` 导致主窗口显示后才加载的延迟。
 
 ***
@@ -578,8 +621,13 @@ class CheckinComponent(DraggableContainer):
         self.setObjectName("checkinContainer")
         self._config = component_data.get("config", {})
         self._setup_ui()          # 构建内部 UI
-        self._apply_style()       # 主题相关样式
+        self._apply_style()       # 主题相关样式（含统一背景）
         # 可选：监听 cfg 变化、实现 apply_scale(factor) 等
+
+    def _apply_style(self):
+        # 必须用统一背景方法，跟随全局 componentCardOpacity / componentCardRadius
+        self._apply_card_style()
+        # 子控件样式设到这里（文字/透明背景）
 
     def apply_scale(self, factor):
         # 按 factor 缩放内部元素（参考 MediaPlayerComponent.apply_scale）
@@ -589,6 +637,7 @@ class CheckinComponent(DraggableContainer):
 要点：
 
 - 通过 `component_data["config"]` 读取独立配置。
+- **背景必须走统一方法**：`_apply_style()` 中调 `self._apply_card_style()`；若用整份样式表覆盖自身，则需把 `{self._card_bg_css()}` 拼在样式表最前面（见 [5.3 统一卡片背景](#53-统一卡片背景draggablecontainer)）。不要自行写 `background-color`。
 - 实现主题切换响应（`_apply_style` / 重载 `_onThemeChanged`）。
 - 若需随缩放，实现 `apply_scale(factor)`：内部字号/图标/固定尺寸/圆角一律用 `self._scaled_px(base)`；子布局边距/间距由基类 `_scale_layouts()` 自动等比缩放，无需手动处理。
 - **初始化与** **`apply_scale`** **必须同步**：`_setup_ui` 中用过 `_scaled_px` 的固定尺寸（行高/列宽/图标底图等），`apply_scale` 中必须重新设置，否则缩放后停留在原尺寸。
@@ -602,7 +651,7 @@ class CheckinComponent(DraggableContainer):
 COMPONENT_STYLES["checkin"]["default"]["class"] = CheckinComponent
 ```
 
-> [!WARNING]
+> \[!WARNING]
 > 绑定放在末尾是因为 `COMPONENT_STYLES` 在 L109 定义时类还未定义，必须延后到类定义之后赋值。漏掉此步会导致 `load_components` 报「组件样式未注册」并跳过。
 
 **步骤 4：（可选）加入组件库展示**
