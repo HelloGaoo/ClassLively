@@ -513,11 +513,8 @@
     "category_info": "Info",
     "category_media": "Media",
     "category_launcher": "Launcher",
-    "category_history": "History",
-    "category_tools": "Tools",
-    "category_math": "Math",
-    "category_news": "News",
-    "category_linkage": "Linkage"
+    "category_school": "School",
+    "category_tools": "Tools"
   },
   "sticky_note": {
     "placeholder": "Write something..."

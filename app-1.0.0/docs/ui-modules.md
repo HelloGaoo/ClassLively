@@ -1,11 +1,11 @@
 # UI 模块（ui/）
 
-> [!NOTE]
+> \[!NOTE]
 > 编写者：HelloGaoo　最后修改：2026/08/19
 
 `ui/` 是基于 PyQt6 Fluent Widgets 的界面层。所有界面通过 `MainWindow.addSubInterface()` 注册到 FluentWindow 导航。每个界面通过 `load_qss()` 加载对应主题 QSS，并实现 `_onThemeChanged` 响应主题切换。
 
-> [!IMPORTANT]
+> \[!IMPORTANT]
 > **约束**：UI 控件必须使用 PyQt6 Fluent Widgets，不得引入其它组件库。组件配置面板必须 parent 到 MainWindow 以保证 z-order 正确。
 
 ***
@@ -64,15 +64,15 @@ NavigationPage 提示文字颜色随主题：深色 `rgba(230,230,230,0.95)`，�
 
 ### 3.1 核心基类与管理
 
-| 类                                       | 作用                                   |
-| --------------------------------------- | ------------------------------------ |
-| `DraggableWidget(QWidget)`              | 可拖拽组件基类（移动、缩放手柄、选中框、编辑/删除按钮）         |
+| 类                                       | 作用                                                                             |
+| --------------------------------------- | ------------------------------------------------------------------------------ |
+| `DraggableWidget(QWidget)`              | 可拖拽组件基类（移动、缩放手柄、选中框、编辑/删除按钮）                                                   |
 | `DraggableContainer(DraggableWidget)`   | 带配置存储的容器基类（整体等比缩放：`_scale_factor` / `_scaled_px` / `_scale_layouts`），所有具体组件的父类 |
-| `ComponentManager`                      | 组件实例生命周期 / 布局 / 持久化管理                |
-| `ComponentConfigDialog(MessageBoxBase)` | 组件配置弹窗（独立配置，parent 到 MainWindow）     |
-| `ComponentCard(CardWidget)`             | 组件库中的卡片项                             |
-| `CategoryPage(ScrollArea)`              | 组件库分类页                               |
-| `ComponentLibraryWindow(FluentWindow)`  | 组件库窗口（固定 650×550），加载 `component.qss` |
+| `ComponentManager`                      | 组件实例生命周期 / 布局 / 持久化管理                                                          |
+| `ComponentConfigDialog(MessageBoxBase)` | 组件配置弹窗（独立配置，parent 到 MainWindow）                                               |
+| `ComponentCard(CardWidget)`             | 组件库中的卡片项                                                                       |
+| `CategoryPage(ScrollArea)`              | 组件库分类页                                                                         |
+| `ComponentLibraryWindow(FluentWindow)`  | 组件库窗口（固定 650×550），加载 `component.qss`                                           |
 
 ### 3.2 编辑模式约定
 
@@ -85,28 +85,28 @@ NavigationPage 提示文字颜色随主题：深色 `rgba(230,230,230,0.95)`，�
 
 ### 3.3 内置组件清单
 
-| 分类          | 组件类                                                     | 说明                                                                          |
-| ----------- | ------------------------------------------------------- | --------------------------------------------------------------------------- |
-| Clock       | `DigitalClockComponent`                                 | 数字时钟（秒/农历）                                                                  |
-| Clock       | `CalendarMonthComponent`                                | 月历（`_DayCell`）                                                              |
-| Weather     | `WeatherIconTempComponent`                              | 图标 + 温度                                                                     |
-| Weather     | `WeatherHourlyComponent`                                | 逐小时预报                                                                       |
-| Weather     | `WeatherWeeklyComponent`                                | 每周预报                                                                        |
-| Poetry      | `PoetryOneLineComponent`                                | 一言                                                                          |
-| News        | `NewsBaidu/Weibo/Jinritoutiao/Tenxunwang/CCTVComponent` | 新闻（继承 `NewsComponent`）                                                      |
-| History     | `HistoryTodayComponent`                                 | 历史上的今天                                 |
-| Countdown   | `CountdownEventComponent`                               | 事件倒计时                                                                       |
-| Countdown   | `TimerCountdownComponent`                               | 计时器（`TimeColumnWidget` / `TimerTimeDisplayWidget`）                          |
-| School      | `SchoolInfoComponent`                                   | 学校班级信息                                                                      |
-| Media       | `MediaPlayerComponent`                                  | 媒体播放信息（封面/进度/歌词）                                                            |
-| QuickLaunch | `QuickLaunchDockComponent` / `QuickLaunchDock`          | 快捷启动栏                                                                       |
-| Timetable   | `TimetablePreviewComponent`                             | 课表预览（`_TimetableRow`）                                                       |
-| Timetable   | `TimetableNowLessonComponent`                           | 当前课程                                                                        |
-| Tool        | `CalculatorComponent`                                   | 计算器                                                                         |
-| Tool        | `WritingPadComponent`                                   | 手写画板（`_WritingOverlay` / `_PenSettingsPopup` / `_OverToolBtn`，16ms 定时器擦除架构） |
-| Tool        | `NavigationPage`                                        | 导航页（`NavItemCell`）                                                          |
-| Album       | `ClassAlbumHorizontal/VerticalComponent`                | 班级相册（继承 `ClassAlbumBaseComponent`）                                          |
-| Note        | `StickyNoteComponent`                                   | 便签                                                                          |
+| 分类       | 组件类                                                     | 说明                                                             |
+| -------- | ------------------------------------------------------- | -------------------------------------------------------------- |
+| Clock    | `DigitalClockComponent`                                 | 数字时钟（秒/农历）                                                     |
+| Clock    | `CalendarMonthComponent`                                | 月历（`_DayCell`）                                                 |
+| Clock    | `CountdownEventComponent`                               | 事件倒计时                                                          |
+| Clock    | `TimerCountdownComponent`                               | 计时器（`TimeColumnWidget` / `TimerTimeDisplayWidget`）             |
+| Weather  | `WeatherIconTempComponent`                              | 图标 + 温度                                                        |
+| Weather  | `WeatherHourlyComponent`                                | 逐小时预报                                                          |
+| Weather  | `WeatherWeeklyComponent`                                | 每周预报                                                           |
+| Info     | `PoetryOneLineComponent`                                | 一言                                                             |
+| Info     | `NewsBaidu/Weibo/Jinritoutiao/Tenxunwang/CCTVComponent` | 新闻（继承 `NewsComponent`）                                         |
+| Info     | `HistoryTodayComponent`                                 | 历史上的今天                                                         |
+| School   | `SchoolInfoComponent`                                   | 学校班级信息                                                         |
+| School   | `TimetablePreviewComponent`                             | 课表预览（`_TimetableRow`）                                          |
+| School   | `TimetableNowLessonComponent`                           | 当前课程                                                           |
+| School   | `ClassAlbumHorizontal/VerticalComponent`                | 班级相册（继承 `ClassAlbumBaseComponent`）                             |
+| Media    | `MediaPlayerComponent`                                  | 媒体播放信息（封面/进度/歌词）                                               |
+| Launcher | `QuickLaunchDockComponent` / `QuickLaunchDock`          | 快捷启动栏                                                          |
+| Tools    | `CalculatorComponent`                                   | 计算器                                                            |
+| Tools    | `WritingPadComponent`                                   | 手写画板（`_WritingOverlay` / `_PenSettingsPopup` / `_OverToolBtn`） |
+| Tools    | `StickyNoteComponent`                                   | 便签                                                             |
+| —        | `NavigationPage`                                        | 导航页（`NavItemCell`）                                             |
 
 ### 3.4 媒体组件
 

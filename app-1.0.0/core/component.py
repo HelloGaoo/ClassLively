@@ -460,7 +460,7 @@ BUILTIN_COMPONENT_DEFINITIONS = [
     ComponentDefinition(
         id="school_info_class_info",
         display_name="班级卡片",
-        category="Info",
+        category="School",
         icon="Education",
         min_width_cells=2,
         min_height_cells=1,
@@ -496,7 +496,7 @@ BUILTIN_COMPONENT_DEFINITIONS = [
     ComponentDefinition(
         id="linkage_timetable_preview",
         display_name="今日课表",
-        category="Linkage",
+        category="School",
         icon="Education",
         min_width_cells=2,
         min_height_cells=3,
@@ -508,7 +508,7 @@ BUILTIN_COMPONENT_DEFINITIONS = [
     ComponentDefinition(
         id="linkage_timetable_nowlesson",
         display_name="当前课程",
-        category="Linkage",
+        category="School",
         icon="Education",
         min_width_cells=2,
         min_height_cells=2,
@@ -526,7 +526,7 @@ BUILTIN_COMPONENT_DEFINITIONS = [
     ComponentDefinition(
         id="Math_calculator",
         display_name="计算器",
-        category="Math",
+        category="Tools",
         icon="Calculator",
         min_width_cells=2,
         min_height_cells=2,
@@ -537,7 +537,7 @@ BUILTIN_COMPONENT_DEFINITIONS = [
     ComponentDefinition(
         id="news_baidu",
         display_name="百度新闻",
-        category="News",
+        category="Info",
         icon="News",
         min_width_cells=4,
         min_height_cells=2,
@@ -548,7 +548,7 @@ BUILTIN_COMPONENT_DEFINITIONS = [
     ComponentDefinition(
         id="news_weibo",
         display_name="微博新闻",
-        category="News",
+        category="Info",
         icon="News",
         min_width_cells=4,
         min_height_cells=2,
@@ -559,7 +559,7 @@ BUILTIN_COMPONENT_DEFINITIONS = [
     ComponentDefinition(
         id="news_jinritoutiao",
         display_name="今日头条新闻",
-        category="News",
+        category="Info",
         icon="News",
         min_width_cells=4,
         min_height_cells=2,
@@ -570,7 +570,7 @@ BUILTIN_COMPONENT_DEFINITIONS = [
     ComponentDefinition(
         id="news_tenxunwang",
         display_name="腾讯网新闻",
-        category="News",
+        category="Info",
         icon="News",
         min_width_cells=4,
         min_height_cells=2,
@@ -581,7 +581,7 @@ BUILTIN_COMPONENT_DEFINITIONS = [
     ComponentDefinition(
         id="news_xcvts",
         display_name="央视新闻",
-        category="News",
+        category="Info",
         icon="News",
         min_width_cells=4,
         min_height_cells=2,
@@ -603,7 +603,7 @@ BUILTIN_COMPONENT_DEFINITIONS = [
     ComponentDefinition(
         id="class_album_horizontal",
         display_name="横向相册",
-        category="Tools",
+        category="School",
         icon="Photo",
         min_width_cells=2,
         min_height_cells=1,
@@ -615,7 +615,7 @@ BUILTIN_COMPONENT_DEFINITIONS = [
     ComponentDefinition(
         id="class_album_vertical",
         display_name="纵向相册",
-        category="Tools",
+        category="School",
         icon="Photo",
         min_width_cells=1,
         min_height_cells=2,
@@ -639,7 +639,7 @@ BUILTIN_COMPONENT_DEFINITIONS = [
     ComponentDefinition(
         id="timer_countdown",
         display_name="计时与倒计时",
-        category="Tools",
+        category="Clock",
         icon="StopWatch",
         min_width_cells=2,
         min_height_cells=2,
@@ -651,7 +651,7 @@ BUILTIN_COMPONENT_DEFINITIONS = [
     ComponentDefinition(
         id="history_today",
         display_name="历史上的今天",
-        category="History",
+        category="Info",
         icon="History",
         min_width_cells=4,
         min_height_cells=2,

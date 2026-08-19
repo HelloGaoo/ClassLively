@@ -9045,7 +9045,8 @@ class ComponentLibraryWindow(FluentWindow):
             "Info": FUI.INFO,
             "Media": FUI.ALBUM,
             "Launcher": FUI.APPLICATION,
-            "History": FUI.HISTORY,
+            "School": FUI.EDUCATION,
+            "Tools": FUI.BRUSH,
         }
 
         for category in categories:

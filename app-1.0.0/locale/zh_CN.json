@@ -510,14 +510,11 @@
     "drag_hint": "拖拽到桌面添加",
     "category_clock": "时钟",
     "category_weather": "天气",
-    "category_info": "信息",
+    "category_info": "资讯",
     "category_media": "媒体",
     "category_launcher": "启动器",
-    "category_history": "历史",
-    "category_tools": "工具",
-    "category_math": "数学",
-    "category_news": "新闻",
-    "category_linkage": "联动"
+    "category_school": "教学",
+    "category_tools": "工具"
   },
   "history_today": {
     "title": "历史上的今天",
