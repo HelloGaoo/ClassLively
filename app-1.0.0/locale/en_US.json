@@ -512,10 +512,19 @@
     "category_weather": "Weather",
     "category_info": "Info",
     "category_media": "Media",
-    "category_launcher": "Launcher"
+    "category_launcher": "Launcher",
+    "category_history": "History",
+    "category_tools": "Tools",
+    "category_math": "Math",
+    "category_news": "News",
+    "category_linkage": "Linkage"
   },
   "sticky_note": {
     "placeholder": "Write something..."
+  },
+  "history_today": {
+    "title": "Today in History",
+    "no_data": "No data"
   },
   "update": {
     "build_date": "Build Date",

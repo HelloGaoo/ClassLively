@@ -538,6 +538,10 @@
   "sticky_note": {
     "placeholder": "寫點東西..."
   },
+  "history_today": {
+    "title": "歷史上的今天",
+    "no_data": "暫無資料"
+  },
   "component_edit": {
     "config_target_name": "目標名稱",
     "config_target_date": "目標日期",

@@ -648,6 +648,18 @@ BUILTIN_COMPONENT_DEFINITIONS = [
         resize_mode=ResizeMode.FREE,
         default_config={},
     ),
+    ComponentDefinition(
+        id="history_today",
+        display_name="历史上的今天",
+        category="History",
+        icon="History",
+        min_width_cells=4,
+        min_height_cells=2,
+        default_width_cells=4,
+        default_height_cells=2,
+        resize_mode=ResizeMode.HORIZONTAL,
+        default_config={},
+    ),
 ]
 
 

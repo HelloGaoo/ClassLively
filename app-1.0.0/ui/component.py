@@ -84,6 +84,7 @@ from core.config import cfg, save_cfg
 from core.utils import tr, FUI, get_cached_content, save_cache
 from services.media import MediaInfo, Lyrics, get_media_info, get_service, close as close_media, media_control, media_next, media_prev
 from services.news import NewsService
+from services.history import HistoryService
 from core.constants import BASE_DIR, DATA_CONFIG, DATA_CLASSPHOTOS, DATA_NOTES, load_qss, NEWS_ICONS, get_resPath, APP_ICON, FONT_FAMILY, FONT_PRIMARY
 from resource.software_list import get_software_icon_path
 from core.component import (
@@ -278,6 +279,14 @@ COMPONENT_STYLES = {
             "class": None,
             "default_config": {},
             "default_size": (360, 320),
+        },
+    },
+    "history": {
+        "today": {
+            "name": "历史上的今天",
+            "class": None,
+            "default_config": {},
+            "default_size": (360, 240),
         },
     },
 }
@@ -4726,6 +4735,175 @@ class NewsCCTVComponent(NewsComponent):
     _use_cctv_api = True
 
 
+class HistoryTodayComponent(DraggableContainer):
+    """历史上的今天组件"""
+
+    _object_name = "historyTodayContainer"
+    _item_count = 5
+    _header_icon = FUI.HISTORY
+    _year_color = "#30c361"
+    _title_color_dark = "#ffffff"
+    _title_color_light = "#1a1a1a"
+    _date_color_dark = "rgba(255, 255, 255, 0.6)"
+    _date_color_light = "rgba(40, 40, 40, 0.7)"
+
+    def __init__(self, parent, component_data: dict):
+        super().__init__(parent, component_id=component_data["id"], layout_direction="vertical")
+        self.setObjectName(self._object_name)
+        self._home = parent
+        self._events = []
+        self._event_links = [""] * self._item_count
+        self._event_titles = ["--"] * self._item_count
+        self._event_years = [""] * self._item_count
+        self._date_text = ""
+        self._setup_ui()
+        self._setup_timer()
+
+    def _setup_ui(self):
+        # 图标
+        self.iconLabel = QLabel()
+        self.iconLabel.setObjectName("historyHeaderIcon")
+        self.iconLabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._render_header_icon(self._scaled_px(28))
+
+        # 标题
+        self.titleLabel = BodyLabel(tr("history_today.title"))
+        self.titleLabel.setObjectName("historyHeaderTitle")
+        self.titleLabel.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+
+        # 日期
+        self.dateLabel = CaptionLabel("")
+        self.dateLabel.setObjectName("historyDateLabel")
+        self.dateLabel.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+
+        header_layout = QHBoxLayout()
+        header_layout.setContentsMargins(0, 0, 0, 0)
+        header_layout.setSpacing(8)
+        header_layout.addWidget(self.iconLabel)
+        header_layout.addWidget(self.titleLabel, 1)
+        header_layout.addWidget(self.dateLabel, 0)
+
+        # 事件列表
+        self.itemWidgets = []
+        for i in range(self._item_count):
+            item_label = BodyLabel("--")
+            item_label.setObjectName("historyItemLabel")
+            item_label.setWordWrap(True)
+            item_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
+            item_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+            item_label.mousePressEvent = lambda e, idx=i: self._on_item_clicked(idx)
+            item_label.setCursor(Qt.CursorShape.PointingHandCursor)
+            self.itemWidgets.append(item_label)
+
+        layout = self.inner_layout
+        layout.setContentsMargins(16, 16, 16, 16)
+        layout.setSpacing(6)
+        layout.addLayout(header_layout)
+        for widget in self.itemWidgets:
+            layout.addWidget(widget, 1)
+
+        self._set_natural_size(360, 240)
+        self.setMinimumSize(150, 100)
+        self._size_explicitly_set = True
+        self.resize(360, 240)
+        self._apply_style()
+
+    def _render_header_icon(self, size: int):
+        """渲染图标"""
+        dpr = self.devicePixelRatioF()
+        try:
+            svg_path = self._header_icon.path()
+        except Exception as e:
+            logger.warning(f"获取图标路径失败：{e}")
+            self.iconLabel.clear()
+            self.iconLabel.setFixedSize(size, size)
+            return
+        pm = _render_svg_logo(svg_path, size)
+        pm.setDevicePixelRatio(dpr)
+        self.iconLabel.setPixmap(pm)
+        self.iconLabel.setFixedSize(int(pm.width() / dpr), int(pm.height() / dpr))
+
+    def _setup_timer(self):
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(self._refresh)
+        self.timer.start(1800000)  # 30 分钟一次刷新
+        self._refresh()
+
+    def _refresh(self):
+        data = HistoryService.fetch_history_today(use_cache=True)
+        if not data:
+            data = get_cached_content("history_today", ignore_expiry=True)
+        self._update_display(data)
+
+    def _update_display(self, data):
+        count = self._item_count
+        titles = ["--"] * count
+        years = [""] * count
+        links = [""] * count
+        self._date_text = ""
+
+        if isinstance(data, dict):
+            self._date_text = data.get("date", "") or ""
+            events = data.get("events") or []
+            for i in range(count):
+                if i < len(events):
+                    item = events[i] or {}
+                    titles[i] = item.get("title") or "--"
+                    years[i] = str(item.get("year", "") or "")
+                    links[i] = item.get("link") or ""
+
+        self._event_titles = titles
+        self._event_years = years
+        self._event_links = links
+
+        self.dateLabel.setText(self._date_text)
+        self._render_items()
+
+    def _render_items(self):
+        sz_year = self._scaled_px(12)
+        sz_text = self._scaled_px(14)
+        title_color = self._title_color_dark if isDarkTheme() else self._title_color_light
+        year_color = self._year_color
+
+        for year, label, text in zip(self._event_years, self.itemWidgets, self._event_titles):
+            year_part = ""
+            if year:
+                year_part = (f"<span style='font-size:{sz_year}px;color:{year_color};"
+                             f"font-weight:700;font-family:{FONT_FAMILY};'>{year} · </span>")
+            label.setText(
+                f"{year_part}"
+                f"<span style='font-size:{sz_text}px;color:{title_color};font-family:{FONT_FAMILY};'>{text}</span>"
+            )
+
+    def _on_item_clicked(self, index):
+        if 0 <= index < len(self._event_links) and self._event_links[index]:
+            webbrowser.open(self._event_links[index])
+
+    def _apply_style(self):
+        self._apply_card_style()
+        date_color = self._date_color_dark if isDarkTheme() else self._date_color_light
+        title_color = self._title_color_dark if isDarkTheme() else self._title_color_light
+        self.titleLabel.setStyleSheet(f"""
+            color: {title_color};
+            font-size: {self._scaled_px(15)}px;
+            font-weight: 600;
+            font-family: {FONT_FAMILY};
+            background-color: transparent;
+        """)
+        self.dateLabel.setStyleSheet(f"""
+            color: {date_color};
+            font-size: {self._scaled_px(11)}px;
+            font-family: {FONT_FAMILY};
+            background-color: transparent;
+        """)
+        self._render_items()
+        self.updateSize()
+
+    def apply_scale(self, factor):
+        self._render_header_icon(self._scaled_px(28))
+        self._apply_style()
+
+
 class CountdownEventComponent(DraggableContainer):
     """事件倒计时组件"""
 
@@ -8661,6 +8839,7 @@ COMPONENT_STYLES["writing"]["pad"]["class"] = WritingPadComponent
 COMPONENT_STYLES["class_album"]["horizontal"]["class"] = ClassAlbumHorizontalComponent
 COMPONENT_STYLES["class_album"]["vertical"]["class"] = ClassAlbumVerticalComponent
 COMPONENT_STYLES["sticky_note"]["default"]["class"] = StickyNoteComponent
+COMPONENT_STYLES["history"]["today"]["class"] = HistoryTodayComponent
 
 
 
@@ -8866,6 +9045,7 @@ class ComponentLibraryWindow(FluentWindow):
             "Info": FUI.INFO,
             "Media": FUI.ALBUM,
             "Launcher": FUI.APPLICATION,
+            "History": FUI.HISTORY,
         }
 
         for category in categories:
