@@ -3654,11 +3654,22 @@ class DigitalClockComponent(DraggableContainer):
 
 class WeatherComponentBase(DraggableContainer):
     """天气基类：定时器 刷新间隔 天气数据更新 城市选择等公共"""
+    _weather_fetched = pyqtSignal(object)
 
     def __init__(self, parent, component_data: dict, layout_direction: str = "vertical"):
         super().__init__(parent, component_id=component_data["id"], layout_direction=layout_direction)
         self._home = parent
+        self._home_interface = self._find_home_interface()
         self._current_icon_path = None
+        self._weather_fetching = False
+
+    def _find_home_interface(self):
+        p = self.parentWidget()
+        while p is not None:
+            if hasattr(p, 'weather_updated'):
+                return p
+            p = p.parentWidget()
+        return None
 
     def _setup_timer(self):
         self.timer = QTimer(self)
@@ -3667,8 +3678,9 @@ class WeatherComponentBase(DraggableContainer):
         cfg.showWeather.valueChanged.connect(self._refresh_weather)
         cfg.weatherUpdateInterval.valueChanged.connect(self._update_interval)
         cfg.weatherTextColor.valueChanged.connect(self._apply_style)
-        if hasattr(self._home, 'weather_updated'):
-            self._home.weather_updated.connect(self._on_weather_updated)
+        if self._home_interface is not None:
+            self._home_interface.weather_updated.connect(self._on_weather_updated)
+        self._weather_fetched.connect(self._on_weather_fetched)
         self._update_interval()
         self._refresh_weather()
 
@@ -3689,6 +3701,19 @@ class WeatherComponentBase(DraggableContainer):
     def _on_weather_updated(self):
         self._update_from_cache()
 
+    def _on_weather_fetched(self, data):
+        """保存缓存 通知所有天气组件刷新"""
+        self._weather_fetching = False
+        if data:
+            if not save_cache("weather", data, cfg.weatherUpdateInterval.value):
+                logger.warning("缓存保存失败")
+            if self._home_interface is not None:
+                if hasattr(self._home_interface, '_cached_weather'):
+                    self._home_interface._cached_weather = data
+                self._home_interface.weather_updated.emit(data)
+            else:
+                self._update_from_cache()
+
     def _update_from_cache(self):
         """从缓存读取天气数据 后显示"""
         raise NotImplementedError
@@ -3704,10 +3729,9 @@ class WeatherComponentBase(DraggableContainer):
         super().mousePressEvent(event)
 
     def _onCityLabelClicked(self):
-        """打开区域选择对话框"""
         from services.weather import RegionSelectorDialog, RegionDatabase, WeatherService
 
-        parent = getattr(self._home, 'mainWindow', None) or self._home
+        parent = getattr(self._home_interface, 'mainWindow', None) or self._home
         dialog = RegionSelectorDialog(parent)
         if dialog.exec():
             region = dialog.get_selected_region()
@@ -3719,20 +3743,23 @@ class WeatherComponentBase(DraggableContainer):
             if lon is not None and lat is not None:
                 cfg.longitude.value = lon
                 cfg.latitude.value = lat
-                logger.info(f"[天气组件] 选择城市: {region} (经纬度: {lon}, {lat})")
+                logger.info(f"选择城市: {region} (经纬度: {lon}, {lat})")
             self.cityLabel.setText(region)
-            try:
-                ws = WeatherService()
-                data = ws.fetch_all()
-                if data:
-                    if not save_cache("weather", data, cfg.weatherUpdateInterval.value):
-                        logger.warning("[天气组件] 缓存保存失败")
-                    if hasattr(self._home, '_cached_weather'):
-                        self._home._cached_weather = data
-                    self._home.weather_updated.emit(data)
-                    logger.info("[天气组件] 新城市天气获取成功")
-            except Exception as e:
-                logger.error(f"[天气组件] 新城市天气获取失败: {e}")
+
+            if self._weather_fetching:
+                return
+            self._weather_fetching = True
+
+            def _fetch():
+                try:
+                    ws = WeatherService()
+                    data = ws.fetch_all()
+                    self._weather_fetched.emit(data)
+                except Exception as e:
+                    logger.error(f"新城市天气获取失败: {e}")
+                    self._weather_fetched.emit(None)
+
+            threading.Thread(target=_fetch, daemon=True).start()
 
 
 class WeatherIconTempComponent(WeatherComponentBase):
