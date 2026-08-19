@@ -1005,7 +1005,7 @@ class MainWindow(FluentWindow):
 
         # _t_i18n = time.time()
         # self._initTranslation()
-        # logger.info(f"[MW] 翻译系统初始化 耗时{time.time()-_t_i18n:.2f}s")
+        # logger.info(f"翻译系统初始化 耗时{time.time()-_t_i18n:.2f}s")
  
     def disable_menu_button(self):
         """禁用系统菜单中的 还原/移动/大小 选项"""

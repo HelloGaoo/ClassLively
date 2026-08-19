@@ -241,7 +241,7 @@ sys.exit(app.exec())
 - `字体初始化`
 - `后台等待`
 - `创建主窗口`
-- `[MW] 翻译系统初始化` / `_initNavigation` / 各 Interface 耗时
+- `翻译系统初始化` / `_initNavigation` / 各 Interface 耗时
 - `预加载`
 - `进度条100%等待`
 - `总启动耗时`
