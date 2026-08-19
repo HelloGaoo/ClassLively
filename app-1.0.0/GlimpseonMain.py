@@ -84,7 +84,6 @@ from ui.timetable import TimetablePage
 from ui.wallpaper import WallpaperInterface
 from resource.url_dir import url_dir
 
-# Win32 MSG 结构体定义
 if ctypes.sizeof(ctypes.c_void_p) == 8:
     _WPARAM = ctypes.c_uint64
     _LPARAM = ctypes.c_uint64
@@ -107,6 +106,7 @@ WIZARD_CONFIG_PATH = os.path.join(DATA_CONFIG, "Setup_Wizard.json")
 
 
 def check_wizard_needed():
+    """需要向导吗"""
     wizard_path = WIZARD_CONFIG_PATH
     if not os.path.exists(wizard_path):
         return True
@@ -119,6 +119,7 @@ def check_wizard_needed():
 
 
 def create_wizard_file():
+    """创建向导文件"""
     ensure_data_dirs()
     wizard_path = WIZARD_CONFIG_PATH
     os.makedirs(os.path.dirname(wizard_path), exist_ok=True)
@@ -127,6 +128,7 @@ def create_wizard_file():
 
 
 def complete_wizard():
+    """完成向导"""
     ensure_data_dirs()
     wizard_path = WIZARD_CONFIG_PATH
     os.makedirs(os.path.dirname(wizard_path), exist_ok=True)
@@ -267,7 +269,7 @@ class SplashScreen(QWidget, TranslatableWidget):
         pass
 
 
-# ==================== WizardWindow 向导窗口 ====================
+# WizardWindow 向导窗口
 import win32com.client
 from pathlib import Path
 from PyQt6.QtCore import QByteArray, QPropertyAnimation, QEasingCurve
@@ -379,7 +381,7 @@ class WizardWindow(QDialog, TranslatableWidget):
         self.page2Layout.addWidget(self.agreementText, 0, Qt.AlignmentFlag.AlignCenter)
         self.page2Layout.addSpacing(16)
 
-        def _make_check_with_link(box_text, link_text, target_path):
+        def _build_linked_check(box_text, link_text, target_path):
             container = QWidget(self.page2)
             container.setFixedHeight(56)
             container.setFixedWidth(430)
@@ -437,11 +439,11 @@ class WizardWindow(QDialog, TranslatableWidget):
         license_path = os.path.join(BASE_DIR, "LICENSE")
         readme_path = os.path.join(BASE_DIR, "README.md")
 
-        self.openSourceCheckBox, open_source_widget = _make_check_with_link(
+        self.openSourceCheckBox, open_source_widget = _build_linked_check(
             "", tr("wizard.open_source_license"), license_path)  # 项目开源协议 (GPL-3.0)
-        self.userAgreementCheckBox, user_agree_widget = _make_check_with_link(
+        self.userAgreementCheckBox, user_agree_widget = _build_linked_check(
             "", tr("wizard.user_agreement"), readme_path)  # 用户协议
-        self.privacyCheckBox, privacy_widget = _make_check_with_link(
+        self.privacyCheckBox, privacy_widget = _build_linked_check(
             "", tr("wizard.privacy_policy"), "")  # 隐私政策
 
         self.agreeButton = PrimaryPushButton(FUI.ACCEPT, tr("wizard.agree"), self.page2)  # 完成
@@ -970,11 +972,11 @@ class MainWindow(FluentWindow):
 
         _t_i18n = time.time()
         self._initTranslation()
-        logger.info(f"[MW] 翻译系统初始化 耗时{time.time()-_t_i18n:.2f}s")
+        logger.info(f"翻译初始化 耗时{time.time()-_t_i18n:.2f}s")
 
         _t_nav = time.time()
         self._initNavigation()
-        logger.info(f"[MW] _initNavigation 总耗时{time.time()-_t_nav:.2f}s")
+        logger.info(f"_initNavigation 导航 总耗时{time.time()-_t_nav:.2f}s")
 
         self._normal_size = (1050, 750)
         self._is_maximized = False
@@ -990,7 +992,7 @@ class MainWindow(FluentWindow):
 
         _t = time.time()
         sync_autostart_cfg()
-        logger.info(f"[MW] sync_autostart_cfg 耗时{time.time()-_t:.2f}s")
+        logger.info(f"sync_autostart_cfg 耗时{time.time()-_t:.2f}s")
         cfg.autoStart.valueChanged.connect(lambda value: set_autostart(value))
 
         self._initIdleDetection()
@@ -1005,7 +1007,7 @@ class MainWindow(FluentWindow):
         # self._initTranslation()
         # logger.info(f"[MW] 翻译系统初始化 耗时{time.time()-_t_i18n:.2f}s")
  
-    def disable_restore_button(self):
+    def disable_menu_button(self):
         """禁用系统菜单中的 还原/移动/大小 选项"""
         try:
             hwnd = int(self.winId())
@@ -1024,24 +1026,25 @@ class MainWindow(FluentWindow):
             pass
 
     def showEvent(self, event):
+        """窗口显示事件"""
         super().showEvent(event)
-        # 窗口首次显示时灰化系统菜单
         if not hasattr(self, '_menu_disabled'):
             self._menu_disabled = True
-            QTimer.singleShot(100, self.disable_restore_button)  # 延迟确保菜单已创建
+            QTimer.singleShot(100, self.disable_menu_button)
             
     def _initNavigation(self):
+        """初始化导航"""
         _t = time.time()
         self.homeInterface = HomeInterface(self)
         self.homeInterface.setObjectName("home")
         self.addSubInterface(self.homeInterface, FUI.HOME, tr("navigation.home"))  # 主界面
-        logger.info(f"[MW] HomeInterface 耗时{time.time()-_t:.2f}s")
+        logger.info(f"HomeInterface 耗时{time.time()-_t:.2f}s")
 
         _t = time.time()
         self.wallpaper = WallpaperInterface(mainWindow=self)
         self.wallpaper.setObjectName("wallpaper")
         self.addSubInterface(self.wallpaper, FUI.PHOTO, tr("navigation.wallpaper"))  # 壁纸
-        logger.info(f"[MW] WallpaperInterface 耗时{time.time()-_t:.2f}s")
+        logger.info(f"WallpaperInterface 耗时{time.time()-_t:.2f}s")
 
         _t = time.time()
         self.notificationPage = NotificationPage(self)
@@ -1050,19 +1053,21 @@ class MainWindow(FluentWindow):
         self.notifManager = NotificationManager(self)
         self.notificationPage.send_notification.connect(self.notifManager.handle_notification)
         self.notifManager.notification_finished.connect(self.notificationPage._on_notification_shown)
-        logger.info(f"[MW] NotificationPage 耗时{time.time()-_t:.2f}s")
+        logger.info(f"NotificationPage 耗时{time.time()-_t:.2f}s")
 
         _t = time.time()
         self.timetablePage = TimetablePage(self)
         self.timetablePage.setObjectName("timetable")
         self.addSubInterface(self.timetablePage, FUI.EDUCATION, tr("navigation.timetable"))  # 课程表
-        logger.info(f"[MW] TimetablePage 耗时{time.time()-_t:.2f}s")
+        logger.info(f"TimetablePage 耗时{time.time()-_t:.2f}s")
 
         _t = time.time()
         self.downloadInterface = DownloadInterface(parent=self)
         self.addSubInterface(self.downloadInterface, FUI.DOWNLOAD, tr("navigation.download"))  # 软件下载
 
         def _populateDownload():
+            """填充软件下载界面"""
+            self.downloadInterface.clear()
             for category in SOFTWARE_CATEGORIES:
                 self.downloadInterface.addSection(tr(category["name_key"]))
                 for software in category["software"]:
@@ -1071,21 +1076,22 @@ class MainWindow(FluentWindow):
                     self.downloadInterface.addSoftware(icon_path, software["name"], software["description"], link)
             self.downloadInterface._onDataPopulated()
         QTimer.singleShot(0, _populateDownload)
-
+        logger.info(f"DownloadInterface 耗时{time.time()-_t:.2f}s")
+        
         _t = time.time()
         self.aboutInterface = AboutInterface(parent=self)
         self.addSubInterface(self.aboutInterface, FUI.INFO, tr("navigation.about"), NavigationItemPosition.BOTTOM)  # 关于
-        logger.info(f"[MW] AboutInterface 耗时{time.time()-_t:.2f}s")
+        logger.info(f"AboutInterface 耗时{time.time()-_t:.2f}s")
 
         _t = time.time()
         self.debugPanel = DebugPanel(self)
         self.debugNavItem = self.addSubInterface(self.debugPanel, FUI.DEVELOPER_TOOLS, tr("navigation.debug"), NavigationItemPosition.BOTTOM)  # 调试
         self.debugNavItem.setVisible(cfg.debugMode.value)
         cfg.debugMode.valueChanged.connect(self._onDebugModeChanged)
-
-        logger.info(f"[MW] DebugPanel 耗时{time.time()-_t:.2f}s")
+        logger.info(f"DebugPanel 耗时{time.time()-_t:.2f}s")
 
     def _initIdleDetection(self):
+        """初始化空闲检测"""
         self.idleTimer = QTimer(self)
         self.idleTimer.timeout.connect(self._checkIdle)
         self.lastMouseActivity = QTime.currentTime()
@@ -1101,6 +1107,7 @@ class MainWindow(FluentWindow):
         self._installGlobalHooks()
 
     def _initThemeConnections(self):
+        """初始化主题连接"""
         cfg.themeChanged.connect(self.downloadInterface._onThemeChanged)
         cfg.themeChanged.connect(self.wallpaper._onThemeChanged)
         cfg.themeChanged.connect(self.notificationPage._onThemeChanged)
@@ -1109,6 +1116,7 @@ class MainWindow(FluentWindow):
         cfg.themeChanged.connect(self._onDebugPanelThemeChanged)
 
     def _initSystemThemeMonitor(self):
+        """初始化系统主题监控"""
         self._themeCheckTimer = QTimer(self)
         self._themeCheckTimer.setInterval(5000)
         self._themeCheckTimer.timeout.connect(self._checkSystemTheme)
@@ -1118,6 +1126,7 @@ class MainWindow(FluentWindow):
             self._checkSystemTheme()
 
     def _onThemeModeChanged(self, mode: Theme):
+        """主题模式变更"""
         clear_qss_cache()
 
         if mode == Theme.AUTO:
@@ -1129,11 +1138,8 @@ class MainWindow(FluentWindow):
                 cfg.theme = Theme.DARK
             else:
                 cfg.theme = Theme.LIGHT
-            # setTheme() 会 updateStyleSheet() 更新pfw组件
-            # 值不同会发 themeChanged 回调中 load_qss 会读真主题
             setTheme(cfg.theme)
 
-        # 如果 setTheme() 因值相同没发 themeChanged 手动补发
         cfg.themeChanged.emit(cfg.theme)
 
     def _checkSystemTheme(self):
@@ -1153,11 +1159,17 @@ class MainWindow(FluentWindow):
             logger.warning(f"检查系统主题出错: {e}")
 
     def _onDebugModeChanged(self, value):
+        """调试模式变更"""
+        self.debugNavItem.setVisible(value)
         self.debugNavItem.setVisible(value)
         if not value and self.stackedWidget.currentWidget() == self.debugPanel:
             self.switchTo(self.homeInterface)
 
     def _onDebugPanelThemeChanged(self):
+        """调试面板主题变更"""
+        clear_qss_cache()
+        setTheme(cfg.theme)
+        cfg.themeChanged.emit(cfg.theme)
         if hasattr(self, 'debugPanel') and self.debugPanel:
             self.debugPanel._updateTheme()
 
@@ -1225,6 +1237,7 @@ class MainWindow(FluentWindow):
     #         logger.warning(f"更新界面文本失败 [{interface.objectName() if hasattr(interface, 'objectName') else 'unknown'}]: {e}")
 
     def keyPressEvent(self, event):
+        """键盘事件"""
         if event.key() == Qt.Key.Key_F12:
             if cfg.debugMode.value and hasattr(self, 'debugPanel'):
                 self.switchTo(self.debugPanel)
@@ -1243,6 +1256,7 @@ class MainWindow(FluentWindow):
         super().keyPressEvent(event)
 
     def eventFilter(self, obj, event):
+        """事件过滤器"""
         if hasattr(self, 'isEditMode') and self.isEditMode:
             if event.type() == QEvent.Type.MouseButtonRelease:
                 nav_interface = getattr(self, 'navigationInterface', None)
@@ -1258,6 +1272,7 @@ class MainWindow(FluentWindow):
     #     self.showMaximized()
 
     def changeEvent(self, event):
+        """窗口变更事件"""
         # super().changeEvent(event)
         # if event.type() == QEvent.Type.WindowStateChange:
         #     if not self.isMinimized() and not self.isFullScreen():
@@ -1268,15 +1283,18 @@ class MainWindow(FluentWindow):
                 QTimer.singleShot(0, self.showMaximized)
 
     def _forceFullScreen(self):
+        """强制全屏"""
         if not self.isMinimized():
             self.showMaximized()
 
     def resizeEvent(self, event):
+        """窗口调整事件"""
         super().resizeEvent(event)
         # if hasattr(self, '_normal_size') and hasattr(self, '_resize_timer'):
         #     self._resize_timer.start(50)
 
     def moveToCenter(self):
+        """将窗口移动到屏幕中心"""
         screen = QApplication.primaryScreen()
         if screen:
             rect = screen.availableGeometry()
@@ -1284,6 +1302,7 @@ class MainWindow(FluentWindow):
             self.move(w // 2 - self.width() // 2, h // 2 - self.height() // 2)
 
     def initSystemTray(self):
+        """初始化系统托盘"""
         icon_path = get_resPath(APP_ICON)
         if os.path.exists(icon_path):
             self.tray_icon = QSystemTrayIcon(QIcon(icon_path), self)
@@ -1309,6 +1328,7 @@ class MainWindow(FluentWindow):
         self.tray_icon.show()
 
     def _onTrayIconActivated(self, reason):
+        """托盘图标激活事件"""
         if reason in (QSystemTrayIcon.ActivationReason.DoubleClick, QSystemTrayIcon.ActivationReason.Trigger):
             if self.isMinimized() or not self.isVisible():
                 self.showMaximized()
@@ -1316,6 +1336,7 @@ class MainWindow(FluentWindow):
                 self.hide()
 
     def _updateIdleTimer(self):
+        """更新空闲定时器"""
         self.idleTimer.stop()
         if cfg.autoOpenOnIdle.value:
             self.idleTimer.start(self.idleCheckInterval)
@@ -1323,6 +1344,7 @@ class MainWindow(FluentWindow):
             logger.info("空闲检测已禁用")
 
     def _isMediaPlaying(self):
+        """检查是否有媒体播放"""
         try:
             sessions = AudioUtilities.GetAllSessions()
             for session in sessions:
@@ -1342,6 +1364,7 @@ class MainWindow(FluentWindow):
             return False
 
     def _checkIdle(self):
+        """检查空闲状态"""
         if not cfg.autoOpenOnIdle.value:
             self.hasTriggeredAutoOpen = False
             return
@@ -1355,7 +1378,7 @@ class MainWindow(FluentWindow):
                 return
             from Glimpseon_native import idle_get_milliseconds
             idle_time_ms = idle_get_milliseconds()
-            if idle_time_ms < 0: return  # API 调用失败 跳过
+            if idle_time_ms < 0: return 
 
             now = QTime.currentTime()
             try:
@@ -1371,7 +1394,7 @@ class MainWindow(FluentWindow):
                 if self._isMediaPlaying():
                     self.lastMouseActivity = QTime.currentTime()
                     return
-                logger.info(f"空闲超过{idle_minutes}分钟 自动打开界面")
+                logger.info(f"空闲{idle_minutes}分钟 自动打开界面")
                 self._autoOpenFromMinimized()
                 self.lastMouseActivity = QTime.currentTime()
                 self.hasTriggeredAutoOpen = True
@@ -1379,11 +1402,13 @@ class MainWindow(FluentWindow):
             logger.error(f"检测空闲时间失败：{e}")
 
     def _autoOpenFromMinimized(self):
+        """从最小化状态自动打开界面"""
         self.stackedWidget.setCurrentIndex(0)
         self.showMaximized()
         self.activateWindow()
 
     def _installGlobalHooks(self):
+        """安装全局钩子"""
         try:
             from Glimpseon_native import install_hook
             install_hook()
@@ -1391,13 +1416,16 @@ class MainWindow(FluentWindow):
             logger.error(f"全局钩子安装失败：{e}")
 
     def setVideoPlaying(self, playing):
+        """设置视频播放状态"""
         self.isVideoPlaying = playing
 
     def showMaximized(self):
+        """最大化窗口"""
         self._is_maximized = True
         super().showMaximized()
 
     def showNormal(self):
+        """显示窗口"""
         self._forceFullScreen()
 
     def _lockWindowFullScreen(self):
@@ -1434,12 +1462,14 @@ class MainWindow(FluentWindow):
         return super().nativeEvent(eventType, message)
 
     def hide(self):
+        """隐藏窗口"""
         self.hasTriggeredAutoOpen = False
         if cfg.autoOpenOnIdle.value:
             self.idleTimer.start(self.idleCheckInterval)
         super().hide()
 
     def closeEvent(self, event):
+        """关闭事件"""
         if hasattr(self, 'homeInterface'):
             self.homeInterface.saveComponentPositions()
 
@@ -1481,10 +1511,12 @@ class MainWindow(FluentWindow):
             QApplication.quit()
 
     def saveComponentPositions(self):
+        """保存组件位置"""
         if hasattr(self, 'homeInterface'):
             self.homeInterface.saveComponentPositions()
 
     def _loadWindowPosition(self):
+        """加载窗口位置"""
         try:
             config_path = os.path.join(DATA_CONFIG, 'component_positions.json')
             if not os.path.exists(config_path):
@@ -1519,6 +1551,7 @@ class MainWindow(FluentWindow):
 
 
 class Preloader(QThread):
+    """预加载线程"""
     sig_wp = pyqtSignal(str, str, str)
     sig_wt = pyqtSignal(dict)
     sig_po = pyqtSignal(str)
@@ -1672,14 +1705,14 @@ if __name__ == "__main__":
         wizard.exec()
 
     icon_path = get_resPath(APP_ICON)
-    logger.info(f"[BOOT] APP_DIR={APP_DIR}, APP_ICON={APP_ICON}, icon_path={icon_path}, exists={os.path.exists(icon_path)}")
+    logger.info(f"APP_DIR={APP_DIR}, APP_ICON={APP_ICON}, icon_path={icon_path}, exists={os.path.exists(icon_path)}")
 
     _boot_t0 = time.time()
 
     splash = SplashScreen(APP_NAME, VERSION, icon_path)
     splash.show()
     splash.setProgress(0)
-    logger.info(f"[BOOT] Splash显示 耗时{time.time()-_boot_t0:.2f}s")
+    logger.info(f"Splash显示 耗时{time.time()-_boot_t0:.2f}s")
 
     def allow_ui_update(duration=0.06):
         end = time.time() + duration
@@ -1718,9 +1751,10 @@ if __name__ == "__main__":
     locale = language_locale_map.get(cfg.language.value, QLocale())
     fluentTranslator = FluentTranslator(locale)
     app.installTranslator(fluentTranslator)
-    logger.info(f"[BOOT] 语言配置: {cfg.language.value}，耗时{time.time()-_t:.2f}s")
+    logger.info(f"语言配置: {cfg.language.value}，耗时{time.time()-_t:.2f}s")
 
     if not verify_single_instance():
+        # utils还有一个check_single_instance函数
         splash.close()
         temp_widget = QWidget()
         temp_widget.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint)
@@ -1747,7 +1781,7 @@ if __name__ == "__main__":
     
     _t = time.time()
     initialize_fonts(app, install_to_system=True)
-    logger.info(f"[BOOT] 字体初始化 耗时{time.time()-_t:.2f}s")
+    logger.info(f"字体初始化 耗时{time.time()-_t:.2f}s")
 
     splash.updateStatus(tr("splash.configuring_log"))  # 正在配置日志
     splash.setProgress(40)
@@ -1807,9 +1841,9 @@ if __name__ == "__main__":
     while not future.done():
         allow_ui_update(0.02)
         if time.time() - wait_start > 5.0:
-            logger.warning("后台初始化超时，继续启动主窗口")
+            logger.warning("后台初始化超时")
             break
-    logger.info(f"[BOOT] 后台等待 耗时{time.time()-_t:.2f}s")
+    logger.info(f"后台等待 耗时{time.time()-_t:.2f}s")
 
     splash.updateStatus(tr("splash.creating_main_window"))  # 正在创建主窗口...
     splash.setProgress(70)
@@ -1817,7 +1851,7 @@ if __name__ == "__main__":
     _t = time.time()
     window = MainWindow()
 
-    logger.info(f"[BOOT] 创建主窗口 耗时{time.time()-_t:.2f}s")
+    logger.info(f"创建主窗口 耗时{time.time()-_t:.2f}s")
 
     def _upd_wp(path, src, url):
         try:
@@ -1883,7 +1917,7 @@ if __name__ == "__main__":
             #     loader.wait(1000)
             break
 
-    logger.info(f"[BOOT] 预加载 {time.time()-t0:.2f}s")
+    logger.info(f"预加载 {time.time()-t0:.2f}s")
     splash.setProgress(95)
     allow_ui_update(0.06)
 
@@ -1891,9 +1925,9 @@ if __name__ == "__main__":
     _t2 = time.time()
     splash.waitForProgress(100, timeout=1.0)
     allow_ui_update(0.06)
-    logger.info(f"[BOOT] 进度条100%等待 耗时{time.time()-_t2:.2f}s")
+    logger.info(f"进度条100%等待 耗时{time.time()-_t2:.2f}s")
     splash.close()
-    logger.info(f"[BOOT] 总启动耗时{time.time()-_boot_t0:.2f}s")
+    logger.info(f"总启动耗时{time.time()-_boot_t0:.2f}s")
 
     window.showMaximized()
     if hasattr(window, 'tray_icon') and window.tray_icon:

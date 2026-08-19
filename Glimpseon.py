@@ -24,7 +24,7 @@ import sys
 from pathlib import Path
 
 
-def find_and_launch():
+def find_app():
     root = Path(__file__).parent.resolve()
     app_dirs = [d for d in root.iterdir() 
                 if d.is_dir() and d.name.startswith("app-")]
@@ -89,4 +89,4 @@ def find_and_launch():
 
 
 if __name__ == "__main__":
-    sys.exit(find_and_launch())
+    sys.exit(find_app())

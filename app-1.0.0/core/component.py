@@ -40,7 +40,7 @@ class ResizeMode(Enum):
 
 @dataclass
 class ComponentDefinition:
-    """组件定义 - 描述一种组件类型"""
+    """组件定义"""
     id: str                           # 唯一标识
     display_name: str                 # 显示名称
     category: str                     # 分类

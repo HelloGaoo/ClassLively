@@ -1,7 +1,7 @@
 # 启动流程
 
 > [!NOTE]
-> 编写者：HelloGaoo　最后修改：2026/08/13
+> 编写者：HelloGaoo　最后修改：2026/08/19
 
 本文档梳理从用户启动到主窗口就绪的完整时序，涵盖启动器、闪屏、向导、主窗口、预加载各阶段。
 
@@ -14,7 +14,7 @@
 [启动器](file:///e:/260523/py/Glimpseon/Glimpseon.py) 负责版本选择与子进程拉起。
 
 ```
-find_and_launch()
+find_app()
   ├─ 扫描根目录所有 app-* 子目录
   ├─ 读取各 app-*/record.json
   │    └─ 跳过 partial=true 的目录
@@ -236,15 +236,15 @@ sys.exit(app.exec())
 
 主程序在关键节点用 `time.time()` 计时并 `logger.info`：
 
-- `[BOOT] Splash显示`
-- `[BOOT] 语言配置`
-- `[BOOT] 字体初始化`
-- `[BOOT] 后台等待`
-- `[BOOT] 创建主窗口`
+- `Splash显示`
+- `语言配置`
+- `字体初始化`
+- `后台等待`
+- `创建主窗口`
 - `[MW] 翻译系统初始化` / `_initNavigation` / 各 Interface 耗时
-- `[BOOT] 预加载`
-- `[BOOT] 进度条100%等待`
-- `[BOOT] 总启动耗时`
+- `预加载`
+- `进度条100%等待`
+- `总启动耗时`
 
 ***
 
