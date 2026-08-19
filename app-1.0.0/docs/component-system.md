@@ -1,7 +1,7 @@
 # 组件系统
 
 > \[!NOTE]
-> 编写者：HelloGaoo　最后修改：2026/08/18
+> 编写者：HelloGaoo　最后修改：2026/08/19
 
 Glimpseon 定位是桌面信息看板，已编写了注册组件等函数，每个组件独立类，与主页面沟通能做到拖拽、删除、配置相关操作
 
@@ -165,6 +165,7 @@ QWidget
          ├─ PoetryOneLineComponent
          ├─ NewsComponent
          │   └─ NewsBaidu/Weibo/...Component
+         ├─ HistoryTodayComponent
          ├─ CountdownEventComponent
          ├─ TimerCountdownComponent
          ├─ SchoolInfoComponent

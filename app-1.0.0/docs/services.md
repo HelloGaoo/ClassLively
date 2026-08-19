@@ -1,11 +1,11 @@
 # 服务模块（services/）
 
 > [!NOTE]
-> 编写者：HelloGaoo　最后修改：2026/08/15
+> 编写者：HelloGaoo　最后修改：2026/08/19
 
 `services/` 是数据获取层，从网络或系统获取外部数据。所有服务统一使用 `core.utils` 的文件缓存机制（`save_cache` / `get_cached_content`）减少请求。
 
-[包导出](file:///e:/260523/py/Glimpseon/app-1.0.0/services/__init__.py)：`from .media import *`、`PoetryService`、`WeatherService`、`NewsService`。
+[包导出](file:///e:/260523/py/Glimpseon/app-1.0.0/services/__init__.py)：`from .media import *`、`PoetryService`、`WeatherService`、`NewsService`、`HistoryService`。
 
 ***
 
@@ -128,21 +128,40 @@
 
 ***
 
-## 5. 跨服务约定
+## 5. history.py — 历史上的今天服务
 
-### 5.1 缓存
+[源码](file:///e:/260523/py/Glimpseon/app-1.0.0/services/history.py)
+
+### 5.1 数据源
+
+- API：`https://tmini.net/api/today`（GET，参数 `type=json`，可选 `ckey`）
+- 返回：`{code, date, events: [{title, year, desc, link}]}`
+
+### 5.2 HistoryService
+
+| 方法                              | 作用                                            |
+| ------------------------------- | --------------------------------------------- |
+| `fetch_history_today(use_cache=True)` | 拉取当日历史事件，缓存键 `history_today`，缓存间隔 `12h` |
+
+成功返回 `{"date": "YYYY年MM月DD日", "events": [...]}`，失败返回 `None`。
+
+***
+
+## 6. 跨服务约定
+
+### 6.1 缓存
 
 所有服务使用 `core.utils.save_cache(name, content, interval_str)` 与 `get_cached_content(name)`。缓存文件位于 `DATA_CACHE`，结构含 `content` + `expiry` 时间戳。
 
-### 5.2 日志
+### 6.2 日志
 
 子模块日志器命名 `Glimpseon.services.{module}`，遵循层级命名约定。
 
-### 5.3 预加载
+### 6.3 预加载
 
 壁纸 / 天气 / 一言在启动期由 `Preloader`（QThread）并行预加载，通过信号回主线程，避免 UI 卡顿。详见 [启动流程](launch-flow.md)。
 
-### 5.4 错误处理
+### 6.4 错误处理
 
 - 网络异常统一 `try/except` + `logger.error`，返回 `None` 或回退值。
 - 不向上抛出，保证 UI 始终拿到可渲染数据。

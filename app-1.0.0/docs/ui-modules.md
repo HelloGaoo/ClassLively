@@ -1,7 +1,7 @@
 # UI 模块（ui/）
 
 > [!NOTE]
-> 编写者：HelloGaoo　最后修改：2026/08/15
+> 编写者：HelloGaoo　最后修改：2026/08/19
 
 `ui/` 是基于 PyQt6 Fluent Widgets 的界面层。所有界面通过 `MainWindow.addSubInterface()` 注册到 FluentWindow 导航。每个界面通过 `load_qss()` 加载对应主题 QSS，并实现 `_onThemeChanged` 响应主题切换。
 
@@ -94,6 +94,7 @@ NavigationPage 提示文字颜色随主题：深色 `rgba(230,230,230,0.95)`，�
 | Weather     | `WeatherWeeklyComponent`                                | 每周预报                                                                        |
 | Poetry      | `PoetryOneLineComponent`                                | 一言                                                                          |
 | News        | `NewsBaidu/Weibo/Jinritoutiao/Tenxunwang/CCTVComponent` | 新闻（继承 `NewsComponent`）                                                      |
+| History     | `HistoryTodayComponent`                                 | 历史上的今天                                 |
 | Countdown   | `CountdownEventComponent`                               | 事件倒计时                                                                       |
 | Countdown   | `TimerCountdownComponent`                               | 计时器（`TimeColumnWidget` / `TimerTimeDisplayWidget`）                          |
 | School      | `SchoolInfoComponent`                                   | 学校班级信息                                                                      |
