@@ -1067,7 +1067,6 @@ class MainWindow(FluentWindow):
 
         def _populateDownload():
             """填充软件下载界面"""
-            self.downloadInterface.clear()
             for category in SOFTWARE_CATEGORIES:
                 self.downloadInterface.addSection(tr(category["name_key"]))
                 for software in category["software"]:

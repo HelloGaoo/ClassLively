@@ -1,7 +1,7 @@
 # 服务模块（services/）
 
 > [!NOTE]
-> 编写者：HelloGaoo　最后修改：2026/08/19
+> 编写者：HelloGaoo　最后修改：2026/08/20
 
 `services/` 是数据获取层，从网络或系统获取外部数据。所有服务统一使用 `core.utils` 的文件缓存机制（`save_cache` / `get_cached_content`）减少请求。
 
@@ -70,7 +70,7 @@
 | 平台                   | API                                                       |
 | -------------------- | --------------------------------------------------------- |
 | 央视新闻                 | `https://api.xcvts.cn/api/hotlist/ysxw?type=json`         |
-| 百度 / 微博 / 今日头条 / 腾讯网 | `https://orz.ai/api/v1/dailynews/`（`SUPPORTED_PLATFORMS`） |
+| 百度 / 微博 / 今日头条 / 腾讯网 | `https://news.orz.ai/api/v1/dailynews/`（`SUPPORTED_PLATFORMS`） |
 
 ### 3.2 NewsService
 

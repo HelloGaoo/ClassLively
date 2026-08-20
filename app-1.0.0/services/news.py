@@ -24,7 +24,7 @@ import requests
 from core.utils import get_cached_content, save_cache
 
 CCTV_NEWS_API_URL = "https://api.xcvts.cn/api/hotlist/ysxw?type=json"
-DAILY_NEWS_API_URL = "https://orz.ai/api/v1/dailynews/"
+DAILY_NEWS_API_URL = "https://news.orz.ai/api/v1/dailynews/"
 SUPPORTED_PLATFORMS = {"baidu", "weibo", "jinritoutiao", "tenxunwang"}
 CACHE_INTERVAL = "30m"
 
