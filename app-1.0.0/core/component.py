@@ -660,6 +660,18 @@ BUILTIN_COMPONENT_DEFINITIONS = [
         resize_mode=ResizeMode.HORIZONTAL,
         default_config={},
     ),
+    ComponentDefinition(
+        id="word_daily",
+        display_name="每日单词",
+        category="Info",
+        icon="LocalLanguage",
+        min_width_cells=4,
+        min_height_cells=2,
+        default_width_cells=5,
+        default_height_cells=2,
+        resize_mode=ResizeMode.HORIZONTAL,
+        default_config={},
+    ),
 ]
 
 

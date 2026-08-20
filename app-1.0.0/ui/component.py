@@ -85,6 +85,7 @@ from core.utils import tr, FUI, get_cached_content, save_cache
 from services.media import MediaInfo, Lyrics, get_media_info, get_service, close as close_media, media_control, media_next, media_prev
 from services.news import NewsService
 from services.history import HistoryService
+from services.word import WordService
 from core.constants import BASE_DIR, DATA_CONFIG, DATA_CLASSPHOTOS, DATA_NOTES, load_qss, NEWS_ICONS, get_resPath, APP_ICON, FONT_FAMILY, FONT_PRIMARY
 from resource.software_list import get_software_icon_path
 from core.component import (
@@ -287,6 +288,14 @@ COMPONENT_STYLES = {
             "class": None,
             "default_config": {},
             "default_size": (360, 240),
+        },
+    },
+    "word": {
+        "daily": {
+            "name": "每日单词",
+            "class": None,
+            "default_config": {},
+            "default_size": (400, 200),
         },
     },
 }
@@ -4904,6 +4913,195 @@ class HistoryTodayComponent(DraggableContainer):
         self._apply_style()
 
 
+class DailyWordComponent(DraggableContainer):
+    """每日单词组件"""
+
+    _object_name = "dailyWordContainer"
+
+    _word_color_dark = "#ffffff"
+    _word_color_light = "#1a1a1a"
+    _sub_color_dark = "rgba(255, 255, 255, 0.6)"
+    _sub_color_light = "rgba(40, 40, 40, 0.7)"
+    _trans_color_dark = "#ffffff"
+    _trans_color_light = "#1a1a1a"
+    _example_color_dark = "#e0e0e0"
+    _example_color_light = "#3a3a3a"
+
+    # 词性拆行
+    _POS_SPLIT_RE = re.compile(r'\s+(?=[a-zA-Z]{1,10}\.\s)')
+    _POS_MARK_RE = re.compile(r'^([a-zA-Z]{1,10}\.)\s*(.*)$')
+
+    def __init__(self, parent, component_data: dict):
+        super().__init__(parent, component_id=component_data["id"], layout_direction="vertical")
+        self.setObjectName(self._object_name)
+        self._home = parent
+        self._word = None
+        self._date = ""
+        self._setup_ui()
+        self._setup_timer()
+
+    def _setup_ui(self):
+        # 单词 音标 日期
+        self.wordLabel = QLabel("--")
+        self.wordLabel.setObjectName("dailyWordWord")
+        self.wordLabel.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        self.wordLabel.setTextFormat(Qt.TextFormat.RichText)
+        self.wordLabel.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+
+        self.dateLabel = CaptionLabel("")
+        self.dateLabel.setObjectName("dailyWordDate")
+        self.dateLabel.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignTop)
+
+        top_layout = QHBoxLayout()
+        top_layout.setContentsMargins(0, 0, 0, 0)
+        top_layout.setSpacing(10)
+        top_layout.addWidget(self.wordLabel, 1)
+        top_layout.addWidget(self.dateLabel, 0)
+
+        # 翻译
+        self.transLabel = QLabel("")
+        self.transLabel.setObjectName("dailyWordTrans")
+        self.transLabel.setWordWrap(True)
+        self.transLabel.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
+        self.transLabel.setTextFormat(Qt.TextFormat.RichText)
+        self.transLabel.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+
+        # 线分隔
+        self.sepLabel = QLabel()
+        self.sepLabel.setObjectName("dailyWordSep")
+        self.sepLabel.setFixedHeight(1)
+        sep_layout = QHBoxLayout()
+        sep_layout.setContentsMargins(0, 0, 0, 0)
+        sep_layout.setSpacing(0)
+        sep_layout.addWidget(self.sepLabel, 60)
+        sep_layout.addStretch(40)
+
+        # 例句
+        self.exampleLabel = QLabel("")
+        self.exampleLabel.setObjectName("dailyWordExample")
+        self.exampleLabel.setWordWrap(True)
+        self.exampleLabel.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        self.exampleLabel.setTextFormat(Qt.TextFormat.RichText)
+        self.exampleLabel.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+
+        layout = self.inner_layout
+        layout.setContentsMargins(20, 11, 20, 14)
+        layout.setSpacing(8)
+        layout.addLayout(top_layout, 0)
+        layout.addWidget(self.transLabel, 1)
+        layout.addLayout(sep_layout, 0)
+        layout.addWidget(self.exampleLabel, 0)
+
+        self._set_natural_size(400, 200)
+        self.setMinimumSize(200, 110)
+        self._size_explicitly_set = True
+        self.resize(400, 200)
+        self._apply_style()
+
+    def _setup_timer(self):
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(self._refresh)
+        self.timer.start(1800000)  # 30 分钟刷新
+        self._refresh()
+
+    def _refresh(self):
+        data = WordService.fetch_daily_word(use_cache=True)
+        if not data:
+            data = get_cached_content("daily_word", ignore_expiry=True)
+        if data:
+            self._word = data.get("word")
+            self._date = str(data.get("date", "") or "")
+        self._render()
+
+    def _render(self):
+        dark = isDarkTheme()
+        word_c = self._word_color_dark if dark else self._word_color_light
+        sub_c = self._sub_color_dark if dark else self._sub_color_light
+        trans_c = self._trans_color_dark if dark else self._trans_color_light
+        ex_c = self._example_color_dark if dark else self._example_color_light
+        sep_c = "rgba(255, 255, 255, 0.25)" if dark else "rgba(0, 0, 0, 0.22)"
+
+        if not self._word:
+            self.dateLabel.setText("")
+            self.wordLabel.setText("--")
+            self.transLabel.setText("")
+            self.exampleLabel.setText("")
+            self.sepLabel.setStyleSheet("background-color: transparent;")
+            return
+
+        w = self._word
+        word = w.get("word") or "--"
+        phonetic = w.get("phonetic") or ""
+        translation = w.get("translation") or ""
+        examples = w.get("examples") or []
+
+        # 单词 音标
+        sz_word = self._scaled_px(38)
+        sz_pho = self._scaled_px(16)
+        head_html = f"<span style='font-size:{sz_word}px;font-weight:800;color:{word_c};font-family:{FONT_FAMILY};'>{word}</span>"
+        if phonetic:
+            head_html += (f"&nbsp;&nbsp;<span style='font-size:{sz_pho}px;color:{sub_c};"
+                          f"font-family:{FONT_FAMILY};'>{phonetic}</span>")
+        self.wordLabel.setText(head_html)
+        self.dateLabel.setText(self._date or datetime.date.today().isoformat())
+
+        # 翻译
+        sz_trans = self._scaled_px(18)
+        self.transLabel.setStyleSheet(f"""
+            font-family: {FONT_FAMILY};
+            background-color: transparent;
+        """)
+        trans_lines = []
+        for line in self._POS_SPLIT_RE.split(translation.strip()):
+            line = line.strip()
+            if not line:
+                continue
+            m = self._POS_MARK_RE.match(line)
+            if m:
+                trans_lines.append(
+                    f"<span style='font-size:{sz_trans}px;color:{sub_c};font-family:{FONT_FAMILY};'>{m.group(1)}</span>"
+                    f"<span style='font-size:{sz_trans}px;color:{trans_c};font-family:{FONT_FAMILY};'>&nbsp;{m.group(2)}</span>"
+                )
+            else:
+                trans_lines.append(
+                    f"<span style='font-size:{sz_trans}px;color:{trans_c};font-family:{FONT_FAMILY};'>{line}</span>"
+                )
+        self.transLabel.setText("<br/>".join(trans_lines))
+
+        # 例句
+        sz_ex = self._scaled_px(21)
+        sz_ex_zh = self._scaled_px(19)
+        ex_html = ""
+        if examples:
+            ex = examples[0] or {}
+            ex_text = ex.get("text") or ""
+            ex_trans = ex.get("translation") or ""
+            if ex_text:
+                ex_html += (f"<span style='font-size:{sz_ex}px;color:{ex_c};font-family:{FONT_FAMILY};'>"
+                            f"“{ex_text}”</span>")
+                if ex_trans:
+                    ex_html += (f"<br/><span style='font-size:{sz_ex_zh}px;color:{sub_c};font-family:{FONT_FAMILY};'>"
+                                f"{ex_trans}</span>")
+        self.sepLabel.setStyleSheet(
+            f"background-color: transparent; border-top: 1px solid {sep_c};"
+            if ex_html else "background-color: transparent;"
+        )
+        self.exampleLabel.setStyleSheet(f"""
+            font-family: {FONT_FAMILY};
+            background-color: transparent;
+        """)
+        self.exampleLabel.setText(ex_html)
+
+        self.updateSize()
+
+    def _apply_style(self):
+        self._apply_card_style()
+        self._render()
+
+    def apply_scale(self, factor):
+        self._apply_style()
+
+
 class CountdownEventComponent(DraggableContainer):
     """事件倒计时组件"""
 
@@ -8840,6 +9038,7 @@ COMPONENT_STYLES["class_album"]["horizontal"]["class"] = ClassAlbumHorizontalCom
 COMPONENT_STYLES["class_album"]["vertical"]["class"] = ClassAlbumVerticalComponent
 COMPONENT_STYLES["sticky_note"]["default"]["class"] = StickyNoteComponent
 COMPONENT_STYLES["history"]["today"]["class"] = HistoryTodayComponent
+COMPONENT_STYLES["word"]["daily"]["class"] = DailyWordComponent
 
 
 
