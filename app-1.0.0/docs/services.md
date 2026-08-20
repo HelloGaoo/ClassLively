@@ -1,6 +1,6 @@
 # 服务模块（services/）
 
-> [!NOTE]
+> \[!NOTE]
 > 编写者：HelloGaoo　最后修改：2026/08/20
 
 `services/` 是数据获取层，从网络或系统获取外部数据。所有服务统一使用 `core.utils` 的文件缓存机制（`save_cache` / `get_cached_content`）减少请求。
@@ -54,10 +54,10 @@
 
 ### 2.2 PoetryService
 
-| 方法                         | 作用                      |
-| -------------------------- | ----------------------- |
+| 方法                         | 作用                                                                                                             |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------- |
 | `get_poetry(api_url=None)` | 请求 API，解析 JSON（提取 `hitokoto` 正文与 `from`/`from_who` 出处，拼为 `正文——出处`）；非 JSON（如 `?encode=text` 纯文本）按原文本返回；失败返回回退文案 |
-| `get_poetry_with_cache()`  | 带缓存读取，缓存键 `"poetry"`    |
+| `get_poetry_with_cache()`  | 带缓存读取，缓存键 `"poetry"`                                                                                           |
 
 ***
 
@@ -67,9 +67,9 @@
 
 ### 3.1 数据源
 
-| 平台                   | API                                                       |
-| -------------------- | --------------------------------------------------------- |
-| 央视新闻                 | `https://api.xcvts.cn/api/hotlist/ysxw?type=json`         |
+| 平台                   | API                                                            |
+| -------------------- | -------------------------------------------------------------- |
+| 央视新闻                 | `https://api.xcvts.cn/api/hotlist/ysxw?type=json`              |
 | 百度 / 微博 / 今日头条 / 腾讯网 | `https://news.orz.ai/api/v1/dailynews/`（`SUPPORTED_PLATFORMS`） |
 
 ### 3.2 NewsService
@@ -139,29 +139,48 @@
 
 ### 5.2 HistoryService
 
-| 方法                              | 作用                                            |
-| ------------------------------- | --------------------------------------------- |
+| 方法                                    | 作用                                      |
+| ------------------------------------- | --------------------------------------- |
 | `fetch_history_today(use_cache=True)` | 拉取当日历史事件，缓存键 `history_today`，缓存间隔 `12h` |
 
 成功返回 `{"date": "YYYY年MM月DD日", "events": [...]}`，失败返回 `None`。
 
 ***
 
-## 6. 跨服务约定
+## 6. word.py — 每日单词服务
 
-### 6.1 缓存
+[源码](file:///e:/260523/py/Glimpseon/app-1.0.0/services/word.py)
+
+### 6.1 数据源
+
+- API：`https://uapis.cn/api/v1/daily/word`（GET，参数 `category=WORD_CATEGORY`，当前为 `cet4`）
+- 返回：`{date, language, category, seed, count, words: [{word, phonetic, translation, definition, collins, categories, examples}]}`
+
+### 6.2 WordService
+
+| 方法                                 | 作用                                             |
+| ---------------------------------- | ---------------------------------------------- |
+| `fetch_daily_word(use_cache=True)` | 请求当日单词（`words[0]`），缓存键 `daily_word`，缓存间隔 `12h` |
+
+成功返回 `{"date": "YYYY-MM-DD", "word": {...}}`，失败返回 `None`。
+
+***
+
+## 7. 跨服务约定
+
+### 7.1 缓存
 
 所有服务使用 `core.utils.save_cache(name, content, interval_str)` 与 `get_cached_content(name)`。缓存文件位于 `DATA_CACHE`，结构含 `content` + `expiry` 时间戳。
 
-### 6.2 日志
+### 7.2 日志
 
 子模块日志器命名 `Glimpseon.services.{module}`，遵循层级命名约定。
 
-### 6.3 预加载
+### 7.3 预加载
 
 壁纸 / 天气 / 一言在启动期由 `Preloader`（QThread）并行预加载，通过信号回主线程，避免 UI 卡顿。详见 [启动流程](launch-flow.md)。
 
-### 6.4 错误处理
+### 7.4 错误处理
 
 - 网络异常统一 `try/except` + `logger.error`，返回 `None` 或回退值。
 - 不向上抛出，保证 UI 始终拿到可渲染数据。
