@@ -542,6 +542,9 @@
     "title": "歷史上的今天",
     "no_data": "暫無資料"
   },
+  "daily_sentence": {
+    "title": "每日英語"
+  },
   "component_edit": {
     "config_target_name": "目標名稱",
     "config_target_date": "目標日期",

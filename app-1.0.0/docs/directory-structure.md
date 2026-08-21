@@ -1,7 +1,7 @@
 # 目录结构
 
 > [!NOTE]
-> 编写者：HelloGaoo　最后修改：2026/08/20
+> 编写者：HelloGaoo　最后修改：2026/08/21
 
 本文档说明仓库及运行期目录组织。仓库根为 `e:\260523\py\Glimpseon`。
 
@@ -29,7 +29,7 @@ app-1.0.0/
 │
 ├── core/                   # 核心业务层
 ├── ui/                     # 界面层（PyQt6 Fluent Widgets）
-├── services/               # 数据服务层（天气/一言/新闻/历史/单词/媒体）
+├── services/               # 数据服务层（天气/一言/新闻/历史/单词/英语/媒体）
 ├── resource/               # 静态资源
 ├── font/                   # 内嵌字体（HarmonyOS Sans）
 ├── locale/                 # 国际化语言包
@@ -80,6 +80,7 @@ app-1.0.0/
 | [news.py](file:///e:/260523/py/Glimpseon/app-1.0.0/services/news.py)       | 央视 / 百度 / 微博 / 头条 / 腾讯新闻                            |
 | [history.py](file:///e:/260523/py/Glimpseon/app-1.0.0/services/history.py) | 历史上的今天                                             |
 | [word.py](file:///e:/260523/py/Glimpseon/app-1.0.0/services/word.py)       | 每日单词                                               |
+| [sentence.py](file:///e:/260523/py/Glimpseon/app-1.0.0/services/sentence.py) | 每日英语                                               |
 | [media.py](file:///e:/260523/py/Glimpseon/app-1.0.0/services/media.py)     | 媒体信息（多播放器兼容、歌词、封面）                                  |
 
 ## 6. `resource/` 静态资源

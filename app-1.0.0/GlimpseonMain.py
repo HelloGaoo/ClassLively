@@ -1682,6 +1682,9 @@ if __name__ == "__main__":
     if cfg.enableGpuAcceleration.value:
         QApplication.setAttribute(Qt.ApplicationAttribute.AA_UseOpenGLES)
 
+    from PyQt6 import QtWebEngineWidgets  # noqa: F401
+    QApplication.setAttribute(Qt.ApplicationAttribute.AA_ShareOpenGLContexts)
+
     app = QApplication(sys.argv)
 
     init_exhook()

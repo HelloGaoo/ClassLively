@@ -1,7 +1,7 @@
 # UI 模块（ui/）
 
-> [!NOTE]
-> 编写者：HelloGaoo　最后修改：2026/08/20
+> \[!NOTE]
+> 编写者：HelloGaoo　最后修改：2026/08/21
 
 `ui/` 是基于 PyQt6 Fluent Widgets 的界面层。所有界面通过 `MainWindow.addSubInterface()` 注册到 FluentWindow 导航。每个界面通过 `load_qss()` 加载对应主题 QSS，并实现 `_onThemeChanged` 响应主题切换。
 
@@ -16,6 +16,7 @@
 
 - `BaseScrollAreaInterface(ScrollArea)`：滚动界面基类，统一滚动条与边距。
 - `show_text_file(title, ...)`：以对话框形式展示文本文件（协议 / 许可证）。
+- `create_html_view(parent=None, mouse_transparent=True)`：创建透明背景的 HTML 渲染视图（QWebEngineView 封装，PyQt6-WebEngine
 
 ***
 
@@ -85,28 +86,29 @@ NavigationPage 提示文字颜色随主题：深色 `rgba(230,230,230,0.95)`，�
 
 ### 3.3 内置组件清单
 
-| 分类       | 组件类                                                  | 说明                                                           |
+| 分类       | 组件类                                                     | 说明                                                             |
 | -------- | ------------------------------------------------------- | -------------------------------------------------------------- |
-| Clock    | `DigitalClockComponent`                                 | 数字时钟（秒/农历）                                               |
-| Clock    | `CalendarMonthComponent`                                | 月历（`_DayCell`）                                               |
-| Clock    | `CountdownEventComponent`                               | 事件倒计时                                                       |
-| Clock    | `TimerCountdownComponent`                               | 计时器（`TimeColumnWidget` / `TimerTimeDisplayWidget`）          |
-| Weather  | `WeatherIconTempComponent`                              | 图标 + 温度                                                      |
-| Weather  | `WeatherHourlyComponent`                                | 逐小时预报                                                       |
-| Weather  | `WeatherWeeklyComponent`                                | 每周预报                                                         |
+| Clock    | `DigitalClockComponent`                                 | 数字时钟（秒/农历）                                                     |
+| Clock    | `CalendarMonthComponent`                                | 月历（`_DayCell`）                                                 |
+| Clock    | `CountdownEventComponent`                               | 事件倒计时                                                          |
+| Clock    | `TimerCountdownComponent`                               | 计时器（`TimeColumnWidget` / `TimerTimeDisplayWidget`）             |
+| Weather  | `WeatherIconTempComponent`                              | 图标 + 温度                                                        |
+| Weather  | `WeatherHourlyComponent`                                | 逐小时预报                                                          |
+| Weather  | `WeatherWeeklyComponent`                                | 每周预报                                                           |
 | Info     | `PoetryOneLineComponent`                                | 一言                                                             |
-| Info     | `NewsBaidu/Weibo/Jinritoutiao/Tenxunwang/CCTVComponent` | 新闻（继承 `NewsComponent`）                                      |
-| Info     | `HistoryTodayComponent`                                 | 历史上的今天                                                      |
-| Info     | `DailyWordComponent`                                    | 每日单词                                                         |
-| School   | `SchoolInfoComponent`                                   | 学校班级信息                                                      |
-| School   | `TimetablePreviewComponent`                             | 课表预览（`_TimetableRow`）                                       |
-| School   | `TimetableNowLessonComponent`                           | 当前课程                                                          |
-| School   | `ClassAlbumHorizontal/VerticalComponent`                | 班级相册（继承 `ClassAlbumBaseComponent`）                         |
-| Media    | `MediaPlayerComponent`                                  | 媒体播放信息                                 |
-| Launcher | `QuickLaunchDockComponent` / `QuickLaunchDock`          | 快捷启动栏                                                        |
+| Info     | `NewsBaidu/Weibo/Jinritoutiao/Tenxunwang/CCTVComponent` | 新闻（继承 `NewsComponent`）                                         |
+| Info     | `HistoryTodayComponent`                                 | 历史上的今天                                                         |
+| Info     | `DailyWordComponent`                                    | 每日单词                                                           |
+| Info     | `DailySentenceComponent`                                | 每日英语                                                           |
+| School   | `SchoolInfoComponent`                                   | 学校班级信息                                                         |
+| School   | `TimetablePreviewComponent`                             | 课表预览（`_TimetableRow`）                                          |
+| School   | `TimetableNowLessonComponent`                           | 当前课程                                                           |
+| School   | `ClassAlbumHorizontal/VerticalComponent`                | 班级相册（继承 `ClassAlbumBaseComponent`）                             |
+| Media    | `MediaPlayerComponent`                                  | 媒体播放信息                                                         |
+| Launcher | `QuickLaunchDockComponent` / `QuickLaunchDock`          | 快捷启动栏                                                          |
 | Tools    | `CalculatorComponent`                                   | 计算器                                                            |
-| Tools    | `WritingPadComponent`                                   | 手写画板（`_WritingOverlay` / `_PenSettingsPopup` / `_OverToolBtn`）|
-| Tools    | `StickyNoteComponent`                                   | 便签                                                              |
+| Tools    | `WritingPadComponent`                                   | 手写画板（`_WritingOverlay` / `_PenSettingsPopup` / `_OverToolBtn`） |
+| Tools    | `StickyNoteComponent`                                   | 便签                                                             |
 | —        | `NavigationPage`                                        | 导航页（`NavItemCell`）                                             |
 
 ### 3.4 媒体组件

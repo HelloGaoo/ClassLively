@@ -20,6 +20,7 @@ todo
 """
 
 import ctypes
+import html as _html
 import json
 import logging
 import os
@@ -28,6 +29,7 @@ import shutil
 import time
 import datetime
 import webbrowser
+from string import Template
 from collections import OrderedDict
 from concurrent.futures import ThreadPoolExecutor
 from typing import Optional
@@ -86,6 +88,8 @@ from services.media import MediaInfo, Lyrics, get_media_info, get_service, close
 from services.news import NewsService
 from services.history import HistoryService
 from services.word import WordService
+from services.sentence import SentenceService
+from ui.common import create_html_view
 from core.constants import BASE_DIR, DATA_CONFIG, DATA_CLASSPHOTOS, DATA_NOTES, load_qss, NEWS_ICONS, get_resPath, APP_ICON, FONT_FAMILY, FONT_PRIMARY
 from resource.software_list import get_software_icon_path
 from core.component import (
@@ -293,6 +297,14 @@ COMPONENT_STYLES = {
     "word": {
         "daily": {
             "name": "每日单词",
+            "class": None,
+            "default_config": {},
+            "default_size": (400, 200),
+        },
+    },
+    "sentence": {
+        "daily": {
+            "name": "每日英语",
             "class": None,
             "default_config": {},
             "default_size": (400, 200),
@@ -4913,6 +4925,158 @@ class HistoryTodayComponent(DraggableContainer):
         self._apply_style()
 
 
+class DailySentenceComponent(DraggableContainer):
+    """每日英语组件（HTML）"""
+
+    _object_name = "dailySentenceContainer"
+
+    _theme_dark = {
+        "accent": "#30c361",
+        "en1": "#f5f5f5",
+        "en2": "#9dbdae",
+        "zh": "rgba(255, 255, 255, 0.72)",
+        "date_c": "rgba(255, 255, 255, 0.45)",
+    }
+    _theme_light = {
+        "accent": "#30c361",
+        "en1": "#1f2937",
+        "en2": "#4f7a6b",
+        "zh": "rgba(40, 40, 40, 0.78)",
+        "date_c": "rgba(60, 60, 60, 0.5)",
+    }
+
+    _HTML_TEMPLATE = Template('''<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; background: transparent; overflow: hidden; }
+  body {
+    font-family: 'HarmonyOS Sans SC', 'Microsoft YaHei', sans-serif;
+    display: flex; flex-direction: column; justify-content: center;
+    padding: 24px 26px 26px 58px; position: relative;
+  }
+  .quote {
+    position: absolute; top: -4px; left: 14px;
+    font-family: Georgia, serif; font-size: 118px; line-height: 1;
+    background: linear-gradient(135deg, $accent, transparent 92%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    animation: pop .7s cubic-bezier(.2, .9, .3, 1.4) both;
+  }
+  .en {
+    font-family: Georgia, 'Times New Roman', serif;
+    font-style: italic; font-weight: 600; font-size: 27px; line-height: 1.42;
+    background: linear-gradient(120deg, $en1, $en2);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    animation: rise .6s .05s ease-out both;
+  }
+  .zh {
+    margin-top: 14px; padding-left: 12px;
+    border-left: 3px solid $accent;
+    color: $zh; font-size: 17px; line-height: 1.5;
+    animation: rise .6s .18s ease-out both;
+  }
+  .date {
+    position: absolute; top: 15px; right: 18px;
+    font-family: Consolas, 'Courier New', monospace;
+    font-size: 12px; letter-spacing: 2.5px;
+    color: $date_c;
+    animation: fade .9s .3s ease-out both;
+  }
+  .bar {
+    position: absolute; left: 26px; bottom: 12px; height: 2px;
+    background: linear-gradient(90deg, $accent, transparent);
+    animation: grow .8s .25s cubic-bezier(.2, .8, .2, 1) both;
+  }
+  @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+  @keyframes pop  { from { opacity: 0; transform: scale(.55); } to { opacity: 1; transform: none; } }
+  @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes grow { from { width: 0; } to { width: 150px; } }
+</style>
+</head>
+<body>
+  <div class="quote">&ldquo;</div>
+  <div class="en">$content</div>
+  $zh_html
+  <div class="date">$date</div>
+  <div class="bar"></div>
+</body>
+</html>''')
+
+    def __init__(self, parent, component_data: dict):
+        super().__init__(parent, component_id=component_data["id"], layout_direction="vertical")
+        self.setObjectName(self._object_name)
+        self._home = parent
+        self._sentence = None
+        self._date = ""
+        self._scale_factor = 1.0
+        self._setup_ui()
+        self._setup_timer()
+
+    def _setup_ui(self):
+        self.webView = create_html_view(self)
+
+        layout = self.inner_layout
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+        layout.addWidget(self.webView)
+
+        self._set_natural_size(400, 200)
+        self.setMinimumSize(200, 110)
+        self._size_explicitly_set = True
+        self.resize(400, 200)
+        self._apply_style()
+
+    def _setup_timer(self):
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(self._refresh)
+        self.timer.start(1800000)  # 30 分钟刷新
+        self._refresh()
+
+    def _refresh(self):
+        data = SentenceService.fetch_daily_sentence(use_cache=True)
+        if not data:
+            data = get_cached_content("daily_sentence", ignore_expiry=True)
+        if data:
+            self._sentence = data.get("sentence")
+            self._date = str(data.get("date", "") or "")
+        self._render()
+
+    def _build_html(self) -> str:
+        theme = self._theme_dark if isDarkTheme() else self._theme_light
+        content = "--"
+        note = ""
+        date = self._date or datetime.date.today().isoformat()
+        if self._sentence:
+            content = self._sentence.get("content") or "--"
+            note = self._sentence.get("note") or ""
+        date = date.replace("-", ".")
+
+        zh_html = ""
+        if note:
+            zh_html = f"<div class=\"zh\">{_html.escape(note)}</div>"
+
+        return self._HTML_TEMPLATE.substitute(
+            content=_html.escape(content),
+            zh_html=zh_html,
+            date=_html.escape(date),
+            **theme,
+        )
+
+    def _render(self):
+        self.webView.setHtml(self._build_html())
+
+    def _apply_style(self):
+        self._apply_card_style()
+        self._render()
+
+    def apply_scale(self, factor):
+        self._scale_factor = factor
+        self.webView.setZoomFactor(factor)
+        self._apply_style()
+
+
 class DailyWordComponent(DraggableContainer):
     """每日单词组件"""
 
@@ -9038,6 +9202,7 @@ COMPONENT_STYLES["class_album"]["horizontal"]["class"] = ClassAlbumHorizontalCom
 COMPONENT_STYLES["class_album"]["vertical"]["class"] = ClassAlbumVerticalComponent
 COMPONENT_STYLES["sticky_note"]["default"]["class"] = StickyNoteComponent
 COMPONENT_STYLES["history"]["today"]["class"] = HistoryTodayComponent
+COMPONENT_STYLES["sentence"]["daily"]["class"] = DailySentenceComponent
 COMPONENT_STYLES["word"]["daily"]["class"] = DailyWordComponent
 
 

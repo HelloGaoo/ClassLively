@@ -672,6 +672,18 @@ BUILTIN_COMPONENT_DEFINITIONS = [
         resize_mode=ResizeMode.HORIZONTAL,
         default_config={},
     ),
+    ComponentDefinition(
+        id="sentence_daily",
+        display_name="每日英语",
+        category="Info",
+        icon="ChatBubblesQuestion",
+        min_width_cells=4,
+        min_height_cells=2,
+        default_width_cells=5,
+        default_height_cells=2,
+        resize_mode=ResizeMode.HORIZONTAL,
+        default_config={},
+    ),
 ]
 
 

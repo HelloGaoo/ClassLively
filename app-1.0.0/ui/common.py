@@ -1,10 +1,29 @@
 
 import os
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QFont
+from PyQt6.QtGui import QColor, QFont
 from PyQt6.QtWidgets import QWidget
 from qfluentwidgets import MessageBox, ScrollArea, TextEdit, SubtitleLabel
 from core.utils import tr
+
+
+def create_html_view(parent=None, mouse_transparent: bool = True):
+    """创建透明背景的 HTML 渲染视图（QWebEngineView 封装）
+
+    需安装 PyQt6-WebEngine，应用启动时需设置 AA_ShareOpenGLContexts。
+    仅负责视图创建与通用配置（透明背景/鼠标穿透），内容渲染由调用方负责。
+
+    Args:
+        parent: 父控件
+        mouse_transparent: 鼠标事件穿透，纯展示组件应为 True，避免拦截宿主的拖拽/点击
+    """
+    from PyQt6.QtWebEngineWidgets import QWebEngineView
+
+    view = QWebEngineView(parent)
+    view.page().setBackgroundColor(QColor(0, 0, 0, 0))
+    if mouse_transparent:
+        view.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+    return view
 
 
 class BaseScrollAreaInterface(ScrollArea):

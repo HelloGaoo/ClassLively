@@ -4,3 +4,4 @@ from .weather import WeatherService
 from .news import NewsService
 from .history import HistoryService
 from .word import WordService
+from .sentence import SentenceService

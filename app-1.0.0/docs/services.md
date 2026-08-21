@@ -1,11 +1,11 @@
 # 服务模块（services/）
 
 > \[!NOTE]
-> 编写者：HelloGaoo　最后修改：2026/08/20
+> 编写者：HelloGaoo　最后修改：2026/08/21
 
 `services/` 是数据获取层，从网络或系统获取外部数据。所有服务统一使用 `core.utils` 的文件缓存机制（`save_cache` / `get_cached_content`）减少请求。
 
-[包导出](file:///e:/260523/py/Glimpseon/app-1.0.0/services/__init__.py)：`from .media import *`、`PoetryService`、`WeatherService`、`NewsService`、`HistoryService`。
+[包导出](file:///e:/260523/py/Glimpseon/app-1.0.0/services/__init__.py)：`from .media import *`、`PoetryService`、`WeatherService`、`NewsService`、`HistoryService`、`WordService`、`SentenceService`。
 
 ***
 
@@ -166,21 +166,40 @@
 
 ***
 
-## 7. 跨服务约定
+## 7. sentence.py — 每日英语服务
 
-### 7.1 缓存
+[源码](file:///e:/260523/py/Glimpseon/app-1.0.0/services/sentence.py)
+
+### 7.1 数据源
+
+- API：`https://api.timelessq.com/english-sentence`（无参）
+- 返回：`{errno, errmsg, data: {_id, sid, tts, content, note, translation, sharePicture, caption, picture, ..., date}}`；取 `content`（英文句子）/ `note`（中文翻译）/ `date`
+
+### 7.2 SentenceService
+
+| 方法                                     | 作用                                       |
+| -------------------------------------- | ---------------------------------------- |
+| `fetch_daily_sentence(use_cache=True)` | 请求当日英语句子，缓存键 `daily_sentence`，缓存间隔 `12h` |
+
+成功返回 `{"date": "YYYY-MM-DD", "sentence": {content, note, translation}}`，失败返回 `None`。
+
+***
+
+## 8. 跨服务约定
+
+### 8.1 缓存
 
 所有服务使用 `core.utils.save_cache(name, content, interval_str)` 与 `get_cached_content(name)`。缓存文件位于 `DATA_CACHE`，结构含 `content` + `expiry` 时间戳。
 
-### 7.2 日志
+### 8.2 日志
 
 子模块日志器命名 `Glimpseon.services.{module}`，遵循层级命名约定。
 
-### 7.3 预加载
+### 8.3 预加载
 
 壁纸 / 天气 / 一言在启动期由 `Preloader`（QThread）并行预加载，通过信号回主线程，避免 UI 卡顿。详见 [启动流程](launch-flow.md)。
 
-### 7.4 错误处理
+### 8.4 错误处理
 
 - 网络异常统一 `try/except` + `logger.error`，返回 `None` 或回退值。
 - 不向上抛出，保证 UI 始终拿到可渲染数据。
