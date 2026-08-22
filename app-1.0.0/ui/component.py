@@ -5078,22 +5078,119 @@ class DailySentenceComponent(DraggableContainer):
 
 
 class DailyWordComponent(DraggableContainer):
-    """每日单词组件"""
+    """每日单词组件（HTML）"""
 
     _object_name = "dailyWordContainer"
 
-    _word_color_dark = "#ffffff"
-    _word_color_light = "#1a1a1a"
-    _sub_color_dark = "rgba(255, 255, 255, 0.6)"
-    _sub_color_light = "rgba(40, 40, 40, 0.7)"
-    _trans_color_dark = "#ffffff"
-    _trans_color_light = "#1a1a1a"
-    _example_color_dark = "#e0e0e0"
-    _example_color_light = "#3a3a3a"
+    _theme_dark = {
+        "accent": "#30c361",
+        "accent_bg": "rgba(48, 195, 97, 0.14)",
+        "accent_b": "rgba(48, 195, 97, 0.5)",
+        "word1": "#f5f5f5",
+        "word2": "#9dbdae",
+        "zh": "rgba(255, 255, 255, 0.85)",
+        "zh_sub": "rgba(255, 255, 255, 0.62)",
+        "ex_en": "#e8e8e8",
+        "date_c": "rgba(255, 255, 255, 0.45)",
+        "sep_c": "rgba(255, 255, 255, 0.25)",
+    }
+    _theme_light = {
+        "accent": "#30c361",
+        "accent_bg": "rgba(48, 195, 97, 0.12)",
+        "accent_b": "rgba(48, 195, 97, 0.45)",
+        "word1": "#1f2937",
+        "word2": "#4f7a6b",
+        "zh": "rgba(40, 40, 40, 0.88)",
+        "zh_sub": "rgba(40, 40, 40, 0.65)",
+        "ex_en": "#2d3a33",
+        "date_c": "rgba(60, 60, 60, 0.5)",
+        "sep_c": "rgba(0, 0, 0, 0.22)",
+    }
 
     # 词性拆行
     _POS_SPLIT_RE = re.compile(r'\s+(?=[a-zA-Z]{1,10}\.\s)')
     _POS_MARK_RE = re.compile(r'^([a-zA-Z]{1,10}\.)\s*(.*)$')
+
+    _HTML_TEMPLATE = Template('''<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; background: transparent; overflow: hidden; }
+  body {
+    font-family: 'HarmonyOS Sans SC', 'Microsoft YaHei', sans-serif;
+    display: flex; flex-direction: column; justify-content: center;
+    padding: 20px 24px 22px 26px; position: relative;
+  }
+  .bg-letter {
+    position: absolute; top: -20px; right: 2px;
+    font-family: Georgia, serif; font-weight: 700; font-size: 150px; line-height: 1;
+    background: linear-gradient(160deg, $accent, transparent 85%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    opacity: .16;
+    animation: pop .8s ease-out both;
+  }
+  .date {
+    position: absolute; top: 15px; right: 18px;
+    font-family: Consolas, 'Courier New', monospace;
+    font-size: 12px; letter-spacing: 2.5px; color: $date_c;
+    animation: fade .9s .25s ease-out both;
+  }
+  .head {
+    display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;
+    animation: rise .55s .05s ease-out both;
+  }
+  .word {
+    font-family: Georgia, 'Times New Roman', serif;
+    font-weight: 700; font-size: 40px; line-height: 1.1;
+    background: linear-gradient(120deg, $word1, $word2);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .phonetic {
+    font-size: 14px; color: $accent; white-space: nowrap;
+    border: 1px solid $accent_b; border-radius: 999px;
+    padding: 2px 10px;
+  }
+  .trans {
+    margin-top: 12px; display: flex; flex-direction: column; gap: 5px;
+    animation: rise .55s .15s ease-out both;
+  }
+  .line { font-size: 16.5px; color: $zh; line-height: 1.45; }
+  .pos {
+    display: inline-block; font-size: 12px; color: $accent;
+    background: $accent_bg; border-radius: 4px;
+    padding: 1px 6px; margin-right: 8px;
+    transform: translateY(-1px);
+  }
+  .sep {
+    margin-top: 13px; width: 60%;
+    border-top: 1.5px dashed $sep_c;
+    animation: grow .6s .25s ease-out both;
+  }
+  .example { margin-top: 12px; animation: rise .55s .32s ease-out both; }
+  .ex-en {
+    font-family: Georgia, 'Times New Roman', serif; font-style: italic;
+    font-size: 18px; line-height: 1.4; color: $ex_en;
+  }
+  .ex-zh { margin-top: 4px; font-size: 15px; color: $zh_sub; }
+  @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+  @keyframes pop  { from { opacity: 0; transform: scale(.6); } to { opacity: .16; transform: none; } }
+  @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes grow { from { width: 0; } to { width: 60%; } }
+</style>
+</head>
+<body>
+  <div class="bg-letter">$letter</div>
+  <div class="date">$date</div>
+  <div class="head">
+    <span class="word">$word</span>
+    $phonetic_html
+  </div>
+  <div class="trans">$trans_html</div>
+  $example_section
+</body>
+</html>''')
 
     def __init__(self, parent, component_data: dict):
         super().__init__(parent, component_id=component_data["id"], layout_direction="vertical")
@@ -5101,60 +5198,17 @@ class DailyWordComponent(DraggableContainer):
         self._home = parent
         self._word = None
         self._date = ""
+        self._scale_factor = 1.0
         self._setup_ui()
         self._setup_timer()
 
     def _setup_ui(self):
-        # 单词 音标 日期
-        self.wordLabel = QLabel("--")
-        self.wordLabel.setObjectName("dailyWordWord")
-        self.wordLabel.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
-        self.wordLabel.setTextFormat(Qt.TextFormat.RichText)
-        self.wordLabel.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-
-        self.dateLabel = CaptionLabel("")
-        self.dateLabel.setObjectName("dailyWordDate")
-        self.dateLabel.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignTop)
-
-        top_layout = QHBoxLayout()
-        top_layout.setContentsMargins(0, 0, 0, 0)
-        top_layout.setSpacing(10)
-        top_layout.addWidget(self.wordLabel, 1)
-        top_layout.addWidget(self.dateLabel, 0)
-
-        # 翻译
-        self.transLabel = QLabel("")
-        self.transLabel.setObjectName("dailyWordTrans")
-        self.transLabel.setWordWrap(True)
-        self.transLabel.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
-        self.transLabel.setTextFormat(Qt.TextFormat.RichText)
-        self.transLabel.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-
-        # 线分隔
-        self.sepLabel = QLabel()
-        self.sepLabel.setObjectName("dailyWordSep")
-        self.sepLabel.setFixedHeight(1)
-        sep_layout = QHBoxLayout()
-        sep_layout.setContentsMargins(0, 0, 0, 0)
-        sep_layout.setSpacing(0)
-        sep_layout.addWidget(self.sepLabel, 60)
-        sep_layout.addStretch(40)
-
-        # 例句
-        self.exampleLabel = QLabel("")
-        self.exampleLabel.setObjectName("dailyWordExample")
-        self.exampleLabel.setWordWrap(True)
-        self.exampleLabel.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
-        self.exampleLabel.setTextFormat(Qt.TextFormat.RichText)
-        self.exampleLabel.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        self.webView = create_html_view(self)
 
         layout = self.inner_layout
-        layout.setContentsMargins(20, 11, 20, 14)
-        layout.setSpacing(8)
-        layout.addLayout(top_layout, 0)
-        layout.addWidget(self.transLabel, 1)
-        layout.addLayout(sep_layout, 0)
-        layout.addWidget(self.exampleLabel, 0)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+        layout.addWidget(self.webView)
 
         self._set_natural_size(400, 200)
         self.setMinimumSize(200, 110)
@@ -5177,44 +5231,32 @@ class DailyWordComponent(DraggableContainer):
             self._date = str(data.get("date", "") or "")
         self._render()
 
-    def _render(self):
-        dark = isDarkTheme()
-        word_c = self._word_color_dark if dark else self._word_color_light
-        sub_c = self._sub_color_dark if dark else self._sub_color_light
-        trans_c = self._trans_color_dark if dark else self._trans_color_light
-        ex_c = self._example_color_dark if dark else self._example_color_light
-        sep_c = "rgba(255, 255, 255, 0.25)" if dark else "rgba(0, 0, 0, 0.22)"
+    def _build_html(self) -> str:
+        theme = self._theme_dark if isDarkTheme() else self._theme_light
+        word = "--"
+        phonetic = ""
+        translation = ""
+        ex_text = ""
+        ex_trans = ""
+        date = self._date or datetime.date.today().isoformat()
+        if self._word:
+            word = self._word.get("word") or "--"
+            phonetic = self._word.get("phonetic") or ""
+            translation = self._word.get("translation") or ""
+            examples = self._word.get("examples") or []
+            if examples:
+                ex = examples[0] or {}
+                ex_text = ex.get("text") or ""
+                ex_trans = ex.get("translation") or ""
+        date = date.replace("-", ".")
 
-        if not self._word:
-            self.dateLabel.setText("")
-            self.wordLabel.setText("--")
-            self.transLabel.setText("")
-            self.exampleLabel.setText("")
-            self.sepLabel.setStyleSheet("background-color: transparent;")
-            return
+        # 背景水印字母
+        letter = word[0].upper() if word and word != "--" else ""
 
-        w = self._word
-        word = w.get("word") or "--"
-        phonetic = w.get("phonetic") or ""
-        translation = w.get("translation") or ""
-        examples = w.get("examples") or []
-
-        # 单词 音标
-        sz_word = self._scaled_px(38)
-        sz_pho = self._scaled_px(16)
-        head_html = f"<span style='font-size:{sz_word}px;font-weight:800;color:{word_c};font-family:{FONT_FAMILY};'>{word}</span>"
-        if phonetic:
-            head_html += (f"&nbsp;&nbsp;<span style='font-size:{sz_pho}px;color:{sub_c};"
-                          f"font-family:{FONT_FAMILY};'>{phonetic}</span>")
-        self.wordLabel.setText(head_html)
-        self.dateLabel.setText(self._date or datetime.date.today().isoformat())
+        # 音标
+        phonetic_html = f"<span class=\"phonetic\">{_html.escape(phonetic)}</span>" if phonetic else ""
 
         # 翻译
-        sz_trans = self._scaled_px(18)
-        self.transLabel.setStyleSheet(f"""
-            font-family: {FONT_FAMILY};
-            background-color: transparent;
-        """)
         trans_lines = []
         for line in self._POS_SPLIT_RE.split(translation.strip()):
             line = line.strip()
@@ -5223,46 +5265,43 @@ class DailyWordComponent(DraggableContainer):
             m = self._POS_MARK_RE.match(line)
             if m:
                 trans_lines.append(
-                    f"<span style='font-size:{sz_trans}px;color:{sub_c};font-family:{FONT_FAMILY};'>{m.group(1)}</span>"
-                    f"<span style='font-size:{sz_trans}px;color:{trans_c};font-family:{FONT_FAMILY};'>&nbsp;{m.group(2)}</span>"
+                    f"<div class=\"line\"><span class=\"pos\">{_html.escape(m.group(1))}</span>{_html.escape(m.group(2))}</div>"
                 )
             else:
-                trans_lines.append(
-                    f"<span style='font-size:{sz_trans}px;color:{trans_c};font-family:{FONT_FAMILY};'>{line}</span>"
-                )
-        self.transLabel.setText("<br/>".join(trans_lines))
+                trans_lines.append(f"<div class=\"line\">{_html.escape(line)}</div>")
+        trans_html = "".join(trans_lines)
 
-        # 例句
-        sz_ex = self._scaled_px(21)
-        sz_ex_zh = self._scaled_px(19)
-        ex_html = ""
-        if examples:
-            ex = examples[0] or {}
-            ex_text = ex.get("text") or ""
-            ex_trans = ex.get("translation") or ""
-            if ex_text:
-                ex_html += (f"<span style='font-size:{sz_ex}px;color:{ex_c};font-family:{FONT_FAMILY};'>"
-                            f"“{ex_text}”</span>")
-                if ex_trans:
-                    ex_html += (f"<br/><span style='font-size:{sz_ex_zh}px;color:{sub_c};font-family:{FONT_FAMILY};'>"
-                                f"{ex_trans}</span>")
-        self.sepLabel.setStyleSheet(
-            f"background-color: transparent; border-top: 1px solid {sep_c};"
-            if ex_html else "background-color: transparent;"
+        # 例句区
+        example_section = ""
+        if ex_text:
+            example_section = (
+                "<div class=\"sep\"></div>"
+                "<div class=\"example\">"
+                f"<div class=\"ex-en\">&ldquo;{_html.escape(ex_text)}&rdquo;</div>"
+                + (f"<div class=\"ex-zh\">{_html.escape(ex_trans)}</div>" if ex_trans else "")
+                + "</div>"
+            )
+
+        return self._HTML_TEMPLATE.substitute(
+            letter=_html.escape(letter),
+            word=_html.escape(word),
+            date=_html.escape(date),
+            phonetic_html=phonetic_html,
+            trans_html=trans_html,
+            example_section=example_section,
+            **theme,
         )
-        self.exampleLabel.setStyleSheet(f"""
-            font-family: {FONT_FAMILY};
-            background-color: transparent;
-        """)
-        self.exampleLabel.setText(ex_html)
 
-        self.updateSize()
+    def _render(self):
+        self.webView.setHtml(self._build_html())
 
     def _apply_style(self):
         self._apply_card_style()
         self._render()
 
     def apply_scale(self, factor):
+        self._scale_factor = factor
+        self.webView.setZoomFactor(factor)
         self._apply_style()
 
 
