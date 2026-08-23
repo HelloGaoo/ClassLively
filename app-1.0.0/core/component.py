@@ -387,6 +387,18 @@ BUILTIN_COMPONENT_DEFINITIONS = [
         default_config={"show_seconds": True, "show_lunar": True},
     ),
     ComponentDefinition(
+        id="clock_analog",
+        display_name="模拟时钟",
+        category="Clock",
+        icon="Clock",
+        min_width_cells=2,
+        min_height_cells=2,
+        default_width_cells=2,
+        default_height_cells=2,
+        resize_mode=ResizeMode.FREE,
+        default_config={},
+    ),
+    ComponentDefinition(
         id="clock_calendar_month",
         display_name="月历",
         category="Clock",

@@ -121,6 +121,12 @@ COMPONENT_STYLES = {
             "default_config": {},
             "default_size": (400, 200),
         },
+        "analog": {
+            "name": "模拟时钟",
+            "class": None,
+            "default_config": {},
+            "default_size": (200, 200),
+        },
         "calendar_month": {
             "name": "月历",
             "class": None,
@@ -4953,7 +4959,7 @@ class DailySentenceComponent(DraggableContainer):
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body { width: 100%; height: 100%; background: transparent; overflow: hidden; }
   body {
-    font-family: 'HarmonyOS Sans SC', 'Microsoft YaHei', sans-serif;
+    font-family: $font;
     display: flex; flex-direction: column; justify-content: center;
     padding: 24px 26px 26px 58px; position: relative;
   }
@@ -5058,6 +5064,7 @@ class DailySentenceComponent(DraggableContainer):
             zh_html = f"<div class=\"zh\">{_html.escape(note)}</div>"
 
         return self._HTML_TEMPLATE.substitute(
+            font=FONT_FAMILY,
             content=_html.escape(content),
             zh_html=zh_html,
             date=_html.escape(date),
@@ -5119,7 +5126,7 @@ class DailyWordComponent(DraggableContainer):
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body { width: 100%; height: 100%; background: transparent; overflow: hidden; }
   body {
-    font-family: 'HarmonyOS Sans SC', 'Microsoft YaHei', sans-serif;
+    font-family: $font;
     display: flex; flex-direction: column; justify-content: center;
     padding: 20px 24px 22px 26px; position: relative;
   }
@@ -5283,6 +5290,7 @@ class DailyWordComponent(DraggableContainer):
             )
 
         return self._HTML_TEMPLATE.substitute(
+            font=FONT_FAMILY,
             letter=_html.escape(letter),
             word=_html.escape(word),
             date=_html.escape(date),
@@ -5303,6 +5311,197 @@ class DailyWordComponent(DraggableContainer):
         self._scale_factor = factor
         self.webView.setZoomFactor(factor)
         self._apply_style()
+
+
+class AnalogClockComponent(DraggableContainer):
+    """模拟时钟组件（html）"""
+
+    _object_name = "analogClockContainer"
+
+    _theme_dark = {
+        "face": "#000000",
+        "tick_major": "#ffffff",
+        "tick_minor": "#888888",
+        "ink": "#ffffff",
+        "second": "#C9A66B",
+        "shadow_op": "0.5",
+    }
+    _theme_light = {
+        "face": "#ffffff",
+        "tick_major": "#1d1d1f",
+        "tick_minor": "#777777",
+        "ink": "#1d1d1f",
+        "second": "#C9A66B",
+        "shadow_op": "0.18",
+    }
+    # 下边这一段看哭了。
+    _HTML_TEMPLATE = Template('''<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; background: transparent; overflow: hidden; }
+  svg { width: 100%; height: 100%; display: block; }
+</style>
+</head>
+<body>
+<svg viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="1.5" stdDeviation="2" flood-color="#000" flood-opacity="$shadow_op"/>
+    </filter>
+  </defs>
+
+  <rect x="0" y="0" width="400" height="400" rx="60" ry="60" fill="$face"/>
+
+  <!-- All ticks -->
+  <g transform="translate(200,200)">
+    <!-- Number-position hour ticks (12,3,6,9) -->
+    <line x1="0" y1="-137" x2="0" y2="-177" stroke="$tick_major" stroke-width="3" stroke-linecap="butt" transform="rotate(0)"/>
+    <line x1="0" y1="-137" x2="0" y2="-177" stroke="$tick_major" stroke-width="3" stroke-linecap="butt" transform="rotate(90)"/>
+    <line x1="0" y1="-137" x2="0" y2="-177" stroke="$tick_major" stroke-width="3" stroke-linecap="butt" transform="rotate(180)"/>
+    <line x1="0" y1="-137" x2="0" y2="-177" stroke="$tick_major" stroke-width="3" stroke-linecap="butt" transform="rotate(270)"/>
+
+    <!-- Other hour ticks (1,2,4,5,7,8,10,11) — extended inward by half a small tick -->
+    <line x1="0" y1="-157.5" x2="0" y2="-207.5" stroke="$tick_major" stroke-width="3" stroke-linecap="butt" transform="rotate(30)"/>
+    <line x1="0" y1="-157.5" x2="0" y2="-207.5" stroke="$tick_major" stroke-width="3" stroke-linecap="butt" transform="rotate(60)"/>
+    <line x1="0" y1="-157.5" x2="0" y2="-207.5" stroke="$tick_major" stroke-width="3" stroke-linecap="butt" transform="rotate(120)"/>
+    <line x1="0" y1="-157.5" x2="0" y2="-207.5" stroke="$tick_major" stroke-width="3" stroke-linecap="butt" transform="rotate(150)"/>
+    <line x1="0" y1="-157.5" x2="0" y2="-207.5" stroke="$tick_major" stroke-width="3" stroke-linecap="butt" transform="rotate(210)"/>
+    <line x1="0" y1="-157.5" x2="0" y2="-207.5" stroke="$tick_major" stroke-width="3" stroke-linecap="butt" transform="rotate(240)"/>
+    <line x1="0" y1="-157.5" x2="0" y2="-207.5" stroke="$tick_major" stroke-width="3" stroke-linecap="butt" transform="rotate(300)"/>
+    <line x1="0" y1="-157.5" x2="0" y2="-207.5" stroke="$tick_major" stroke-width="3" stroke-linecap="butt" transform="rotate(330)"/>
+
+    <!-- Normal small ticks -->
+    <line x1="0" y1="-158.1" x2="0" y2="-178.1" stroke="$tick_minor" stroke-width="1.5" stroke-linecap="butt" transform="rotate(6)"/>
+    <line x1="0" y1="-161.4" x2="0" y2="-181.4" stroke="$tick_minor" stroke-width="1.5" stroke-linecap="butt" transform="rotate(12)"/>
+    <line x1="0" y1="-167.1" x2="0" y2="-187.1" stroke="$tick_minor" stroke-width="1.5" stroke-linecap="butt" transform="rotate(18)"/>
+    <line x1="0" y1="-175.6" x2="0" y2="-195.6" stroke="$tick_minor" stroke-width="1.5" stroke-linecap="butt" transform="rotate(24)"/>
+    <line x1="0" y1="-203.5" x2="0" y2="-223.5" stroke="$tick_minor" stroke-width="1.5" stroke-linecap="butt" transform="rotate(36)"/>
+    <line x1="0" y1="-203.5" x2="0" y2="-223.5" stroke="$tick_minor" stroke-width="1.5" stroke-linecap="butt" transform="rotate(54)"/>
+    <line x1="0" y1="-175.6" x2="0" y2="-195.6" stroke="$tick_minor" stroke-width="1.5" stroke-linecap="butt" transform="rotate(66)"/>
+    <line x1="0" y1="-167.1" x2="0" y2="-187.1" stroke="$tick_minor" stroke-width="1.5" stroke-linecap="butt" transform="rotate(72)"/>
+    <line x1="0" y1="-161.4" x2="0" y2="-181.4" stroke="$tick_minor" stroke-width="1.5" stroke-linecap="butt" transform="rotate(78)"/>
+    <line x1="0" y1="-158.1" x2="0" y2="-178.1" stroke="$tick_minor" stroke-width="1.5" stroke-linecap="butt" transform="rotate(84)"/>
+    <line x1="0" y1="-158.1" x2="0" y2="-178.1" stroke="$tick_minor" stroke-width="1.5" stroke-linecap="butt" transform="rotate(96)"/>
+    <line x1="0" y1="-161.4" x2="0" y2="-181.4" stroke="$tick_minor" stroke-width="1.5" stroke-linecap="butt" transform="rotate(102)"/>
+    <line x1="0" y1="-167.1" x2="0" y2="-187.1" stroke="$tick_minor" stroke-width="1.5" stroke-linecap="butt" transform="rotate(108)"/>
+    <line x1="0" y1="-175.6" x2="0" y2="-195.6" stroke="$tick_minor" stroke-width="1.5" stroke-linecap="butt" transform="rotate(114)"/>
+    <line x1="0" y1="-203.5" x2="0" y2="-223.5" stroke="$tick_minor" stroke-width="1.5" stroke-linecap="butt" transform="rotate(126)"/>
+    <line x1="0" y1="-203.5" x2="0" y2="-223.5" stroke="$tick_minor" stroke-width="1.5" stroke-linecap="butt" transform="rotate(144)"/>
+    <line x1="0" y1="-175.6" x2="0" y2="-195.6" stroke="$tick_minor" stroke-width="1.5" stroke-linecap="butt" transform="rotate(156)"/>
+    <line x1="0" y1="-167.1" x2="0" y2="-187.1" stroke="$tick_minor" stroke-width="1.5" stroke-linecap="butt" transform="rotate(162)"/>
+    <line x1="0" y1="-161.4" x2="0" y2="-181.4" stroke="$tick_minor" stroke-width="1.5" stroke-linecap="butt" transform="rotate(168)"/>
+    <line x1="0" y1="-158.1" x2="0" y2="-178.1" stroke="$tick_minor" stroke-width="1.5" stroke-linecap="butt" transform="rotate(174)"/>
+    <line x1="0" y1="-158.1" x2="0" y2="-178.1" stroke="$tick_minor" stroke-width="1.5" stroke-linecap="butt" transform="rotate(186)"/>
+    <line x1="0" y1="-161.4" x2="0" y2="-181.4" stroke="$tick_minor" stroke-width="1.5" stroke-linecap="butt" transform="rotate(192)"/>
+    <line x1="0" y1="-167.1" x2="0" y2="-187.1" stroke="$tick_minor" stroke-width="1.5" stroke-linecap="butt" transform="rotate(198)"/>
+    <line x1="0" y1="-175.6" x2="0" y2="-195.6" stroke="$tick_minor" stroke-width="1.5" stroke-linecap="butt" transform="rotate(204)"/>
+    <line x1="0" y1="-203.5" x2="0" y2="-223.5" stroke="$tick_minor" stroke-width="1.5" stroke-linecap="butt" transform="rotate(216)"/>
+    <line x1="0" y1="-203.5" x2="0" y2="-223.5" stroke="$tick_minor" stroke-width="1.5" stroke-linecap="butt" transform="rotate(234)"/>
+    <line x1="0" y1="-175.6" x2="0" y2="-195.6" stroke="$tick_minor" stroke-width="1.5" stroke-linecap="butt" transform="rotate(246)"/>
+    <line x1="0" y1="-167.1" x2="0" y2="-187.1" stroke="$tick_minor" stroke-width="1.5" stroke-linecap="butt" transform="rotate(252)"/>
+    <line x1="0" y1="-161.4" x2="0" y2="-181.4" stroke="$tick_minor" stroke-width="1.5" stroke-linecap="butt" transform="rotate(258)"/>
+    <line x1="0" y1="-158.1" x2="0" y2="-178.1" stroke="$tick_minor" stroke-width="1.5" stroke-linecap="butt" transform="rotate(264)"/>
+    <line x1="0" y1="-158.1" x2="0" y2="-178.1" stroke="$tick_minor" stroke-width="1.5" stroke-linecap="butt" transform="rotate(276)"/>
+    <line x1="0" y1="-161.4" x2="0" y2="-181.4" stroke="$tick_minor" stroke-width="1.5" stroke-linecap="butt" transform="rotate(282)"/>
+    <line x1="0" y1="-167.1" x2="0" y2="-187.1" stroke="$tick_minor" stroke-width="1.5" stroke-linecap="butt" transform="rotate(288)"/>
+    <line x1="0" y1="-175.6" x2="0" y2="-195.6" stroke="$tick_minor" stroke-width="1.5" stroke-linecap="butt" transform="rotate(294)"/>
+    <line x1="0" y1="-203.5" x2="0" y2="-223.5" stroke="$tick_minor" stroke-width="1.5" stroke-linecap="butt" transform="rotate(306)"/>
+    <line x1="0" y1="-203.5" x2="0" y2="-223.5" stroke="$tick_minor" stroke-width="1.5" stroke-linecap="butt" transform="rotate(324)"/>
+    <line x1="0" y1="-175.6" x2="0" y2="-195.6" stroke="$tick_minor" stroke-width="1.5" stroke-linecap="butt" transform="rotate(336)"/>
+    <line x1="0" y1="-167.1" x2="0" y2="-187.1" stroke="$tick_minor" stroke-width="1.5" stroke-linecap="butt" transform="rotate(342)"/>
+    <line x1="0" y1="-161.4" x2="0" y2="-181.4" stroke="$tick_minor" stroke-width="1.5" stroke-linecap="butt" transform="rotate(348)"/>
+    <line x1="0" y1="-158.1" x2="0" y2="-178.1" stroke="$tick_minor" stroke-width="1.5" stroke-linecap="butt" transform="rotate(354)"/>
+
+    <!-- Corner ticks (retracted by half a small tick) -->
+    <line x1="0" y1="-219.1" x2="0" y2="-239.1" stroke="$tick_minor" stroke-width="1.5" stroke-linecap="butt" transform="rotate(42)"/>
+    <line x1="0" y1="-219.1" x2="0" y2="-239.1" stroke="$tick_minor" stroke-width="1.5" stroke-linecap="butt" transform="rotate(48)"/>
+    <line x1="0" y1="-219.1" x2="0" y2="-239.1" stroke="$tick_minor" stroke-width="1.5" stroke-linecap="butt" transform="rotate(132)"/>
+    <line x1="0" y1="-219.1" x2="0" y2="-239.1" stroke="$tick_minor" stroke-width="1.5" stroke-linecap="butt" transform="rotate(138)"/>
+    <line x1="0" y1="-219.1" x2="0" y2="-239.1" stroke="$tick_minor" stroke-width="1.5" stroke-linecap="butt" transform="rotate(222)"/>
+    <line x1="0" y1="-219.1" x2="0" y2="-239.1" stroke="$tick_minor" stroke-width="1.5" stroke-linecap="butt" transform="rotate(228)"/>
+    <line x1="0" y1="-219.1" x2="0" y2="-239.1" stroke="$tick_minor" stroke-width="1.5" stroke-linecap="butt" transform="rotate(312)"/>
+    <line x1="0" y1="-219.1" x2="0" y2="-239.1" stroke="$tick_minor" stroke-width="1.5" stroke-linecap="butt" transform="rotate(318)"/>
+  </g>
+
+  <!-- Numbers -->
+  <g text-anchor="middle" fill="$ink" font-family="$font" font-weight="500">
+    <text x="200" y="80" font-size="50" dy="0.35em">12</text>
+    <text x="320" y="200" font-size="50" dy="0.35em">3</text>
+    <text x="200" y="320" font-size="50" dy="0.35em">6</text>
+    <text x="80" y="200" font-size="50" dy="0.35em">9</text>
+  </g>
+
+  <!-- Hands -->
+  <g transform="translate(200,200)">
+    <path id="hourHand" d="M -5 18 L -3 -72 L 0 -82 L 3 -72 L 5 18 Z" fill="$ink" transform="rotate(0)" filter="url(#shadow)"/>
+    <path id="minuteHand" d="M -3.5 22 L -2.5 -118 L 0 -128 L 2.5 -118 L 3.5 22 Z" fill="$ink" transform="rotate(0)" filter="url(#shadow)"/>
+    <g id="secondHand" transform="rotate(0)">
+      <line x1="0" y1="28" x2="0" y2="-158" stroke="$second" stroke-width="2" stroke-linecap="round"/>
+      <line x1="0" y1="0" x2="0" y2="32" stroke="$second" stroke-width="2" stroke-linecap="round"/>
+    </g>
+    <circle cx="0" cy="0" r="9" fill="$second"/>
+    <circle cx="0" cy="0" r="4.5" fill="$face"/>
+  </g>
+</svg>
+<script>
+  var hourHand = document.getElementById('hourHand');
+  var minuteHand = document.getElementById('minuteHand');
+  var secondHand = document.getElementById('secondHand');
+  function tick() {
+    var now = new Date();
+    var s = now.getSeconds() + now.getMilliseconds() / 1000;
+    var m = now.getMinutes() + s / 60;
+    var h = now.getHours() % 12 + m / 60;
+    hourHand.setAttribute('transform', 'rotate(' + (h * 30) + ')');
+    minuteHand.setAttribute('transform', 'rotate(' + (m * 6) + ')');
+    secondHand.setAttribute('transform', 'rotate(' + (s * 6) + ')');
+  }
+  tick();
+  requestAnimationFrame(function loop() { tick(); requestAnimationFrame(loop); });
+</script>
+</body>
+</html>''')
+
+    def __init__(self, parent, component_data: dict):
+        super().__init__(parent, component_id=component_data["id"], layout_direction="vertical")
+        self.setObjectName(self._object_name)
+        self._home = parent
+        self._scale_factor = 1.0
+        self._setup_ui()
+
+    def _setup_ui(self):
+        self.webView = create_html_view(self)
+
+        layout = self.inner_layout
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+        layout.addWidget(self.webView)
+
+        self._set_natural_size(200, 200)
+        self.setMinimumSize(100, 100)
+        self._size_explicitly_set = True
+        self.resize(200, 200)
+        self._apply_style()
+
+    def _build_html(self) -> str:
+        theme = self._theme_dark if isDarkTheme() else self._theme_light
+        return self._HTML_TEMPLATE.substitute(font=FONT_FAMILY, **theme)
+
+    def _render(self):
+        self.webView.setHtml(self._build_html())
+
+    def _apply_style(self):
+        # 这个组件表盘自绘 与其他有出入
+        # 后续可能会对其他组件或新组件使用不同点的背景
+        self.setStyleSheet(f"#{self._object_name} {{ background-color: transparent; border-radius: 30px; }}")
+        self._render()
+
+    def apply_scale(self, factor):
+        self._scale_factor = factor
+        self.webView.setZoomFactor(factor)
 
 
 class CountdownEventComponent(DraggableContainer):
@@ -9219,6 +9418,7 @@ class StickyNoteComponent(DraggableContainer):
 
 # 更新注册表
 COMPONENT_STYLES["clock"]["digital"]["class"] = DigitalClockComponent
+COMPONENT_STYLES["clock"]["analog"]["class"] = AnalogClockComponent
 COMPONENT_STYLES["weather"]["icon_temp"]["class"] = WeatherIconTempComponent
 COMPONENT_STYLES["weather"]["hourly"]["class"] = WeatherHourlyComponent
 COMPONENT_STYLES["weather"]["weekly"]["class"] = WeatherWeeklyComponent

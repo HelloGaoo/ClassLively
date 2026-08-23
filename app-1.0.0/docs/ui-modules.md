@@ -1,7 +1,7 @@
 # UI 模块（ui/）
 
 > \[!NOTE]
-> 编写者：HelloGaoo　最后修改：2026/08/21
+> 编写者：HelloGaoo　最后修改：2026/08/23
 
 `ui/` 是基于 PyQt6 Fluent Widgets 的界面层。所有界面通过 `MainWindow.addSubInterface()` 注册到 FluentWindow 导航。每个界面通过 `load_qss()` 加载对应主题 QSS，并实现 `_onThemeChanged` 响应主题切换。
 
@@ -16,7 +16,7 @@
 
 - `BaseScrollAreaInterface(ScrollArea)`：滚动界面基类，统一滚动条与边距。
 - `show_text_file(title, ...)`：以对话框形式展示文本文件（协议 / 许可证）。
-- `create_html_view(parent=None, mouse_transparent=True)`：创建透明背景的 HTML 渲染视图（QWebEngineView 封装，PyQt6-WebEngine
+- `create_html_view(parent=None, mouse_transparent=True)`：创建透明背景的 HTML 渲染视图（QWebEngineView 封装，依赖 PyQt6-WebEngine，入口处需提前导入并设置 `AA_ShareOpenGLContexts`）。
 
 ***
 
@@ -89,6 +89,7 @@ NavigationPage 提示文字颜色随主题：深色 `rgba(230,230,230,0.95)`，�
 | 分类       | 组件类                                                     | 说明                                                             |
 | -------- | ------------------------------------------------------- | -------------------------------------------------------------- |
 | Clock    | `DigitalClockComponent`                                 | 数字时钟（秒/农历）                                                     |
+| Clock    | `AnalogClockComponent`                                  | 模拟时钟（SVG）                                                      |
 | Clock    | `CalendarMonthComponent`                                | 月历（`_DayCell`）                                                 |
 | Clock    | `CountdownEventComponent`                               | 事件倒计时                                                          |
 | Clock    | `TimerCountdownComponent`                               | 计时器（`TimeColumnWidget` / `TimerTimeDisplayWidget`）             |
@@ -126,7 +127,23 @@ NavigationPage 提示文字颜色随主题：深色 `rgba(230,230,230,0.95)`，�
 - 擦除速度：`(上次速度 + 欧氏距离) * 0.5` EMA。
 - `drawingScale = min(屏宽/1920, 屏高/1080)`。
 - 光标：灰色 `(130,130,130,200)` 3px 空心圆，实时调大小，输入停止时消失。
-- 严格复刻 Inkeys 算法：速度用欧氏距离，鼠标/触控用特定曲线，双变量平滑追随。
+- 参考 Inkey：速度用欧氏距离，鼠标/触控用特定曲线，双变量平滑追随。
+
+### 3.6 HTML 渲染组件
+
+### html组件通过 `create_html_view()`（[ui/common.py](common.py)）借用 QWebEngineView 渲染 HTML/SVG，类内不直接引用 QtWebEngine：
+
+| 组件                       | 渲染方式       | 说明   |
+| ------------------------ | ---------- | ---- |
+| `DailySentenceComponent` | HTML + CSS | 每日英语 |
+| `DailyWordComponent`     | HTML + CSS | 每日单词 |
+| `AnalogClockComponent`   | SVG        | 模拟时钟 |
+
+**需知**：
+
+- 视图由 `create_html_view()` 创建；QtWebEngineWidgets 必须在 QApplication 创建前于入口导入。
+- 字体 `FONT_FAMILY`（`core/constants.py`），引号 / 水印字母 / 等宽日期等保留衬线 / 等宽字体。
+- 模拟时钟走时由页面内 `requestAnimationFrame` 循环驱动。
 
 ***
 
