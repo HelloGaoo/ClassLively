@@ -91,6 +91,7 @@ NavigationPage 提示文字颜色随主题：深色 `rgba(230,230,230,0.95)`，�
 | Clock    | `DigitalClockComponent`                                 | 数字时钟（秒/农历）                                                     |
 | Clock    | `SquareClock1Component`                                 | 方形钟表I（SVG）                                                     |
 | Clock    | `CalendarMonthComponent`                                | 月历（`_DayCell`）                                                 |
+| Clock    | `MiniCalendarComponent`                                 | 简约月历（HTML）                                            |
 | Clock    | `CountdownEventComponent`                               | 事件倒计时                                                          |
 | Clock    | `TimerCountdownComponent`                               | 计时器（`TimeColumnWidget` / `TimerTimeDisplayWidget`）             |
 | Weather  | `WeatherIconTempComponent`                              | 图标 + 温度                                                        |
@@ -138,6 +139,7 @@ NavigationPage 提示文字颜色随主题：深色 `rgba(230,230,230,0.95)`，�
 | `DailySentenceComponent` | HTML + CSS | 每日英语 |
 | `DailyWordComponent`     | HTML + CSS | 每日单词 |
 | `SquareClock1Component`  | SVG        | 方形钟表I |
+| `MiniCalendarComponent`  | HTML + CSS | 简约月历 |
 
 **需知**：
 

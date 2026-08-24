@@ -1,7 +1,7 @@
 # Glimpseon 1.0.0 开发者文档
 
 > [!NOTE]
-> 编写者：HelloGaoo　最后修改：2026/08/23
+> 编写者：HelloGaoo　最后修改：2026/08/24
 
 Glimpseon 是一款基于 PyQt6 Fluent Widgets 的 Windows 桌面信息看板，集成壁纸管理、天气、一言、新闻、历史上的今天、每日单词、每日英语、数字/模拟时钟、媒体信息、课程表、通知、软件下载等功能。
 

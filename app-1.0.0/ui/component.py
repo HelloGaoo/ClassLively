@@ -131,7 +131,13 @@ COMPONENT_STYLES = {
             "name": "月历",
             "class": None,
             "default_config": {},
-            "default_size": (300, 300),
+            "default_size": (200, 200),
+        },
+        "calendar_mini": {
+            "name": "简约月历",
+            "class": None,
+            "default_config": {},
+            "default_size": (200, 200),
         },
     },
     "weather": {
@@ -5504,6 +5510,196 @@ class SquareClock1Component(DraggableContainer):
         self.webView.setZoomFactor(factor)
 
 
+class MiniCalendarComponent(DraggableContainer):
+    """简约月历组件（HTML）"""
+
+    _object_name = "miniCalendarContainer"
+
+    _theme_light = {
+        "border_soft": "#eeeeee",
+        "ink": "#444444",
+        "title_ink": "#333333",
+        "weekday_ink": "#999999",
+        "other_ink": "#cccccc",
+        "hover_bg": "#f2f2f2",
+        "btn_ink": "#666666",
+        "btn_hover_bg": "#f0f0f0",
+        "today_ink": "#e5484d",
+        "selected_ink": "#30c361",
+    }
+    _theme_dark = {
+        "border_soft": "rgba(255,255,255,0.06)",
+        "ink": "#d8d8dc",
+        "title_ink": "#ececee",
+        "weekday_ink": "#8a8a90",
+        "other_ink": "#55555a",
+        "hover_bg": "rgba(255,255,255,0.08)",
+        "btn_ink": "#a0a0a6",
+        "btn_hover_bg": "rgba(255,255,255,0.10)",
+        "today_ink": "#ff6b6b",
+        "selected_ink": "#4ade80",
+    }
+
+    _HTML_TEMPLATE = Template('''<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 100%; height: 100%; background: transparent; overflow: hidden; }
+  body { font-family: $font; }
+  .calendar {
+    width: 100%; height: 100%;
+    display: flex; flex-direction: column;
+    user-select: none; -webkit-user-select: none;
+  }
+  .cal-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 4px 6px;
+    background: transparent;
+    border-bottom: 1px solid $border_soft;
+  }
+  .cal-header button {
+    width: 22px; height: 22px;
+    border: none; background: transparent;
+    color: $btn_ink; font-size: 13px; font-family: $font;
+    cursor: pointer; border-radius: 4px; line-height: 22px;
+    text-align: center; padding: 0;
+    transition: background 0.15s;
+  }
+  .cal-header button:hover { background: $btn_hover_bg; color: $title_ink; }
+  .cal-title {
+    font-size: 12px; font-weight: 600; color: $title_ink; letter-spacing: 0.5px;
+  }
+  .cal-weekdays {
+    display: grid; grid-template-columns: repeat(7, 1fr);
+    padding: 2px 4px 0; background: transparent;
+  }
+  .cal-weekdays div {
+    text-align: center; font-size: 9px; color: $weekday_ink;
+    font-weight: 500; height: 16px; line-height: 16px;
+  }
+  .cal-days {
+    display: grid; grid-template-columns: repeat(7, 1fr); grid-template-rows: repeat(5, 1fr);
+    flex: 1; padding: 0 4px 4px;
+    background: transparent;
+  }
+  .cal-day {
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; color: $ink; font-weight: 400;
+    border-radius: 4px; cursor: pointer; height: 100%;
+    transition: background 0.15s, color 0.15s;
+  }
+  .cal-day:hover { background: $hover_bg; }
+  .cal-day.other-month { color: $other_ink; }
+  .cal-day.today { color: $today_ink; font-weight: 500; }
+  .cal-day.selected { color: $selected_ink; font-weight: 500; }
+</style>
+</head>
+<body>
+<div class="calendar" id="calendar">
+  <div class="cal-header">
+    <button id="prev" aria-label="上个月">&#8249;</button>
+    <div class="cal-title" id="title"></div>
+    <button id="next" aria-label="下个月">&#8250;</button>
+  </div>
+  <div class="cal-weekdays">
+    <div>日</div><div>一</div><div>二</div><div>三</div><div>四</div><div>五</div><div>六</div>
+  </div>
+  <div class="cal-days" id="days"></div>
+</div>
+<script>
+  var daysEl = document.getElementById('days');
+  var titleEl = document.getElementById('title');
+  var today = new Date();
+  var curYear = today.getFullYear();
+  var curMonth = today.getMonth();
+
+  function render(year, month) {
+    titleEl.textContent = year + '年' + (month + 1) + '月';
+    var startWeekday = new Date(year, month, 1).getDay();
+    var daysInMonth = new Date(year, month + 1, 0).getDate();
+    var daysInPrev = new Date(year, month, 0).getDate();
+    daysEl.innerHTML = '';
+    for (var i = startWeekday - 1; i >= 0; i--) {
+      var d = document.createElement('div');
+      d.className = 'cal-day other-month';
+      d.textContent = daysInPrev - i;
+      daysEl.appendChild(d);
+    }
+    var maxDay = Math.min(daysInMonth, 35 - startWeekday);
+    for (var day = 1; day <= maxDay; day++) {
+      var cell = document.createElement('div');
+      cell.className = 'cal-day';
+      cell.textContent = day;
+      if (year === today.getFullYear() && month === today.getMonth() && day === today.getDate()) {
+        cell.classList.add('today');
+      }
+      cell.addEventListener('click', function() {
+        daysEl.querySelectorAll('.selected').forEach(function(el) { el.classList.remove('selected'); });
+        this.classList.add('selected');
+      });
+      daysEl.appendChild(cell);
+    }
+    for (var n = startWeekday + maxDay; n < 35; n++) {
+      daysEl.appendChild(document.createElement('div'));
+    }
+  }
+
+  document.getElementById('prev').addEventListener('click', function() {
+    curMonth--;
+    if (curMonth < 0) { curMonth = 11; curYear--; }
+    render(curYear, curMonth);
+  });
+  document.getElementById('next').addEventListener('click', function() {
+    curMonth++;
+    if (curMonth > 11) { curMonth = 0; curYear++; }
+    render(curYear, curMonth);
+  });
+
+  render(curYear, curMonth);
+</script>
+</body>
+</html>''')
+
+    def __init__(self, parent, component_data: dict):
+        super().__init__(parent, component_id=component_data["id"], layout_direction="vertical")
+        self.setObjectName(self._object_name)
+        self._home = parent
+        self._scale_factor = 1.0
+        self._setup_ui()
+
+    def _setup_ui(self):
+        self.webView = create_html_view(self, mouse_transparent=False)
+
+        layout = self.inner_layout
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+        layout.addWidget(self.webView)
+
+        self._set_natural_size(200, 200)
+        self.setMinimumSize(100, 100)
+        self._size_explicitly_set = True
+        self.resize(200, 200)
+        self._apply_style()
+
+    def _build_html(self) -> str:
+        theme = self._theme_dark if isDarkTheme() else self._theme_light
+        return self._HTML_TEMPLATE.substitute(font=FONT_FAMILY, **theme)
+
+    def _render(self):
+        self.webView.setHtml(self._build_html())
+
+    def _apply_style(self):
+        self._apply_card_style()
+        self._render()
+
+    def apply_scale(self, factor):
+        self._scale_factor = factor
+        self.webView.setZoomFactor(factor)
+        self._apply_style()
+
+
 class CountdownEventComponent(DraggableContainer):
     """事件倒计时组件"""
 
@@ -9419,6 +9615,7 @@ class StickyNoteComponent(DraggableContainer):
 # 更新注册表
 COMPONENT_STYLES["clock"]["digital"]["class"] = DigitalClockComponent
 COMPONENT_STYLES["clock"]["square_1"]["class"] = SquareClock1Component
+COMPONENT_STYLES["clock"]["calendar_mini"]["class"] = MiniCalendarComponent
 COMPONENT_STYLES["weather"]["icon_temp"]["class"] = WeatherIconTempComponent
 COMPONENT_STYLES["weather"]["hourly"]["class"] = WeatherHourlyComponent
 COMPONENT_STYLES["weather"]["weekly"]["class"] = WeatherWeeklyComponent

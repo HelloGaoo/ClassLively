@@ -182,8 +182,9 @@ QWidget
          │   ├─ ClassAlbumHorizontalComponent
          │   └─ ClassAlbumVerticalComponent
          ├─ StickyNoteComponent
-         ├─ CalendarMonthComponent
-         └─ NavigationPage
+        ├─ CalendarMonthComponent
+        ├─ MiniCalendarComponent
+        └─ NavigationPage
 ```
 
 ### 4.2 DraggableWidget 编辑能力
