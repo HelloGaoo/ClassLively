@@ -158,7 +158,7 @@ QWidget
  └─ DraggableWidget                # 拖拽/缩放/选中/按钮 基类
      └─ DraggableContainer         # 含配置存储的容器基类
          ├─ DigitalClockComponent
-         ├─ AnalogClockComponent
+         ├─ SquareClock1Component
          ├─ WeatherComponentBase
          │   ├─ WeatherIconTempComponent
          │   ├─ WeatherHourlyComponent

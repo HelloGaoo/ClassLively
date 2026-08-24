@@ -523,9 +523,6 @@
     "title": "Today in History",
     "no_data": "No data"
   },
-  "daily_sentence": {
-    "title": "Daily English"
-  },
   "update": {
     "build_date": "Build Date",
     "status_ready": "Ready",

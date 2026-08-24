@@ -121,8 +121,8 @@ COMPONENT_STYLES = {
             "default_config": {},
             "default_size": (400, 200),
         },
-        "analog": {
-            "name": "模拟时钟",
+        "square_1": {
+            "name": "方形钟表I",
             "class": None,
             "default_config": {},
             "default_size": (200, 200),
@@ -5313,10 +5313,10 @@ class DailyWordComponent(DraggableContainer):
         self._apply_style()
 
 
-class AnalogClockComponent(DraggableContainer):
-    """模拟时钟组件（html）"""
+class SquareClock1Component(DraggableContainer):
+    """方形钟表I组件（SVG ）"""
 
-    _object_name = "analogClockContainer"
+    _object_name = "squareClock1Container"
 
     _theme_dark = {
         "face": "#000000",
@@ -9418,7 +9418,7 @@ class StickyNoteComponent(DraggableContainer):
 
 # 更新注册表
 COMPONENT_STYLES["clock"]["digital"]["class"] = DigitalClockComponent
-COMPONENT_STYLES["clock"]["analog"]["class"] = AnalogClockComponent
+COMPONENT_STYLES["clock"]["square_1"]["class"] = SquareClock1Component
 COMPONENT_STYLES["weather"]["icon_temp"]["class"] = WeatherIconTempComponent
 COMPONENT_STYLES["weather"]["hourly"]["class"] = WeatherHourlyComponent
 COMPONENT_STYLES["weather"]["weekly"]["class"] = WeatherWeeklyComponent

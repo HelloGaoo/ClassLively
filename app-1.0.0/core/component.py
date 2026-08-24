@@ -387,8 +387,8 @@ BUILTIN_COMPONENT_DEFINITIONS = [
         default_config={"show_seconds": True, "show_lunar": True},
     ),
     ComponentDefinition(
-        id="clock_analog",
-        display_name="模拟时钟",
+        id="clock_square_1",
+        display_name="方形钟表I",
         category="Clock",
         icon="Clock",
         min_width_cells=2,

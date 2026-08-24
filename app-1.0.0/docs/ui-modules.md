@@ -89,7 +89,7 @@ NavigationPage 提示文字颜色随主题：深色 `rgba(230,230,230,0.95)`，�
 | 分类       | 组件类                                                     | 说明                                                             |
 | -------- | ------------------------------------------------------- | -------------------------------------------------------------- |
 | Clock    | `DigitalClockComponent`                                 | 数字时钟（秒/农历）                                                     |
-| Clock    | `AnalogClockComponent`                                  | 模拟时钟（SVG）                                                      |
+| Clock    | `SquareClock1Component`                                 | 方形钟表I（SVG）                                                     |
 | Clock    | `CalendarMonthComponent`                                | 月历（`_DayCell`）                                                 |
 | Clock    | `CountdownEventComponent`                               | 事件倒计时                                                          |
 | Clock    | `TimerCountdownComponent`                               | 计时器（`TimeColumnWidget` / `TimerTimeDisplayWidget`）             |
@@ -137,13 +137,13 @@ NavigationPage 提示文字颜色随主题：深色 `rgba(230,230,230,0.95)`，�
 | ------------------------ | ---------- | ---- |
 | `DailySentenceComponent` | HTML + CSS | 每日英语 |
 | `DailyWordComponent`     | HTML + CSS | 每日单词 |
-| `AnalogClockComponent`   | SVG        | 模拟时钟 |
+| `SquareClock1Component`  | SVG        | 方形钟表I |
 
 **需知**：
 
 - 视图由 `create_html_view()` 创建；QtWebEngineWidgets 必须在 QApplication 创建前于入口导入。
-- 字体 `FONT_FAMILY`（`core/constants.py`），引号 / 水印字母 / 等宽日期等保留衬线 / 等宽字体。
-- 模拟时钟走时由页面内 `requestAnimationFrame` 循环驱动。
+- 字体 `FONT_FAMILY`（`core/constants.py`），引号 / 水印字母 / 等宽日期等保留衬线 / 等宽字体。
+- 方形钟表I走时由页面内 `requestAnimationFrame` 循环驱动。
 
 ***
 
