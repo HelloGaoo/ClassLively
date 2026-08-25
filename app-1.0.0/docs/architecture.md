@@ -46,8 +46,8 @@ graph TD
 ## 3. 设计原则
 
 1. **组件库**：UI 控件 PyQt6 Fluent Widgets
-2. **路径**：目录由 [core/paths.py](https://github.com/HelloGaoo/Glimpseon/blob/main/core/paths.py) 在导入期处理（`get_resource_path()` 依次查 `APP_DIR → MEIPASS_DIR → APP_DIR`）
-3. **配置**：配置项以 `ConfigItem` 形式声明在 [core/config.py](https://github.com/HelloGaoo/Glimpseon/blob/main/core/config.py) 的 `Config` 类中
+2. **路径**：目录由 [core/paths.py](https://github.com/HelloGaoo/Glimpseon/blob/main/app-1.0.0/core/paths.py) 在导入期处理（`get_resource_path()` 依次查 `APP_DIR → MEIPASS_DIR → APP_DIR`）
+3. **配置**：配置项以 `ConfigItem` 形式声明在 [core/config.py](https://github.com/HelloGaoo/Glimpseon/blob/main/app-1.0.0/core/config.py) 的 `Config` 类中
 4. **主题样式**：每个页面含dark/light两个qss文件
 5. **预加载/缓存**：壁纸 / 天气 / 一言在 `Preloader`（QThread）中同时拉取 通过 `pyqtSignal` 回主线程刷新 UI
 6. **跨语言**：高斯模糊（Direct2D）空闲检测 单例互斥 图标提取等 部分由c++处理
@@ -76,15 +76,15 @@ graph TD
 
 | 对象                                       | 定义位置                                                                      | 作用          |
 | ---------------------------------------- | ------------------------------------------------------------------------- | ----------- |
-| `cfg`                                    | [core/config.py](https://github.com/HelloGaoo/Glimpseon/blob/main/core/config.py) | 全局配置单例      |
-| `logger`                                 | [core/logger.py](https://github.com/HelloGaoo/Glimpseon/blob/main/core/logger.py) | 日志器         |
-| `tr()`                                   | [core/utils.py](https://github.com/HelloGaoo/Glimpseon/blob/main/core/utils.py)   | 翻译查找函数      |
-| `FUI`                                    | [core/utils.py](https://github.com/HelloGaoo/Glimpseon/blob/main/core/utils.py)   | Fluent 图标枚举 |
-| `PACKAGE_ROOT` / `APP_DIR` / `DATA_ROOT` | [core/paths.py](https://github.com/HelloGaoo/Glimpseon/blob/main/core/paths.py)   | 路径常量        |
+| `cfg`                                    | [core/config.py](https://github.com/HelloGaoo/Glimpseon/blob/main/app-1.0.0/core/config.py) | 全局配置单例      |
+| `logger`                                 | [core/logger.py](https://github.com/HelloGaoo/Glimpseon/blob/main/app-1.0.0/core/logger.py) | 日志器         |
+| `tr()`                                   | [core/utils.py](https://github.com/HelloGaoo/Glimpseon/blob/main/app-1.0.0/core/utils.py)   | 翻译查找函数      |
+| `FUI`                                    | [core/utils.py](https://github.com/HelloGaoo/Glimpseon/blob/main/app-1.0.0/core/utils.py)   | Fluent 图标枚举 |
+| `PACKAGE_ROOT` / `APP_DIR` / `DATA_ROOT` | [core/paths.py](https://github.com/HelloGaoo/Glimpseon/blob/main/app-1.0.0/core/paths.py)   | 路径常量        |
 
 ## 6. 外部联动
 
-Glimpseon 可与以下外部系统集成（见 [core/linkage.py](https://github.com/HelloGaoo/Glimpseon/blob/main/core/linkage.py)）：
+Glimpseon 可与以下外部系统集成（见 [core/linkage.py](https://github.com/HelloGaoo/Glimpseon/blob/main/app-1.0.0/core/linkage.py)）：
 
 - **ClassIsland**：读取 `Profiles/Default.json` 与 `Settings.json`，同步课表 / 时间状态等
 - **ClassWidgets**：同样读取类似档案
