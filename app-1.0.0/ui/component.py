@@ -127,6 +127,12 @@ COMPONENT_STYLES = {
             "default_config": {},
             "default_size": (200, 200),
         },
+        "square_2": {
+            "name": "方形钟表II",
+            "class": None,
+            "default_config": {},
+            "default_size": (200, 200),
+        },
         "calendar_month": {
             "name": "月历",
             "class": None,
@@ -5359,7 +5365,7 @@ class SquareClock1Component(DraggableContainer):
     </filter>
   </defs>
 
-  <rect x="0" y="0" width="400" height="400" rx="60" ry="60" fill="$face"/>
+  <rect x="0" y="0" width="400" height="400" rx="$radius" ry="$radius" fill="$face"/>
 
   <!-- All ticks -->
   <g transform="translate(200,200)">
@@ -5494,7 +5500,7 @@ class SquareClock1Component(DraggableContainer):
 
     def _build_html(self) -> str:
         theme = self._theme_dark if isDarkTheme() else self._theme_light
-        return self._HTML_TEMPLATE.substitute(font=FONT_FAMILY, **theme)
+        return self._HTML_TEMPLATE.substitute(font=FONT_FAMILY, radius=cfg.componentCardRadius.value * 2, **theme)
 
     def _render(self):
         self.webView.setHtml(self._build_html())
@@ -5502,7 +5508,130 @@ class SquareClock1Component(DraggableContainer):
     def _apply_style(self):
         # 这个组件表盘自绘 与其他有出入
         # 后续可能会对其他组件或新组件使用不同点的背景
-        self.setStyleSheet(f"#{self._object_name} {{ background-color: transparent; border-radius: 30px; }}")
+        self.setStyleSheet(f"#{self._object_name} {{ background-color: transparent; border-radius: {cfg.componentCardRadius.value}px; }}")
+        self._render()
+
+    def apply_scale(self, factor):
+        self._scale_factor = factor
+        self.webView.setZoomFactor(factor)
+
+
+class SquareClock2Component(DraggableContainer):
+    """方形钟表II组件（SVG）"""
+
+    _object_name = "squareClock2Container"
+
+    _theme_dark = {
+        "face": "#000000",
+        "ink": "#ffffff",
+        "tick_old": "#333333",
+        "tick_new": "#999999",
+    }
+    _theme_light = {
+        "face": "#ffffff",
+        "ink": "#000000",
+        "tick_old": "#dddddd",
+        "tick_new": "#555555",
+    }
+
+    _HTML_TEMPLATE = Template('''<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; background: transparent; overflow: hidden; }
+  svg { width: 100%; height: 100%; display: block; }
+</style>
+</head>
+<body>
+<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+  <rect x="0" y="0" width="200" height="200" rx="$radius" ry="$radius" fill="$face"/>
+  <g id="ticks" stroke-width="2" stroke-linecap="round"></g>
+  <text id="timeText" x="100" y="100" text-anchor="middle" dominant-baseline="central"
+        fill="$ink" font-family="$font" font-weight="600" font-size="52" letter-spacing="-1">00:00</text>
+</svg>
+<script>
+  var svgNS = 'http://www.w3.org/2000/svg';
+  var ticksG = document.getElementById('ticks');
+  var timeText = document.getElementById('timeText');
+  var ticks = [];
+
+  for (var i = 0; i < 60; i++) {
+    var a = i * 6 * Math.PI / 180;
+    var dx = Math.sin(a), dy = -Math.cos(a);
+    var R = 90 / Math.max(Math.abs(dx), Math.abs(dy));
+    if ((i * 6) % 90 === 42 || (i * 6) % 90 === 48) R -= 5;
+    var l = document.createElementNS(svgNS, 'line');
+    l.setAttribute('x1', (100 + dx * R).toFixed(2));
+    l.setAttribute('y1', (100 + dy * R).toFixed(2));
+    l.setAttribute('x2', (100 + dx * (R - 8)).toFixed(2));
+    l.setAttribute('y2', (100 + dy * (R - 8)).toFixed(2));
+    ticksG.appendChild(l);
+    ticks.push(l);
+  }
+
+  var oldRGB = [parseInt('$tick_old'.substring(1, 3), 16), parseInt('$tick_old'.substring(3, 5), 16), parseInt('$tick_old'.substring(5, 7), 16)];
+  var newRGB = [parseInt('$tick_new'.substring(1, 3), 16), parseInt('$tick_new'.substring(3, 5), 16), parseInt('$tick_new'.substring(5, 7), 16)];
+  var GRAD_N = 35;
+
+  function tick() {
+    var now = new Date();
+    var s = now.getSeconds();
+    for (var i = 0; i < 60; i++) {
+      var age = (s - i + 60) % 60;
+      var c;
+      if (age <= GRAD_N) {
+        var t = Math.sqrt(age / GRAD_N);
+        c = 'rgb(' + Math.round(newRGB[0] + (oldRGB[0] - newRGB[0]) * t) + ','
+                   + Math.round(newRGB[1] + (oldRGB[1] - newRGB[1]) * t) + ','
+                   + Math.round(newRGB[2] + (oldRGB[2] - newRGB[2]) * t) + ')';
+      } else {
+        c = '$tick_old';
+      }
+      ticks[i].setAttribute('stroke', c);
+    }
+    var hh = String(now.getHours()).padStart(2, '0');
+    var mm = String(now.getMinutes()).padStart(2, '0');
+    timeText.textContent = hh + ':' + mm;
+  }
+  tick();
+  requestAnimationFrame(function loop() { tick(); requestAnimationFrame(loop); });
+</script>
+</body>
+</html>''')
+
+    def __init__(self, parent, component_data: dict):
+        super().__init__(parent, component_id=component_data["id"], layout_direction="vertical")
+        self.setObjectName(self._object_name)
+        self._home = parent
+        self._scale_factor = 1.0
+        self._setup_ui()
+
+    def _setup_ui(self):
+        self.webView = create_html_view(self)
+
+        layout = self.inner_layout
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+        layout.addWidget(self.webView)
+
+        self._set_natural_size(200, 200)
+        self.setMinimumSize(100, 100)
+        self._size_explicitly_set = True
+        self.resize(200, 200)
+        self._apply_style()
+
+    def _build_html(self) -> str:
+        theme = self._theme_dark if isDarkTheme() else self._theme_light
+        return self._HTML_TEMPLATE.substitute(font=FONT_FAMILY, radius=cfg.componentCardRadius.value, **theme)
+
+    def _render(self):
+        self.webView.setHtml(self._build_html())
+
+    def _apply_style(self):
+        # 表盘自绘
+        self.setStyleSheet(f"#{self._object_name} {{ background-color: transparent; border-radius: {cfg.componentCardRadius.value}px; }}")
         self._render()
 
     def apply_scale(self, factor):
@@ -9615,6 +9744,7 @@ class StickyNoteComponent(DraggableContainer):
 # 更新注册表
 COMPONENT_STYLES["clock"]["digital"]["class"] = DigitalClockComponent
 COMPONENT_STYLES["clock"]["square_1"]["class"] = SquareClock1Component
+COMPONENT_STYLES["clock"]["square_2"]["class"] = SquareClock2Component
 COMPONENT_STYLES["clock"]["calendar_mini"]["class"] = MiniCalendarComponent
 COMPONENT_STYLES["weather"]["icon_temp"]["class"] = WeatherIconTempComponent
 COMPONENT_STYLES["weather"]["hourly"]["class"] = WeatherHourlyComponent

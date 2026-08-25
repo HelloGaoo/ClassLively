@@ -399,6 +399,18 @@ BUILTIN_COMPONENT_DEFINITIONS = [
         default_config={},
     ),
     ComponentDefinition(
+        id="clock_square_2",
+        display_name="方形钟表II",
+        category="Clock",
+        icon="Clock",
+        min_width_cells=2,
+        min_height_cells=2,
+        default_width_cells=2,
+        default_height_cells=2,
+        resize_mode=ResizeMode.FREE,
+        default_config={},
+    ),
+    ComponentDefinition(
         id="clock_calendar_month",
         display_name="月历",
         category="Clock",

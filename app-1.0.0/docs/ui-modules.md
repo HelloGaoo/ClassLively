@@ -1,7 +1,7 @@
 # UI 模块（ui/）
 
 > \[!NOTE]
-> 编写者：HelloGaoo　最后修改：2026/08/23
+> 编写者：HelloGaoo　最后修改：2026/08/25
 
 `ui/` 是基于 PyQt6 Fluent Widgets 的界面层。所有界面通过 `MainWindow.addSubInterface()` 注册到 FluentWindow 导航。每个界面通过 `load_qss()` 加载对应主题 QSS，并实现 `_onThemeChanged` 响应主题切换。
 
@@ -90,6 +90,7 @@ NavigationPage 提示文字颜色随主题：深色 `rgba(230,230,230,0.95)`，�
 | -------- | ------------------------------------------------------- | -------------------------------------------------------------- |
 | Clock    | `DigitalClockComponent`                                 | 数字时钟（秒/农历）                                                     |
 | Clock    | `SquareClock1Component`                                 | 方形钟表I（SVG）                                                     |
+| Clock    | `SquareClock2Component`                                 | 方形钟表II（SVG）                                        |
 | Clock    | `CalendarMonthComponent`                                | 月历（`_DayCell`）                                                 |
 | Clock    | `MiniCalendarComponent`                                 | 简约月历（HTML）                                            |
 | Clock    | `CountdownEventComponent`                               | 事件倒计时                                                          |
@@ -139,13 +140,15 @@ NavigationPage 提示文字颜色随主题：深色 `rgba(230,230,230,0.95)`，�
 | `DailySentenceComponent` | HTML + CSS | 每日英语 |
 | `DailyWordComponent`     | HTML + CSS | 每日单词 |
 | `SquareClock1Component`  | SVG        | 方形钟表I |
+| `SquareClock2Component`  | SVG        | 方形钟表II |
 | `MiniCalendarComponent`  | HTML + CSS | 简约月历 |
 
 **需知**：
 
 - 视图由 `create_html_view()` 创建；QtWebEngineWidgets 必须在 QApplication 创建前于入口导入。
 - 字体 `FONT_FAMILY`（`core/constants.py`），引号 / 水印字母 / 等宽日期等保留衬线 / 等宽字体。
-- 方形钟表I走时由页面内 `requestAnimationFrame` 循环驱动。
+- 方形钟表I/II走时由页面内 `requestAnimationFrame` 循环驱动。
+- 方形钟表II：60秒刻度随时间往前 35 个已走过刻度按 sqrt 渐回浅色。
 
 ***
 
