@@ -6542,7 +6542,7 @@ class CalendarMonthComponent(DraggableContainer):
         # 标题
         self._title_label.setText(f"{MONTH_NAMES_CN[month-1]} {year}")
 
-        first_wd = cal.monthrange(year, month)[0]  # 0=Monday
+        first_wd = (cal.monthrange(year, month)[0] + 1) % 7  # 转为周日=0
         dim = cal.monthrange(year, month)[1]
 
         # 上月天数
