@@ -9,7 +9,7 @@
 
 ## 1. paths.py — 路径推导
 
-[源码](https://github.com/HelloGaoo/Glimpseon/blob/main/core/paths.py)
+[源码](https://github.com/HelloGaoo/Glimpseon/blob/main/app-1.0.0/core/paths.py)
 
 **职责**：在启动时确定软件文件目录 适配编写态/编译态
 
@@ -36,7 +36,7 @@
 
 ## 2. constants.py — 常量与 QSS 加载
 
-[源码](https://github.com/HelloGaoo/Glimpseon/blob/main/core/constants.py)
+[源码](https://github.com/HelloGaoo/Glimpseon/blob/main/app-1.0.0/core/constants.py)
 
 **职责**：集中常量、QSS 加载与缓存。
 
@@ -68,7 +68,7 @@ def clear_qss_cache()
 
 ## 3. config.py — 配置管理
 
-[源码](https://github.com/HelloGaoo/Glimpseon/blob/main/core/config.py)
+[源码](https://github.com/HelloGaoo/Glimpseon/blob/main/app-1.0.0/core/config.py)
 
 **职责**：基于 qfluentwidgets `QConfig` 声明全部用户配置项。
 
@@ -173,7 +173,7 @@ for attr_name in dir(cfg):
 
 ## 5. utils.py — 工具函数
 
-[源码](https://github.com/HelloGaoo/Glimpseon/blob/main/core/utils.py)
+[源码](https://github.com/HelloGaoo/Glimpseon/blob/main/app-1.0.0/core/utils.py)
 
 **职责**：杂七杂八的函数。
 
