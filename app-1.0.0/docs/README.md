@@ -1,37 +1,33 @@
 # Glimpseon 1.0.0 开发者文档
 
-> [!NOTE]
-> 编写者：HelloGaoo　最后修改：2026/08/24
+> \[!NOTE]
+> 编写者：HelloGaoo　最后修改：2026/08/25
 
-Glimpseon 是一款基于 PyQt6 Fluent Widgets 的 Windows 桌面信息看板，集成壁纸管理、天气、一言、新闻、历史上的今天、每日单词、每日英语、数字/模拟时钟、媒体信息、课程表、通知、软件下载等功能。
+Glimpseon 是一款基于 PyQt6 Fluent Widgets 的 Windows 桌面组件信息看板。
 
-本目录是面向开发者 / 维护者的技术文档，按模块组织。建议按下列顺序阅读：
+本目录是面向开发者 / 维护者的技术文档。建议按下列顺序阅读：
 
 ## 文档索引
 
-| 文档                             | 内容                         |
-| ------------------------------ | -------------------------- |
-| [架构总览](architecture.md)        | 整体分层、模块职责、运行时数据流           |
-| [快速开始](getting-started.md)     | 环境要求、依赖安装、运行、打包            |
-| [目录结构](directory-structure.md) | 源码与资源目录详解                  |
-| [核心模块](core-modules.md)        | `core/` 下各模块实现细节           |
-| [UI 模块](ui-modules.md)         | `ui/` 下各界面实现细节             |
-| [服务模块](services.md)            | `services/` 下数据获取服务        |
-| [原生扩展](native-extension.md)    | `glimpseon_native/` C++ 扩展 |
-| [配置系统](configuration.md)       | `QConfig` 配置项全表与机制         |
-| [启动流程](launch-flow.md)         | 从启动器到主窗口的完整时序              |
-| [组件系统](component-system.md)    | 网格布局、组件定义与编辑模式             |
+| 文档                             | 内容                       |
+| ------------------------------ | ------------------------ |
+| [架构总览](architecture.md)        | 整体结构、模块职责                |
+| [快速开始](getting-started.md)     | 环境配置、运行打包                |
+| [目录结构](directory-structure.md) | 源码与资源目录详解                |
+| [核心模块](core-modules.md)        | `core/` 下各模块实现           |
+| [UI 模块](ui-modules.md)         | `ui/` 下各界面实现             |
+| [服务模块](services.md)            | `services/` 下数据获取服务      |
+| [原生扩展](native-extension.md)    | `glimpseon_native/` C++  |
+| [配置系统](configuration.md)       | `QConfig` 配置项全表与机制       |
+| [启动流程](launch-flow.md)         | 从启动器到主窗口的完整时序            |
+| [组件系统](component-system.md)    | 网格布局、组件定义与编辑模式           |
 
-## 项目关注
-
-- **UI 组件库**：PyQt6 Fluent Widgets
-- **字体**：HarmonyOS Sans（回退 Microsoft YaHei → PingFang SC → Segoe UI → sans-serif）
-- **许可证**：GPL-3.0
+<br />
 
 ## 项目入口
 
-- 顶层启动器：[Glimpseon.py](file:///e:/260523/py/Glimpseon/Glimpseon.py)
-- 主程序：[GlimpseonMain.py](file:///e:/260523/py/Glimpseon/app-1.0.0/GlimpseonMain.py)
+- 顶层启动器：[Glimpseon.py](https://github.com/HelloGaoo/Glimpseon/blob/main/Glimpseon.py)
+- 主程序：[GlimpseonMain.py](https://github.com/HelloGaoo/Glimpseon/blob/main/app-1.0.0/GlimpseonMain.py)
 
 ## 版本
 
@@ -39,7 +35,7 @@ Glimpseon 是一款基于 PyQt6 Fluent Widgets 的 Windows 桌面信息看板，
 
 ## 鸣谢
 
-本项目开发者对所有开源项目及其代码贡献者表示感谢。完整名单见 [`resource/credits.json`](file:///e:/260523/py/Glimpseon/app-1.0.0/resource/credits.json)。
+本项目开发者对所有开源项目及其代码贡献者表示感谢。完整名单见 [`resource/credits.json`](https://github.com/HelloGaoo/Glimpseon/blob/main/app-1.0.0/resource/credits.json)。
 
 （可能出现纰漏，以实际为准）
 
@@ -120,6 +116,6 @@ Glimpseon 是一款基于 PyQt6 Fluent Widgets 的 Windows 桌面信息看板，
 | [`rgommers/backports.zstd`](https://github.com/rgommers/backports.zstd)                                         | BSD / GPLv2+              | Zstandard 压缩                      |
 | [`pypa/packaging`](https://github.com/pypa/packaging)                                                           | Apache-2.0 / BSD          | 打包工具                              |
 
-> [!NOTE]
+> \[!NOTE]
 > 以上许可证信息仅为摘要，各组件的具体权利义务以其随附的许可证文本为准。各组件的商标与名称归其各自所有者所有，本软件不主张对任何第三方组件的所有权。
 

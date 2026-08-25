@@ -3,7 +3,7 @@
 > [!NOTE]
 > 编写者：HelloGaoo　最后修改：2026/08/14
 
-[源码](file:///e:/260523/py/Glimpseon/app-1.0.0/core/config.py)
+[源码](https://github.com/HelloGaoo/Glimpseon/blob/main/app-1.0.0/core/config.py)
 
 Glimpseon 使用 qfluentwidgets 的 `QConfig` 体系。所有配置项以类属性形式声明在 `Config(QConfig)` 中，存储于 `data/config/config.json`。
 

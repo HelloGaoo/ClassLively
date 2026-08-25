@@ -42,46 +42,46 @@ app-1.0.0/
 
 | 文件                                                                               | 职责                                                             |
 | -------------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| [paths.py](file:///e:/260523/py/Glimpseon/app-1.0.0/core/paths.py)               | 路径推导（PackageRoot/AppDir/MEIPASS/DATA\_\*）+ `get_resource_path` |
-| [constants.py](file:///e:/260523/py/Glimpseon/app-1.0.0/core/constants.py)       | 全局常量、QSS 加载与缓存、资源路径别名                                          |
-| [config.py](file:///e:/260523/py/Glimpseon/app-1.0.0/core/config.py)             | `QConfig` 子类 `Config`，全部配置项 + 自动保存                             |
-| [logger.py](file:///e:/260523/py/Glimpseon/app-1.0.0/core/logger.py)             | `CustomLogger`、系统上下文、堆栈链、文件轮转、异常钩子                             |
-| [utils.py](file:///e:/260523/py/Glimpseon/app-1.0.0/core/utils.py)               | 单实例、字体、缓存、自启、NTP、翻译、`FUI` 图标枚举                                 |
-| [component.py](file:///e:/260523/py/Glimpseon/app-1.0.0/core/component.py)       | 组件定义、网格布局、页面管理、注册表                                             |
-| [notification.py](file:///e:/260523/py/Glimpseon/app-1.0.0/core/notification.py) | 通知管理器 + 滚动/角落/全屏弹窗 + TTS                                       |
-| [downloader.py](file:///e:/260523/py/Glimpseon/app-1.0.0/core/downloader.py)     | 多源下载、7z 解压、静默安装、优先级控制                                          |
-| [linkage.py](file:///e:/260523/py/Glimpseon/app-1.0.0/core/linkage.py)           | ClassIsland / ClassWidgets 联动                                  |
-| [timetable.py](file:///e:/260523/py/Glimpseon/app-1.0.0/core/timetable.py)       | 课表配置类与读写                                                       |
-| [updater.py](file:///e:/260523/py/Glimpseon/app-1.0.0/core/updater.py)           | GitHub 更新检查 / 下载 / 部署                                          |
-| [record.py](file:///e:/260523/py/Glimpseon/app-1.0.0/core/record.py)             | `record.json` 版本记录管理                                           |
+| [paths.py](https://github.com/HelloGaoo/Glimpseon/blob/main/app-1.0.0/core/paths.py)               | 路径推导（PackageRoot/AppDir/MEIPASS/DATA\_\*）+ `get_resource_path` |
+| [constants.py](https://github.com/HelloGaoo/Glimpseon/blob/main/app-1.0.0/core/constants.py)       | 全局常量、QSS 加载与缓存、资源路径别名                                          |
+| [config.py](https://github.com/HelloGaoo/Glimpseon/blob/main/app-1.0.0/core/config.py)             | `QConfig` 子类 `Config`，全部配置项 + 自动保存                             |
+| [logger.py](https://github.com/HelloGaoo/Glimpseon/blob/main/app-1.0.0/core/logger.py)             | `CustomLogger`、系统上下文、堆栈链、文件轮转、异常钩子                             |
+| [utils.py](https://github.com/HelloGaoo/Glimpseon/blob/main/app-1.0.0/core/utils.py)               | 单实例、字体、缓存、自启、NTP、翻译、`FUI` 图标枚举                                 |
+| [component.py](https://github.com/HelloGaoo/Glimpseon/blob/main/app-1.0.0/core/component.py)       | 组件定义、网格布局、页面管理、注册表                                             |
+| [notification.py](https://github.com/HelloGaoo/Glimpseon/blob/main/app-1.0.0/core/notification.py) | 通知管理器 + 滚动/角落/全屏弹窗 + TTS                                       |
+| [downloader.py](https://github.com/HelloGaoo/Glimpseon/blob/main/app-1.0.0/core/downloader.py)     | 多源下载、7z 解压、静默安装、优先级控制                                          |
+| [linkage.py](https://github.com/HelloGaoo/Glimpseon/blob/main/app-1.0.0/core/linkage.py)           | ClassIsland / ClassWidgets 联动                                  |
+| [timetable.py](https://github.com/HelloGaoo/Glimpseon/blob/main/app-1.0.0/core/timetable.py)       | 课表配置类与读写                                                       |
+| [updater.py](https://github.com/HelloGaoo/Glimpseon/blob/main/app-1.0.0/core/updater.py)           | GitHub 更新检查 / 下载 / 部署                                          |
+| [record.py](https://github.com/HelloGaoo/Glimpseon/blob/main/app-1.0.0/core/record.py)             | `record.json` 版本记录管理                                           |
 
 ## 4. `ui/` 界面模块
 
 | 文件                                                                                                                                | 主要类                                                     |
 | --------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
-| [home.py](file:///e:/260523/py/Glimpseon/app-1.0.0/ui/home.py)                                                                    | `HomeInterface` 主界面（壁纸背景 + 时钟/天气/一言/倒计时/媒体/快捷启动/学校信息组件） |
-| [wallpaper.py](file:///e:/260523/py/Glimpseon/app-1.0.0/ui/wallpaper.py)                                                          | `WallpaperInterface` 壁纸管理（获取/保存/设桌面/历史/自动同步）            |
-| [notification.py](file:///e:/260523/py/Glimpseon/app-1.0.0/ui/notification.py)                                                    | `NotificationPage` 通知编辑/预览/队列/定时                        |
-| [timetable.py](file:///e:/260523/py/Glimpseon/app-1.0.0/ui/timetable.py)                                                          | `TimetablePage` 课程表编辑                                   |
-| [download.py](file:///e:/260523/py/Glimpseon/app-1.0.0/ui/download.py)                                                            | `DownloadInterface` 软件下载中心                              |
-| [settings.py](file:///e:/260523/py/Glimpseon/app-1.0.0/ui/settings.py)                                                            | `SettingsWindow` 多分组设置                                  |
-| [about.py](file:///e:/260523/py/Glimpseon/app-1.0.0/ui/about.py)                                                                  | `AboutInterface` 关于/更新检查/鸣谢                             |
-| [debug.py](file:///e:/260523/py/Glimpseon/app-1.0.0/ui/debug.py)                                                                  | `DebugPanel` 调试面板                                       |
-| [component.py](file:///e:/260523/py/Glimpseon/app-1.0.0/ui/component.py)                                                          | 组件编辑窗口 / 组件库 / 选择框                                      |
-| [common.py](file:///e:/260523/py/Glimpseon/app-1.0.0/ui/common.py)                                                                | UI 公共工具（文本查看器等）                                         |
-| __[init](file:///e:/260523/py/Glimpseon/app-1.0.0/ui/__init__.py)__[.py](file:///e:/260523/py/Glimpseon/app-1.0.0/ui/__init__.py) | 统一导出各界面                                                 |
+| [home.py](https://github.com/HelloGaoo/Glimpseon/blob/main/app-1.0.0/ui/home.py)                                                                    | `HomeInterface` 主界面（壁纸背景 + 时钟/天气/一言/倒计时/媒体/快捷启动/学校信息组件） |
+| [wallpaper.py](https://github.com/HelloGaoo/Glimpseon/blob/main/app-1.0.0/ui/wallpaper.py)                                                          | `WallpaperInterface` 壁纸管理（获取/保存/设桌面/历史/自动同步）            |
+| [notification.py](https://github.com/HelloGaoo/Glimpseon/blob/main/app-1.0.0/ui/notification.py)                                                    | `NotificationPage` 通知编辑/预览/队列/定时                        |
+| [timetable.py](https://github.com/HelloGaoo/Glimpseon/blob/main/app-1.0.0/ui/timetable.py)                                                          | `TimetablePage` 课程表编辑                                   |
+| [download.py](https://github.com/HelloGaoo/Glimpseon/blob/main/app-1.0.0/ui/download.py)                                                            | `DownloadInterface` 软件下载中心                              |
+| [settings.py](https://github.com/HelloGaoo/Glimpseon/blob/main/app-1.0.0/ui/settings.py)                                                            | `SettingsWindow` 多分组设置                                  |
+| [about.py](https://github.com/HelloGaoo/Glimpseon/blob/main/app-1.0.0/ui/about.py)                                                                  | `AboutInterface` 关于/更新检查/鸣谢                             |
+| [debug.py](https://github.com/HelloGaoo/Glimpseon/blob/main/app-1.0.0/ui/debug.py)                                                                  | `DebugPanel` 调试面板                                       |
+| [component.py](https://github.com/HelloGaoo/Glimpseon/blob/main/app-1.0.0/ui/component.py)                                                          | 组件编辑窗口 / 组件库 / 选择框                                      |
+| [common.py](https://github.com/HelloGaoo/Glimpseon/blob/main/app-1.0.0/ui/common.py)                                                                | UI 公共工具（文本查看器等）                                         |
+| __[init](https://github.com/HelloGaoo/Glimpseon/blob/main/app-1.0.0/ui/__init__.py)__[.py](https://github.com/HelloGaoo/Glimpseon/blob/main/app-1.0.0/ui/__init__.py) | 统一导出各界面                                                 |
 
 ## 5. `services/` 数据服务
 
 | 文件                                                                         | 服务                                                  |
 | -------------------------------------------------------------------------- | --------------------------------------------------- |
-| [weather.py](file:///e:/260523/py/Glimpseon/app-1.0.0/services/weather.py) | 天气（含 `RegionDatabase` 城市库 + `RegionSelectorDialog`） |
-| [poetry.py](file:///e:/260523/py/Glimpseon/app-1.0.0/services/poetry.py)   | 一言 / 诗句                                             |
-| [news.py](file:///e:/260523/py/Glimpseon/app-1.0.0/services/news.py)       | 央视 / 百度 / 微博 / 头条 / 腾讯新闻                            |
-| [history.py](file:///e:/260523/py/Glimpseon/app-1.0.0/services/history.py) | 历史上的今天                                             |
-| [word.py](file:///e:/260523/py/Glimpseon/app-1.0.0/services/word.py)       | 每日单词                                               |
-| [sentence.py](file:///e:/260523/py/Glimpseon/app-1.0.0/services/sentence.py) | 每日英语                                               |
-| [media.py](file:///e:/260523/py/Glimpseon/app-1.0.0/services/media.py)     | 媒体信息（多播放器兼容、歌词、封面）                                  |
+| [weather.py](https://github.com/HelloGaoo/Glimpseon/blob/main/app-1.0.0/services/weather.py) | 天气（含 `RegionDatabase` 城市库 + `RegionSelectorDialog`） |
+| [poetry.py](https://github.com/HelloGaoo/Glimpseon/blob/main/app-1.0.0/services/poetry.py)   | 一言 / 诗句                                             |
+| [news.py](https://github.com/HelloGaoo/Glimpseon/blob/main/app-1.0.0/services/news.py)       | 央视 / 百度 / 微博 / 头条 / 腾讯新闻                            |
+| [history.py](https://github.com/HelloGaoo/Glimpseon/blob/main/app-1.0.0/services/history.py) | 历史上的今天                                             |
+| [word.py](https://github.com/HelloGaoo/Glimpseon/blob/main/app-1.0.0/services/word.py)       | 每日单词                                               |
+| [sentence.py](https://github.com/HelloGaoo/Glimpseon/blob/main/app-1.0.0/services/sentence.py) | 每日英语                                               |
+| [media.py](https://github.com/HelloGaoo/Glimpseon/blob/main/app-1.0.0/services/media.py)     | 媒体信息（多播放器兼容、歌词、封面）                                  |
 
 ## 6. `resource/` 静态资源
 
@@ -138,7 +138,7 @@ glimpseon_native/
 
 ## 9. 运行期数据目录 `data/`
 
-由 [core/paths.py](file:///e:/260523/py/Glimpseon/app-1.0.0/core/paths.py) 的 `ensure_data_dirs()` 创建，位于 `PACKAGE_ROOT/data/`。子目录见 [架构总览 - 数据目录](architecture.md#7-数据目录)。
+由 [core/paths.py](https://github.com/HelloGaoo/Glimpseon/blob/main/app-1.0.0/core/paths.py) 的 `ensure_data_dirs()` 创建，位于 `PACKAGE_ROOT/data/`。子目录见 [架构总览 - 数据目录](architecture.md#7-数据目录)。
 
 ## 10. 命名约定
 

@@ -12,7 +12,7 @@
 
 ## 1. common.py — 公共基类
 
-[源码](file:///e:/260523/py/Glimpseon/app-1.0.0/ui/common.py)
+[源码](https://github.com/HelloGaoo/Glimpseon/blob/main/app-1.0.0/ui/common.py)
 
 - `BaseScrollAreaInterface(ScrollArea)`：滚动界面基类，统一滚动条与边距。
 - `show_text_file(title, ...)`：以对话框形式展示文本文件（协议 / 许可证）。
@@ -22,7 +22,7 @@
 
 ## 2. home.py — 主界面
 
-[源码](file:///e:/260523/py/Glimpseon/app-1.0.0/ui/home.py) · QSS：`home.qss`
+[源码](https://github.com/HelloGaoo/Glimpseon/blob/main/app-1.0.0/ui/home.py) · QSS：`home.qss`
 
 ### 2.1 HomeInterface
 
@@ -61,7 +61,7 @@ NavigationPage 提示文字颜色随主题：深色 `rgba(230,230,230,0.95)`，�
 
 ## 3. component.py — 组件实现库
 
-[源码](file:///e:/260523/py/Glimpseon/app-1.0.0/ui/component.py) · QSS：`component.qss` / `home.qss`
+[源码](https://github.com/HelloGaoo/Glimpseon/blob/main/app-1.0.0/ui/component.py) · QSS：`component.qss` / `home.qss`
 
 ### 3.1 核心基类与管理
 
@@ -154,7 +154,7 @@ NavigationPage 提示文字颜色随主题：深色 `rgba(230,230,230,0.95)`，�
 
 ## 4. wallpaper.py — 壁纸管理
 
-[源码](file:///e:/260523/py/Glimpseon/app-1.0.0/ui/wallpaper.py) · QSS：`wallpaper.qss`
+[源码](https://github.com/HelloGaoo/Glimpseon/blob/main/app-1.0.0/ui/wallpaper.py) · QSS：`wallpaper.qss`
 
 ### 4.1 主要类
 
@@ -182,7 +182,7 @@ NavigationPage 提示文字颜色随主题：深色 `rgba(230,230,230,0.95)`，�
 
 ## 5. notification.py — 通知管理
 
-[源码](file:///e:/260523/py/Glimpseon/app-1.0.0/ui/notification.py) · QSS：`notification.qss`
+[源码](https://github.com/HelloGaoo/Glimpseon/blob/main/app-1.0.0/ui/notification.py) · QSS：`notification.qss`
 
 | 类                                                  | 作用              |
 | -------------------------------------------------- | --------------- |
@@ -196,7 +196,7 @@ NavigationPage 提示文字颜色随主题：深色 `rgba(230,230,230,0.95)`，�
 
 ## 6. timetable.py — 课程表
 
-[源码](file:///e:/260523/py/Glimpseon/app-1.0.0/ui/timetable.py) · QSS：`timetable.qss`
+[源码](https://github.com/HelloGaoo/Glimpseon/blob/main/app-1.0.0/ui/timetable.py) · QSS：`timetable.qss`
 
 `TimetablePage(ScrollArea, TranslatableWidget)`：课程表编辑、时间安排、课程管理。配合 `core/timetable.py` 与 `core/linkage.py`。
 
@@ -204,7 +204,7 @@ NavigationPage 提示文字颜色随主题：深色 `rgba(230,230,230,0.95)`，�
 
 ## 7. download.py — 软件下载中心
 
-[源码](file:///e:/260523/py/Glimpseon/app-1.0.0/ui/download.py) · QSS：`download.qss`
+[源码](https://github.com/HelloGaoo/Glimpseon/blob/main/app-1.0.0/ui/download.py) · QSS：`download.qss`
 
 `DownloadInterface(BaseScrollAreaInterface, TranslatableWidget)`：
 
@@ -219,7 +219,7 @@ NavigationPage 提示文字颜色随主题：深色 `rgba(230,230,230,0.95)`，�
 
 ## 8. settings.py — 设置窗口
 
-[源码](file:///e:/260523/py/Glimpseon/app-1.0.0/ui/settings.py) · QSS：`setting.qss`
+[源码](https://github.com/HelloGaoo/Glimpseon/blob/main/app-1.0.0/ui/settings.py) · QSS：`setting.qss`
 
 ### 8.1 自定义设置卡片
 
@@ -252,7 +252,7 @@ NavigationPage 提示文字颜色随主题：深色 `rgba(230,230,230,0.95)`，�
 
 ## 9. about.py — 关于
 
-[源码](file:///e:/260523/py/Glimpseon/app-1.0.0/ui/about.py) · QSS：`about.qss`
+[源码](https://github.com/HelloGaoo/Glimpseon/blob/main/app-1.0.0/ui/about.py) · QSS：`about.qss`
 
 - `AboutInterface(ScrollArea, TranslatableWidget)`：版本信息、链接卡片、更新检查（`checkUpdateAuto`）、鸣谢。
 - `_TechDialog(MessageBoxBase)`：依赖库与许可证弹窗（数据来自 `resource/credits.json`）。
@@ -261,7 +261,7 @@ NavigationPage 提示文字颜色随主题：深色 `rgba(230,230,230,0.95)`，�
 
 ## 10. debug.py — 调试面板
 
-[源码](file:///e:/260523/py/Glimpseon/app-1.0.0/ui/debug.py) · QSS：`debug.qss`
+[源码](https://github.com/HelloGaoo/Glimpseon/blob/main/app-1.0.0/ui/debug.py) · QSS：`debug.qss`
 
 `DebugPanel(BaseScrollAreaInterface, TranslatableWidget)`：系统监控、快捷操作、网络诊断、API 测试。仅在 `debugMode` 为真时显示于导航底部，`F12` 快速跳转。`_updateTheme` 响应主题。
 

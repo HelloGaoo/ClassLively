@@ -9,7 +9,7 @@
 
 ## 1. paths.py — 路径推导
 
-[源码](file:///e:/260523/py/Glimpseon/app-1.0.0/core/paths.py)
+[源码](https://github.com/HelloGaoo/Glimpseon/blob/main/core/paths.py)
 
 **职责**：在启动时确定软件文件目录 适配编写态/编译态
 
@@ -36,7 +36,7 @@
 
 ## 2. constants.py — 常量与 QSS 加载
 
-[源码](file:///e:/260523/py/Glimpseon/app-1.0.0/core/constants.py)
+[源码](https://github.com/HelloGaoo/Glimpseon/blob/main/core/constants.py)
 
 **职责**：集中常量、QSS 加载与缓存。
 
@@ -68,7 +68,7 @@ def clear_qss_cache()
 
 ## 3. config.py — 配置管理
 
-[源码](file:///e:/260523/py/Glimpseon/app-1.0.0/core/config.py)
+[源码](https://github.com/HelloGaoo/Glimpseon/blob/main/core/config.py)
 
 **职责**：基于 qfluentwidgets `QConfig` 声明全部用户配置项。
 
@@ -126,7 +126,7 @@ for attr_name in dir(cfg):
 
 ## 4. logger.py — 日志系统
 
-[源码](file:///e:/260523/py/Glimpseon/app-1.0.0/core/logger.py)
+[源码](https://github.com/HelloGaoo/Glimpseon/blob/main/app-1.0.0/core/logger.py)
 
 **职责**：日志器
 
@@ -173,7 +173,7 @@ for attr_name in dir(cfg):
 
 ## 5. utils.py — 工具函数
 
-[源码](file:///e:/260523/py/Glimpseon/app-1.0.0/core/utils.py)
+[源码](https://github.com/HelloGaoo/Glimpseon/blob/main/core/utils.py)
 
 **职责**：杂七杂八的函数。
 
@@ -232,7 +232,7 @@ for attr_name in dir(cfg):
 
 ## 6. component.py — 组件系统
 
-[源码](file:///e:/260523/py/Glimpseon/app-1.0.0/core/component.py)
+[源码](https://github.com/HelloGaoo/Glimpseon/blob/main/app-1.0.0/core/component.py)
 
 **职责**：组件定义、网格布局计算、注册表、页面管理。详见 [组件系统](component-system.md)。
 
@@ -258,7 +258,7 @@ for attr_name in dir(cfg):
 
 ## 7. notification.py — 通知系统
 
-[源码](file:///e:/260523/py/Glimpseon/app-1.0.0/core/notification.py)
+[源码](https://github.com/HelloGaoo/Glimpseon/blob/main/app-1.0.0/core/notification.py)
 
 **职责**：多种通知弹窗 + 队列管理 + TTS/音频。
 
@@ -283,7 +283,7 @@ for attr_name in dir(cfg):
 
 ## 8. downloader.py — 文件下载
 
-[源码](file:///e:/260523/py/Glimpseon/app-1.0.0/core/downloader.py)
+[源码](https://github.com/HelloGaoo/Glimpseon/blob/main/app-1.0.0/core/downloader.py)
 
 **职责**：多源下载、7z/zip 解压、静默安装、进程优先级控制。
 
@@ -303,7 +303,7 @@ for attr_name in dir(cfg):
 
 ## 9. linkage.py — 外部联动
 
-[源码](file:///e:/260523/py/Glimpseon/app-1.0.0/core/linkage.py)
+[源码](https://github.com/HelloGaoo/Glimpseon/blob/main/app-1.0.0/core/linkage.py)
 
 **职责**：与 ClassIsland / ClassWidgets 集成，同步课表与课程时间状态。
 
@@ -323,7 +323,7 @@ for attr_name in dir(cfg):
 
 ## 10. timetable.py — 课表配置
 
-[源码](file:///e:/260523/py/Glimpseon/app-1.0.0/core/timetable.py)
+[源码](https://github.com/HelloGaoo/Glimpseon/blob/main/app-1.0.0/core/timetable.py)
 
 - `TimetableProfile`：课表配置类。
 - 函数：`get_profile_path(name)`、`list_profiles()`、`next_profile_name()`、`ensure_default_profile()`、`rename_profile(old, new)`、`delete_profile(name)`。
@@ -333,7 +333,7 @@ for attr_name in dir(cfg):
 
 ## 11. updater.py — 软件更新
 
-[源码](file:///e:/260523/py/Glimpseon/app-1.0.0/core/updater.py)
+[源码](https://github.com/HelloGaoo/Glimpseon/blob/main/app-1.0.0/core/updater.py)
 
 **职责**：基于 GitHub Releases 的检查 / 下载 / 部署 / 清理。
 
@@ -360,7 +360,7 @@ for attr_name in dir(cfg):
 
 ## 12. record.py — 版本记录
 
-[源码](file:///e:/260523/py/Glimpseon/app-1.0.0/core/record.py)
+[源码](https://github.com/HelloGaoo/Glimpseon/blob/main/app-1.0.0/core/record.py)
 
 **职责**：管理各 `app-*` 目录的 `record.json`。
 

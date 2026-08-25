@@ -34,7 +34,7 @@ pyclipper==1.4.0
 pycryptodomex==3.23.0
 pyinstaller==6.20.0
 pyinstaller-hooks-contrib==2026.5
-Pymem @ file:///E:/User/Downloads/pymem-1.14.0-py3-none-any.whl#sha256=2b9cc64b49d0685f73d616ab1f638611f87e8d649869e7a556f050f677c42a7e
+Pymem @ https://github.com/HelloGaoo/Glimpseon/blob/main/pymem-1.14.0-py3-none-any.whl
 pyppmd==1.3.1
 PyQt6==6.11.0
 PyQt6-Fluent-Widgets==1.11.2

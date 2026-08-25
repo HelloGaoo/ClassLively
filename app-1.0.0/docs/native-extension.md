@@ -9,7 +9,7 @@
 
 ## 1. 构建
 
-[CMakeLists.txt](file:///e:/260523/py/Glimpseon/app-1.0.0/glimpseon_native/CMakeLists.txt)
+[CMakeLists.txt](https://github.com/HelloGaoo/Glimpseon/blob/main/app-1.0.0/glimpseon_native/CMakeLists.txt)
 
 ```cmake
 cmake_minimum_required(VERSION 3.15)
@@ -50,7 +50,7 @@ cmake --build build --config Release
 
 ## 2. 模块注册（wallpaper.cpp）
 
-[wallpaper.cpp](file:///e:/260523/py/Glimpseon/app-1.0.0/glimpseon_native/src/wallpaper.cpp) 的 `PYBIND11_MODULE(Glimpseon_native, m)` 统一注册全部导出函数。Python 侧可见 API：
+[wallpaper.cpp](https://github.com/HelloGaoo/Glimpseon/blob/main/app-1.0.0/glimpseon_native/src/wallpaper.cpp) 的 `PYBIND11_MODULE(Glimpseon_native, m)` 统一注册全部导出函数。Python 侧可见 API：
 
 | 函数                          | 签名                                                       | 说明            |
 | --------------------------- | -------------------------------------------------------- | ------------- |
@@ -87,7 +87,7 @@ bool set_wallpaper(const std::string& path) {
 
 ## 4. image.cpp — Direct2D 高斯模糊
 
-[image.cpp](file:///e:/260523/py/Glimpseon/app-1.0.0/glimpseon_native/src/image.cpp)
+[image.cpp](https://github.com/HelloGaoo/Glimpseon/blob/main/app-1.0.0/glimpseon_native/src/image.cpp)
 
 ### 4.1 管线
 
@@ -124,7 +124,7 @@ bool set_wallpaper(const std::string& path) {
 
 ## 5. hook.cpp — 全局输入钩子
 
-[hook.cpp](file:///e:/260523/py/Glimpseon/app-1.0.0/glimpseon_native/src/hook.cpp)
+[hook.cpp](https://github.com/HelloGaoo/Glimpseon/blob/main/app-1.0.0/glimpseon_native/src/hook.cpp)
 
 ### 5.1 用途
 
@@ -145,7 +145,7 @@ bool set_wallpaper(const std::string& path) {
 
 ## 6. sys.cpp — 系统工具
 
-[sys.cpp](file:///e:/260523/py/Glimpseon/app-1.0.0/glimpseon_native/src/sys.cpp)
+[sys.cpp](https://github.com/HelloGaoo/Glimpseon/blob/main/app-1.0.0/glimpseon_native/src/sys.cpp)
 
 ### 6.1 空闲检测
 

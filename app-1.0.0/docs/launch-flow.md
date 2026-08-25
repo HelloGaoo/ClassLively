@@ -5,13 +5,13 @@
 
 本文档梳理从用户启动到主窗口就绪的完整时序，涵盖启动器、闪屏、向导、主窗口、预加载各阶段。
 
-[主程序源码](file:///e:/260523/py/Glimpseon/app-1.0.0/GlimpseonMain.py) · [启动器源码](file:///e:/260523/py/Glimpseon/Glimpseon.py)
+[主程序源码](https://github.com/HelloGaoo/Glimpseon/blob/main/app-1.0.0/GlimpseonMain.py) · [启动器源码](https://github.com/HelloGaoo/Glimpseon/blob/main/Glimpseon.py)
 
 ***
 
 ## 1. 阶段 0：启动器（Glimpseon.py）
 
-[启动器](file:///e:/260523/py/Glimpseon/Glimpseon.py) 负责版本选择与子进程拉起。
+[启动器](https://github.com/HelloGaoo/Glimpseon/blob/main/Glimpseon.py) 负责版本选择与子进程拉起。
 
 ```
 find_app()
@@ -35,15 +35,15 @@ find_app()
 
 导入期即执行的初始化（模块导入顺序敏感）：
 
-1. **路径推导**：[core/paths.py](file:///e:/260523/py/Glimpseon/app-1.0.0/core/paths.py) 读取环境变量，计算 `PACKAGE_ROOT` / `APP_DIR` / `DATA_*`，`ensure_data_dirs()` 建目录。
-2. **配置加载**：[core/config.py](file:///e:/260523/py/Glimpseon/app-1.0.0/core/config.py) `qconfig.load(CONFIG_PATH, cfg)`，连接所有 `valueChanged → save_cfg`。
-3. **日志器**：[core/logger.py](file:///e:/260523/py/Glimpseon/app-1.0.0/core/logger.py) 必须先 `logging.setLoggerClass(CustomLogger)` 再创建 `Glimpseon` logger，否则 `precise_time` / `caller_info` 字段缺失。
+1. **路径推导**：[core/paths.py](https://github.com/HelloGaoo/Glimpseon/blob/main/app-1.0.0/core/paths.py) 读取环境变量，计算 `PACKAGE_ROOT` / `APP_DIR` / `DATA_*`，`ensure_data_dirs()` 建目录。
+2. **配置加载**：[core/config.py](https://github.com/HelloGaoo/Glimpseon/blob/main/app-1.0.0/core/config.py) `qconfig.load(CONFIG_PATH, cfg)`，连接所有 `valueChanged → save_cfg`。
+3. **日志器**：[core/logger.py](https://github.com/HelloGaoo/Glimpseon/blob/main/app-1.0.0/core/logger.py) 必须先 `logging.setLoggerClass(CustomLogger)` 再创建 `Glimpseon` logger，否则 `precise_time` / `caller_info` 字段缺失。
 
 ***
 
 ## 3. 阶段 2：`__main__` 入口
 
-[GlimpseonMain.py L1645](file:///e:/260523/py/Glimpseon/app-1.0.0/GlimpseonMain.py) 起。
+[GlimpseonMain.py L1645](https://github.com/HelloGaoo/Glimpseon/blob/main/app-1.0.0/GlimpseonMain.py) 起。
 
 ### 3.1 QApplication 与线程池
 

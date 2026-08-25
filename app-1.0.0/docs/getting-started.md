@@ -37,7 +37,7 @@ pip install pymem-1.14.0-py3-none-any.whl
 pip install -r requirements.txt
 ```
 
-依赖清单见 [requirements.txt](file:///e:/260523/py/Glimpseon/requirements.txt)。关键依赖：
+依赖清单见 [requirements.txt](https://github.com/HelloGaoo/Glimpseon/blob/main/requirements.txt)。关键依赖：
 
 - `PyQt6`、`PyQt6-Fluent-Widgets`、`PyQt6-Frameless-Window`、`shiboken6`
 - `py7zr`、`requests`（下载/解压）
@@ -54,7 +54,7 @@ pip install -r requirements.txt
 python Glimpseon.py
 ```
 
-启动器（[Glimpseon.py](file:///e:/260523/py/Glimpseon/Glimpseon.py)）扫描所有 `app-*` 目录，读取每个 `record.json`，运行最适合的版本。
+启动器（[Glimpseon.py](https://github.com/HelloGaoo/Glimpseon/blob/main/Glimpseon.py)）扫描所有 `app-*` 目录，读取每个 `record.json`，运行最适合的版本。
 
 `record.json` 关键字段：
 
@@ -73,7 +73,7 @@ python GlimpseonMain.py
 ```
 
 > [!NOTE]
-> 直接运行时无环境变量，[core/paths.py](file:///e:/260523/py/Glimpseon/app-1.0.0/core/paths.py) 会回退为基于 `__file__` 推导 `PACKAGE_ROOT`（上三级，`paths.py` 位于 `app-*/core/`，三级父目录即包根）。
+> 直接运行时无环境变量，[core/paths.py](https://github.com/HelloGaoo/Glimpseon/blob/main/app-1.0.0/core/paths.py) 会回退为基于 `__file__` 推导 `PACKAGE_ROOT`（上三级，`paths.py` 位于 `app-*/core/`，三级父目录即包根）。
 
 ## 5. 首次运行
 

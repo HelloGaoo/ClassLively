@@ -1,11 +1,11 @@
 # 组件系统
 
-> [!NOTE]
+> \[!NOTE]
 > 编写者：HelloGaoo　最后修改：2026/08/25
 
 Glimpseon 定位是桌面信息看板，已编写了注册组件等函数，每个组件独立类，与主页面沟通能做到拖拽、删除、配置相关操作
 
-[核心定义](file:///e:/260523/py/Glimpseon/app-1.0.0/core/component.py) · [UI 实现](file:///e:/260523/py/Glimpseon/app-1.0.0/ui/component.py)
+[core](https://github.com/HelloGaoo/Glimpseon/blob/main/app-1.0.0/core/component.py) · [ui](https://github.com/HelloGaoo/Glimpseon/blob/main/app-1.0.0/ui/component.py)
 
 ***
 
@@ -31,8 +31,8 @@ class ResizeMode(Enum):
 | `display_name`                                 | str        | 显示名称   |
 | `category`                                     | str        | 分类     |
 | `icon`                                         | str        | 图标名    |
-| `min_width_cells` / `min_height_cells`         | int        | 最小格子数  |
-| `default_width_cells` / `default_height_cells` | int        | 默认格子数  |
+| `min_width_cells` / `min_height_cells`         | int        | 最小格子   |
+| `default_width_cells` / `default_height_cells` | int        | 默认格子   |
 | `resize_mode`                                  | ResizeMode | 调整模式   |
 | `component_class`                              | Type       | UI 实现类 |
 | `default_config`                               | dict       | 默认配置   |
@@ -145,7 +145,7 @@ class ComponentRegistry(QObject):
 
 ### 内置组件
 
-`BUILTIN_COMPONENT_DEFINITIONS` 预定义组件（数字时钟、月历等），仅用于组件库窗口展示卡片。注意：这些 `ComponentDefinition` 的 `component_class` 字段默认为 `None`，**不参与实例化**——实际创建 UI 走 [ui/component.py](file:///e:/260523/py/Glimpseon/app-1.0.0/ui/component.py) 的 `COMPONENT_STYLES`（见第 9 章）。
+`BUILTIN_COMPONENT_DEFINITIONS` 预定义组件（数字时钟、月历等），仅用于组件库窗口展示卡片。注意：这些 `ComponentDefinition` 的 `component_class` 字段默认为 `None`，**不参与实例化**——实际创建 UI 走 [ui/component.py](https://github.com/HelloGaoo/Glimpseon/blob/main/app-1.0.0/ui/component.py) 的 `COMPONENT_STYLES`（见第 9 章）。
 
 ***
 
@@ -155,8 +155,8 @@ class ComponentRegistry(QObject):
 
 ```
 QWidget
- └─ DraggableWidget                # 拖拽/缩放/选中/按钮 基类
-     └─ DraggableContainer         # 含配置存储的容器基类
+ └─ DraggableWidget 
+     └─ DraggableContainer
          ├─ DigitalClockComponent
          ├─ SquareClock1Component
         ├─ SquareClock2Component
@@ -191,7 +191,7 @@ QWidget
 ### 4.2 DraggableWidget 编辑能力
 
 - **选中框**：主题色（`_cached_primary_color`，默认 `#30c361`），2px 边框（alpha=200），距组件边 3px，圆角 8；外层 4 层同色发光（alpha=60，逐层 `widthF=i*2`），距边 4px。
-- **调整柄**：右下角圆弧柄（`arc_r=18`，drawArc `-30°~-90°`），外层 7px（alpha=220，`darker(150)`）+ 内层 4px（alpha=230）。非传统 8 点方形手柄。
+- **缩放柄**：右下角圆弧柄（`arc_r=18`，drawArc `-30°~-90°`），外层 7px（alpha=220，`darker(150)`）+ 内层 4px（alpha=230）。
 - **编辑/删除按钮**：48×48px，22px 图标，8px 间距；悬停色 编辑 `(0,120,212)` / 删除 `(220,80,80)`。
 - **按钮直接使用全局** **`componentCardOpacity`** **/** **`componentCardRadius`**，无值限制。
 - **移动事件触发按钮重定位。**
@@ -225,20 +225,20 @@ QWidget
 
 - 显示 `_GridOverlay` 网格背景。
 - 显示 `GuideLineOverlay` 参考线。
-- 组件显示选中框（主题色）、右下角圆弧调整柄、编辑/删除按钮。
+- 组件显示选中框（主题色）、缩放柄、编辑/删除按钮。
 
 ### 5.2 拖拽与缩放
 
 - 拖拽：`DraggableWidget` 处理鼠标事件，按 `ResizeMode` 限制方向。
 - 吸附：基于 `GridLayoutService` 的格子坐标对齐。
-- 碰撞：`check_collision` 阻止重叠放置。
-- 缩放：**整体等比缩放**——拖拽右下角圆弧柄时 `scale = max(scale_w, scale_h)` 等比缩放外框；内部所有视觉元素（字号/图标/图片/固定尺寸/边距/间距）跟随 `_scale_factor` 同步等比变化。
+- 碰撞：`check_collision` 重叠提醒。
+- 缩放：**整体等比缩放**——拖拽右下角圆弧柄时 `scale = max(scale_w, scale_h)` 等比缩放所有元素。
 
 #### 缩放机制（DraggableContainer）
 
 | 成员                    | 作用                                                                                                                          |
 | --------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| `_scale_factor`       | 当前缩放因子，由 `resizeEvent` 按 `当前尺寸 / natural_size` 的宽高最小值计算（`min(sw, sh)`），下限 0.3；始终跟随最新尺寸，变化 ≥0.02 时才要求重应用样式                   |
+| `_scale_factor`       | 当前缩放因子，由 `resizeEvent` 按 `当前尺寸 / natural_size` 的宽高最小值计算（`min(sw, sh)`），下限 0.3；变化 ≥0.02 时重应用样式                               |
 | `_scaled_px(base)`    | `max(1, int(base * _scale_factor))`，子类字号/图标/固定尺寸/圆角统一经它缩放                                                                   |
 | `apply_scale(factor)` | 子类按 factor 重应用样式；由基类在缩放变化时调用                                                                                                |
 | `_scale_layouts()`    | 遍历 `findChildren(QLayout)`，按 `_scale_factor` 等比缩放所有子布局的 `contentsMargins` 与 `spacing`；首次调用缓存基准值（`_layout_bases`），后续始终基于基准重算 |
@@ -574,8 +574,8 @@ self._timer.setInterval(500)   # 切到 500ms 快速间隔
 
 | 表                               | 位置                                                                                   | 作用                                                                     | 是否参与实例化                                                         |
 | ------------------------------- | ------------------------------------------------------------------------------------ | ---------------------------------------------------------------------- | --------------------------------------------------------------- |
-| `COMPONENT_STYLES`              | [ui/component.py L109](file:///e:/260523/py/Glimpseon/app-1.0.0/ui/component.py)     | `comp_type → comp_style → {name, class, default_config, default_size}` | **是**，`ComponentManager` 据此 `comp_class(parent, comp_data)` 实例化 |
-| `BUILTIN_COMPONENT_DEFINITIONS` | [core/component.py L376](file:///e:/260523/py/Glimpseon/app-1.0.0/core/component.py) | `ComponentDefinition` 列表（id/分类/格子数/resize\_mode）                       | 否，仅用于组件库窗口展示卡片                                                  |
+| `COMPONENT_STYLES`              | [ui/component.py L109](https://github.com/HelloGaoo/Glimpseon/blob/main/app-1.0.0/ui/component.py)     | `comp_type → comp_style → {name, class, default_config, default_size}` | **是**，`ComponentManager` 据此 `comp_class(parent, comp_data)` 实例化 |
+| `BUILTIN_COMPONENT_DEFINITIONS` | [core/component.py L376](https://github.com/HelloGaoo/Glimpseon/blob/main/app-1.0.0/core/component.py) | `ComponentDefinition` 列表（id/分类/格子数/resize\_mode）                       | 否，仅用于组件库窗口展示卡片                                                  |
 
 组件在 `home_layout.json` 中存储的是 `type` + `style`（如 `"type":"clock","style":"digital"`），而非 `ComponentDefinition.id`。`ComponentManager.load_components()` 通过 `COMPONENT_STYLES[type][style]["class"]` 取实现类。
 
@@ -602,7 +602,7 @@ self._timer.setInterval(500)   # 切到 500ms 快速间隔
 
 **步骤 1：注册到** **`COMPONENT_STYLES`**
 
-在 [ui/component.py L109](file:///e:/260523/py/Glimpseon/app-1.0.0/ui/component.py) 的 `COMPONENT_STYLES` 字典中新增条目。若是全新分类，加一个顶层键：
+在 [ui/component.py L109](https://github.com/HelloGaoo/Glimpseon/blob/main/app-1.0.0/ui/component.py) 的 `COMPONENT_STYLES` 字典中新增条目。若是全新分类，加一个顶层键：
 
 ```python
 "checkin": {
@@ -651,7 +651,7 @@ class CheckinComponent(DraggableContainer):
 
 **步骤 3：绑定 class**
 
-在文件末尾的绑定区（[ui/component.py L8548 附近](file:///e:/260523/py/Glimpseon/app-1.0.0/ui/component.py)）追加：
+在文件末尾的绑定区（[ui/component.py L8548 附近](https://github.com/HelloGaoo/Glimpseon/blob/main/app-1.0.0/ui/component.py)）追加：
 
 ```python
 COMPONENT_STYLES["checkin"]["default"]["class"] = CheckinComponent
@@ -662,7 +662,7 @@ COMPONENT_STYLES["checkin"]["default"]["class"] = CheckinComponent
 
 **步骤 4：（可选）加入组件库展示**
 
-若希望该组件出现在组件库窗口供用户添加，在 [core/component.py L376](file:///e:/260523/py/Glimpseon/app-1.0.0/core/component.py) 的 `BUILTIN_COMPONENT_DEFINITIONS` 追加 `ComponentDefinition`：
+若希望该组件出现在组件库窗口供用户添加，在 [core/component.py L376](https://github.com/HelloGaoo/Glimpseon/blob/main/app-1.0.0/core/component.py) 的 `BUILTIN_COMPONENT_DEFINITIONS` 追加 `ComponentDefinition`：
 
 ```python
 ComponentDefinition(
@@ -677,7 +677,7 @@ ComponentDefinition(
 ),
 ```
 
-`ComponentRegistry.register_batch(BUILTIN_COMPONENT_DEFINITIONS)`（[home.py L317](file:///e:/260523/py/Glimpseon/app-1.0.0/ui/home.py)）会在启动时注册，组件库窗口据此渲染卡片。
+`ComponentRegistry.register_batch(BUILTIN_COMPONENT_DEFINITIONS)`（[home.py L317](https://github.com/HelloGaoo/Glimpseon/blob/main/app-1.0.0/ui/home.py)）会在启动时注册，组件库窗口据此渲染卡片。
 
 **步骤 5：（可选）配置面板**
 

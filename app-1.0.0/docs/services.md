@@ -5,13 +5,13 @@
 
 `services/` 是数据获取层，从网络或系统获取外部数据。所有服务统一使用 `core.utils` 的文件缓存机制（`save_cache` / `get_cached_content`）减少请求。
 
-[包导出](file:///e:/260523/py/Glimpseon/app-1.0.0/services/__init__.py)：`from .media import *`、`PoetryService`、`WeatherService`、`NewsService`、`HistoryService`、`WordService`、`SentenceService`。
+[包导出](https://github.com/HelloGaoo/Glimpseon/blob/main/app-1.0.0/services/__init__.py)：`from .media import *`、`PoetryService`、`WeatherService`、`NewsService`、`HistoryService`、`WordService`、`SentenceService`。
 
 ***
 
 ## 1. weather.py — 天气服务
 
-[源码](file:///e:/260523/py/Glimpseon/app-1.0.0/services/weather.py)
+[源码](https://github.com/HelloGaoo/Glimpseon/blob/main/app-1.0.0/services/weather.py)
 
 ### 1.1 数据源
 
@@ -44,7 +44,7 @@
 
 ## 2. poetry.py — 一言服务
 
-[源码](file:///e:/260523/py/Glimpseon/app-1.0.0/services/poetry.py)
+[源码](https://github.com/HelloGaoo/Glimpseon/blob/main/app-1.0.0/services/poetry.py)
 
 ### 2.1 配置
 
@@ -63,7 +63,7 @@
 
 ## 3. news.py — 新闻服务
 
-[源码](file:///e:/260523/py/Glimpseon/app-1.0.0/services/news.py)
+[源码](https://github.com/HelloGaoo/Glimpseon/blob/main/app-1.0.0/services/news.py)
 
 ### 3.1 数据源
 
@@ -83,7 +83,7 @@
 
 ## 4. media.py — 媒体服务
 
-[源码](file:///e:/260523/py/Glimpseon/app-1.0.0/services/media.py)
+[源码](https://github.com/HelloGaoo/Glimpseon/blob/main/app-1.0.0/services/media.py)
 
 **职责**：从多个本地播放器获取正在播放的媒体信息（标题/艺术家/封面/进度/歌词）。
 
@@ -130,7 +130,7 @@
 
 ## 5. history.py — 历史上的今天服务
 
-[源码](file:///e:/260523/py/Glimpseon/app-1.0.0/services/history.py)
+[源码](https://github.com/HelloGaoo/Glimpseon/blob/main/app-1.0.0/services/history.py)
 
 ### 5.1 数据源
 
@@ -149,7 +149,7 @@
 
 ## 6. word.py — 每日单词服务
 
-[源码](file:///e:/260523/py/Glimpseon/app-1.0.0/services/word.py)
+[源码](https://github.com/HelloGaoo/Glimpseon/blob/main/app-1.0.0/services/word.py)
 
 ### 6.1 数据源
 
@@ -168,7 +168,7 @@
 
 ## 7. sentence.py — 每日英语服务
 
-[源码](file:///e:/260523/py/Glimpseon/app-1.0.0/services/sentence.py)
+[源码](https://github.com/HelloGaoo/Glimpseon/blob/main/app-1.0.0/services/sentence.py)
 
 ### 7.1 数据源
 
