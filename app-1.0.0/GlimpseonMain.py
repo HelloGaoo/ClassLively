@@ -1165,10 +1165,7 @@ class MainWindow(FluentWindow):
             self.switchTo(self.homeInterface)
 
     def _onDebugPanelThemeChanged(self):
-        """调试面板主题变更"""
-        clear_qss_cache()
-        setTheme(cfg.theme)
-        cfg.themeChanged.emit(cfg.theme)
+        """调试面板主题变更这里只刷新 主题不在这里清理再重载"""
         if hasattr(self, 'debugPanel') and self.debugPanel:
             self.debugPanel._updateTheme()
 
