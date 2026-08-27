@@ -1,7 +1,7 @@
 # UI 模块（ui/）
 
 > \[!NOTE]
-> 编写者：HelloGaoo　最后修改：2026/08/25
+> 编写者：HelloGaoo　最后修改：2026/08/27
 
 `ui/` 是基于 PyQt6 Fluent Widgets 的界面层。所有界面通过 `MainWindow.addSubInterface()` 注册到 FluentWindow 导航。每个界面通过 `load_qss()` 加载对应主题 QSS，并实现 `_onThemeChanged` 响应主题切换。
 
@@ -106,6 +106,7 @@ NavigationPage 提示文字颜色随主题：深色 `rgba(230,230,230,0.95)`，�
 | School   | `SchoolInfoComponent`                                   | 学校班级信息                                                         |
 | School   | `TimetablePreviewComponent`                             | 课表预览（`_TimetableRow`）                                          |
 | School   | `TimetableNowLessonComponent`                           | 当前课程                                                           |
+| School   | `TimetableTimelineComponent`                            | 课程时间轴（HTML）                                                   |
 | School   | `ClassAlbumHorizontal/VerticalComponent`                | 班级相册（继承 `ClassAlbumBaseComponent`）                             |
 | Media    | `MediaPlayerComponent`                                  | 媒体播放信息                                                         |
 | Launcher | `QuickLaunchDockComponent` / `QuickLaunchDock`          | 快捷启动栏                                                          |
@@ -142,6 +143,7 @@ NavigationPage 提示文字颜色随主题：深色 `rgba(230,230,230,0.95)`，�
 | `SquareClock1Component`  | SVG        | 方形钟表I |
 | `SquareClock2Component`  | SVG        | 方形钟表II |
 | `MiniCalendarComponent`  | HTML + CSS | 简约月历 |
+| `TimetableTimelineComponent` | HTML + CSS + JS | 课程时间轴 |
 
 **需知**：
 

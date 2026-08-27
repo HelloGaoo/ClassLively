@@ -257,6 +257,12 @@ COMPONENT_STYLES = {
             },
             "default_size": (400, 200),
         },
+        "timetable_timeline": {
+            "name": "课程时间轴",
+            "class": None,
+            "default_config": {},
+            "default_size": (400, 200),
+        },
     },
     "Math": {
         "calculator": {
@@ -5829,6 +5835,485 @@ class MiniCalendarComponent(DraggableContainer):
         self._apply_style()
 
 
+class TimetableTimelineComponent(DraggableContainer):
+    """课程时间轴组件（HTML）"""
+
+    _object_name = "timetableTimelineContainer"
+
+    _theme_light = {
+        "accent": "#30c361",
+        "accent2": "#7ce8a4",
+        "glow": "rgba(48, 195, 97, 0.30)",
+        "fill_tail": "rgba(48, 195, 97, 0.22)",
+        "track1": "#ededf1",
+        "track2": "#e2e2e8",
+        "ink_future": "#000000",
+        "ink_past": "#000000",
+        "sub": "#000000",
+        "name_bg": "#f5f5f7",
+        "name_bd": "#e9e9ee",
+        "dot_bg": "#ffffff",
+        "dot_bd": "#c6c6ce",
+        "dot_past": "rgba(48, 195, 97, 0.45)",
+        "break": "#00b7c3",
+        "break2": "#fbbf24",
+        "break_tail": "rgba(0, 183, 195, 0.25)",
+        "break_glow": "rgba(0, 183, 195, 0.38)",
+        "empty_ink": "#000000",
+    }
+    _theme_dark = {
+        "accent": "#30c361",
+        "accent2": "#5fd98c",
+        "glow": "rgba(48, 195, 97, 0.32)",
+        "fill_tail": "rgba(48, 195, 97, 0.18)",
+        "track1": "#3a3a41",
+        "track2": "#323238",
+        "ink_future": "#ffffff",
+        "ink_past": "#ffffff",
+        "sub": "#ffffff",
+        "name_bg": "rgba(255, 255, 255, 0.08)",
+        "name_bd": "rgba(255, 255, 255, 0.14)",
+        "dot_bg": "rgba(255, 255, 255, 0.05)",
+        "dot_bd": "#52525a",
+        "dot_past": "rgba(48, 195, 97, 0.42)",
+        "break": "#00b7c3",
+        "break2": "#00d5e0",
+        "break_tail": "rgba(0, 183, 195, 0.20)",
+        "break_glow": "rgba(0, 183, 195, 0.35)",
+        "empty_ink": "#ffffff",
+    }
+
+    _HTML_TEMPLATE = Template('''<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; background: transparent; overflow: hidden; }
+  body { font-family: $font; }
+  #wrap {
+    position: relative; width: 100%; height: 100%; overflow: hidden;
+    -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 26px, #000 calc(100% - 26px), transparent 100%);
+    mask-image: linear-gradient(90deg, transparent 0, #000 26px, #000 calc(100% - 26px), transparent 100%);
+  }
+  #empty {
+    position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+    font-size: 15px; font-weight: 600; letter-spacing: 4px; color: $empty_ink; display: none;
+  }
+  #lane {
+    position: absolute; left: 0; top: 0; height: 100%;
+    transition: transform .8s cubic-bezier(.22, .9, .26, 1);
+    will-change: transform;
+  }
+  #lane.noanim { transition: none; }
+  .track {
+    position: absolute; left: 0; top: calc(58% - 1.5px); height: 3px;
+    background: linear-gradient(90deg, $track1, $track2); border-radius: 2px;
+  }
+  .fill {
+    position: absolute; left: 0; top: calc(58% - 1.5px); height: 3px;
+    background: linear-gradient(90deg, $fill_tail, $accent); border-radius: 2px;
+    box-shadow: 0 0 10px $glow;
+  }
+  .fill::after {
+    content: ''; position: absolute; inset: 0; border-radius: inherit;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.38), transparent);
+    background-size: 90px 100%; background-repeat: repeat-x;
+    animation: shimmer 2.4s linear infinite;
+  }
+  .fill::before {
+    content: ''; position: absolute; right: -2px; top: 50%; transform: translateY(-50%);
+    width: 7px; height: 7px; border-radius: 50%; background: #fff;
+    box-shadow: 0 0 12px 2px $accent;
+  }
+  .fill.break { background: linear-gradient(90deg, $break_tail, $break); box-shadow: 0 0 10px $break_glow; }
+  .fill.break::before { box-shadow: 0 0 12px 2px $break; }
+  .fill.zero::before { opacity: 0; }
+  .fill.done { background: linear-gradient(90deg, $fill_tail, $accent); }
+  @keyframes shimmer { from { background-position: 0 0; } to { background-position: 90px 0; } }
+  .node { position: absolute; top: 0; height: 100%; width: 0; }
+  .node.enter { animation: rise .55s cubic-bezier(.2, .8, .3, 1) both; }
+  @keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+  .name {
+    position: absolute; top: calc(58% - 68px); left: 0; transform: translateX(-50%);
+    max-width: 118px; padding: 5px 15px; border-radius: 999px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    font-size: 16px; font-weight: 700; color: $ink_future;
+    background: $name_bg; border: 1px solid $name_bd;
+    transition: background .35s, color .35s, transform .35s, box-shadow .35s, border-color .35s;
+  }
+  .node.past .name { color: $ink_past; background: transparent; border-color: transparent; font-weight: 600; }
+  .node.current .name {
+    background: linear-gradient(135deg, $accent, $accent2);
+    color: #fff; font-weight: 700; border-color: transparent;
+    box-shadow: 0 5px 16px $glow, 0 1px 3px rgba(0, 0, 0, 0.15);
+    transform: translateX(-50%) scale(1.1);
+    animation: breathe 3s ease-in-out 1.2s infinite;
+  }
+  .node.current.breakph .name {
+    background: linear-gradient(135deg, $break, $break2);
+    box-shadow: 0 5px 16px $break_glow, 0 1px 3px rgba(0, 0, 0, 0.15);
+  }
+  .node.current.doneph .name {
+    background: linear-gradient(135deg, $accent, $accent2);
+    box-shadow: 0 5px 16px $glow, 0 1px 3px rgba(0, 0, 0, 0.15);
+    animation: none;
+  }
+  @keyframes breathe {
+    0%, 100% { transform: translateX(-50%) scale(1.1); }
+    50% { transform: translateX(-50%) scale(1.16); }
+  }
+  .time {
+    position: absolute; top: calc(58% - 32px); left: 0; transform: translateX(-50%);
+    white-space: nowrap; font-size: 12px; font-weight: 600; color: $sub;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: .4px; transition: color .35s;
+  }
+  .node.current .time { color: $ink_future; }
+  .node.current.breakph .time { color: $ink_future; }
+  .node.past .time { color: $ink_past; }
+  .dot {
+    position: absolute; top: calc(58% - 5px); left: -5px; width: 10px; height: 10px;
+    border-radius: 50%; background: $dot_bg; border: 2px solid $dot_bd;
+    transition: background .35s, border-color .35s, box-shadow .35s, width .35s, height .35s, left .35s, top .35s;
+  }
+  .node.past .dot { background: $dot_past; border-color: $dot_past; }
+  .node.current .dot {
+    width: 16px; height: 16px; left: -8px; top: calc(58% - 8px);
+    background: $accent; border-color: $accent; box-shadow: 0 0 0 4px $glow;
+  }
+  .node.current.breakph .dot { background: $break; border-color: $break; box-shadow: 0 0 0 4px $break_glow; }
+  .ring {
+    position: absolute; inset: -3px; border-radius: 50%;
+    border: 2px solid $accent; opacity: 0; pointer-events: none;
+  }
+  .node.current .ring { animation: ripple 5.2s cubic-bezier(.2, .6, .35, 1) infinite; }
+  .node.current .ring.r2 { animation-delay: 2.6s; }
+  .node.current.breakph .ring { border-color: $break; }
+  @keyframes ripple {
+    0% { transform: scale(0.5); opacity: 0.75; }
+    75%, 100% { transform: scale(3.2); opacity: 0; }
+  }
+  .period {
+    position: absolute; top: calc(58% + 16px); left: 0; transform: translateX(-50%);
+    white-space: nowrap; font-size: 13px; font-weight: 600; color: $sub; transition: color .35s;
+  }
+  .node.current .period { color: $ink_future; font-weight: 700; }
+  .node.current.breakph .period { color: $ink_future; }
+  .node.past .period { color: $ink_past; }
+  .cd {
+    font-variant-numeric: tabular-nums; font-weight: 700;
+    display: none;
+  }
+  .cd.on { display: inline; animation: fadein .3s ease both; }
+  @keyframes fadein { from { opacity: 0; } to { opacity: 1; } }
+  .swap { animation: swapin .38s cubic-bezier(.2, .8, .3, 1); }
+  @keyframes swapin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="empty">今日课表未配置</div>
+  <div id="lane">
+    <div class="track" id="track"></div>
+    <div class="fill" id="fill"></div>
+  </div>
+</div>
+<script>
+(function () {
+  var nodes = /*DATA*/[];
+  var SPACING = 120, PAD_L = 60, PAD_R = 95;
+  var wrap = document.getElementById('wrap');
+  var lane = document.getElementById('lane');
+  var track = document.getElementById('track');
+  var fill = document.getElementById('fill');
+  var empty = document.getElementById('empty');
+  var els = [];
+  var laneW = 0, curOffset = 0, booted = false;
+
+  function pt(s) { var p = s.split(':'); return (+p[0]) * 3600 + (+p[1]) * 60; }
+  function nodeX(i) { return PAD_L + i * SPACING; }
+  function mk(tag, cls, parent) { var d = document.createElement(tag); d.className = cls; parent.appendChild(d); return d; }
+
+  function setTxt(elm, txt, anim) {
+    if (elm.textContent === txt) return;
+    elm.textContent = txt;
+    if (!anim) return;
+    elm.classList.remove('swap');
+    void elm.offsetWidth;
+    elm.classList.add('swap');
+  }
+
+  function build() {
+    for (var i = 0; i < els.length; i++) lane.removeChild(els[i].root);
+    els = [];
+    if (!nodes.length) {
+      laneW = 0; track.style.width = '0px'; fill.style.width = '0px';
+      empty.style.display = 'block';
+      return;
+    }
+    empty.style.display = 'none';
+    laneW = nodeX(nodes.length - 1) + PAD_R;
+    track.style.width = laneW + 'px';
+    fill.style.width = '0px';
+    for (var j = 0; j < nodes.length; j++) {
+      var root = mk('div', 'node enter', lane);
+      root.style.left = nodeX(j) + 'px';
+      root.style.animationDelay = (j * 55) + 'ms';
+      var nm = mk('div', 'name', root);
+      var nms = mk('span', '', nm);
+      var tm = mk('div', 'time', root);
+      var dt = mk('div', 'dot', root);
+      mk('i', 'ring', dt);
+      mk('i', 'ring r2', dt);
+      var pd = mk('div', 'period', root);
+      var pds = mk('span', '', pd);
+      var cd = mk('span', 'cd', pd);
+      els.push({ root: root, name: nms, time: tm, period: pds, cd: cd });
+    }
+  }
+
+  function compute() {
+    if (!nodes.length) return { idx: -1 };
+    var now = new Date();
+    var t = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
+    var last = nodes.length - 1;
+    if (t < pt(nodes[0].start)) return { idx: 0, phase: 'class', prog: 0, before: true };
+    for (var i = 0; i < nodes.length; i++) {
+      var s = pt(nodes[i].start), e = pt(nodes[i].end);
+      if (t >= s && t < e) return { idx: i, phase: 'class', prog: (t - s) / (e - s) };
+      var b = nodes[i].break;
+      if (b) {
+        var bs = pt(b.start), be = pt(b.end);
+        if (t >= bs && t < be) return { idx: i, phase: 'break', prog: (t - bs) / (be - bs) };
+      }
+    }
+    var lb = nodes[last].break;
+    var lastEnd = lb ? pt(lb.end) : pt(nodes[last].end);
+    if (t >= lastEnd) return { idx: last, phase: 'done', prog: 1, done: true };
+    for (var k = last; k >= 0; k--) {
+      if (t >= pt(nodes[k].start)) {
+        var bb = nodes[k].break;
+        if (bb && t < pt(bb.end)) return { idx: k, phase: 'break', prog: 1 };
+        return { idx: k, phase: 'class', prog: 1 };
+      }
+    }
+    return { idx: 0, phase: 'class', prog: 0, before: true };
+  }
+
+  function fmt(sec) {
+    var m = Math.floor(sec / 60), s = Math.floor(sec % 60);
+    return m + ':' + (s < 10 ? '0' : '') + s;
+  }
+
+  function render(st) {
+    if (st.idx < 0) return;
+    var curIdx = st.before ? -1 : st.idx;
+    for (var i = 0; i < els.length; i++) {
+      var el = els[i], n = nodes[i];
+      var cls = 'node ';
+      if (i < st.idx || (st.done && i < st.idx)) cls += 'past';
+      else if (st.done && i === st.idx) cls += 'current doneph';
+      else if (i === curIdx) cls += 'current' + (st.phase === 'break' ? ' breakph' : '');
+      else cls += 'future';
+      if (el.root.className.indexOf('enter') >= 0) cls += ' enter';
+      if (el.root.className !== cls) {
+        el.root.className = cls;
+        // 标签在课程名和课间之间切换 课间结束变回课程名
+        if (st.done && i === st.idx) {
+          setTxt(el.name, '放学', booted);
+        } else if (i === st.idx && st.phase === 'break' && n.break) {
+          setTxt(el.name, '课间', booted);
+          setTxt(el.time, n.break.start + '-' + n.break.end, booted);
+        } else {
+          setTxt(el.name, n.name, booted);
+          setTxt(el.time, n.start + '-' + n.end, booted);
+        }
+        setTxt(el.period, n.period, booted);
+      }
+
+                              
+      if (i === curIdx && !st.done) {
+        var total = (st.phase === 'break' && n.break)
+          ? pt(n.break.end) - pt(n.break.start)
+          : pt(n.end) - pt(n.start);
+        var left = total * (1 - Math.max(0, Math.min(1, st.prog)));
+        var txt = ' · ' + fmt(left);
+        if (el.cd.textContent !== txt) el.cd.textContent = txt;
+      }
+      el.cd.classList.toggle('on', i === curIdx && !st.done);
+    }
+    var right;
+    if (st.before) right = 0;
+    else if (st.done) right = laneW - 26;
+    else right = nodeX(st.idx) + Math.max(0, Math.min(1, st.prog)) * SPACING;
+    var w = Math.min(right, laneW - 26);
+    fill.style.width = w + 'px';
+    fill.classList.toggle('break', st.phase === 'break' && curIdx >= 0 && !st.done);
+    fill.classList.toggle('done', !!st.done);
+    fill.classList.toggle('zero', w < 8);
+    var vw = wrap.clientWidth;
+    if (vw > 0 && laneW > 0) {
+      var target = st.before ? 0
+        : st.done ? Math.max(0, laneW - vw)
+        : Math.max(0, Math.min(nodeX(st.idx) - vw / 2, laneW - vw));
+      if (Math.abs(target - curOffset) > 0.5) {
+        curOffset = target;
+        lane.style.transform = 'translateX(' + (-curOffset) + 'px)';
+      }
+    }
+  }
+
+  window.updateSchedule = function (data) {
+    nodes = data || [];
+    build();
+    return nodes.length;
+  };
+
+  build();
+  var st0 = compute();
+  var vw0 = wrap.clientWidth;
+  if (st0.idx >= 0 && !st0.before && vw0 > 0 && laneW > 0) {
+    curOffset = Math.max(0, Math.min(nodeX(st0.idx) - vw0 / 2, laneW - vw0));
+  } else {
+    curOffset = 0;
+  }
+  lane.classList.add('noanim');
+  lane.style.transform = 'translateX(' + (-curOffset) + 'px)';
+  void lane.offsetWidth;
+  setTimeout(function () { lane.classList.remove('noanim'); }, 80);
+
+  (function tick() { render(compute()); booted = true; requestAnimationFrame(tick); })();
+})();
+</script>
+</body>
+</html>''')
+
+    def __init__(self, parent, component_data: dict):
+        super().__init__(parent, component_id=component_data["id"], layout_direction="vertical")
+        self.setObjectName(self._object_name)
+        self._home = parent
+        self._timetable_page = None
+        self._scale_factor = 1.0
+        self._nodes = []
+        self._synced = False 
+        self._connect_timetable_page()
+        self._nodes = self._get_nodes()
+        self._setup_ui()
+        self._timer = QTimer(self)
+        self._timer.timeout.connect(self._refresh)
+        self._timer.start(1000)
+
+    def _refresh(self):
+        """课表数据更新"""
+        nodes = self._get_nodes()
+        if not nodes:
+            iv = self._timer.interval()
+            self._timer.setInterval(min(max(iv, 500) * 2, 30000))
+            return
+        if self._timer.interval() != 30000:
+            self._timer.setInterval(30000)
+        if nodes == self._nodes and self._synced:
+            return
+        self._nodes = nodes
+        self._push_nodes()
+
+    def _push_nodes(self):
+        """推送到js"""
+        self._synced = False
+        try:
+            js = f"updateSchedule({json.dumps(self._nodes, ensure_ascii=False)})"
+            self.webView.page().runJavaScript(js, self._on_push_result)
+        except Exception:
+            self._timer.setInterval(1000)
+
+    def _on_push_result(self, result):
+        """js 回执"""
+        self._synced = bool(result)
+        if not self._synced:
+            self._timer.setInterval(1000)
+
+    def _on_load_finished(self, ok):
+        """重加载后重推"""
+        if ok and self._nodes:
+            self._push_nodes()
+
+    def _setup_ui(self):
+        self.webView = create_html_view(self)
+        self.webView.page().loadFinished.connect(self._on_load_finished)
+
+        layout = self.inner_layout
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+        layout.addWidget(self.webView)
+
+        self._set_natural_size(400, 200)
+        self.setMinimumSize(220, 130)
+        self._size_explicitly_set = True
+        self.resize(400, 200)
+        self._apply_style()
+
+    def _connect_timetable_page(self):
+        try:
+            for w in QApplication.topLevelWidgets():
+                if hasattr(w, 'timetablePage'):
+                    self._timetable_page = w.timetablePage
+                    self._timetable_page.scheduleChanged.connect(self._refresh)
+                    break
+        except Exception:
+            pass
+
+    def _get_nodes(self):
+        """今日课表 至 时间轴节点"""
+        if not self._timetable_page:
+            self._connect_timetable_page()
+            if not self._timetable_page:
+                return []
+        try:
+            schedule = self._timetable_page.get_today_schedule()
+        except Exception:
+            return []
+        nodes = []
+        for row in schedule:
+            subject, teacher, start, end, idx, is_current, is_break, break_name = row
+            if is_break:
+                if nodes:
+                    nodes[-1]["break"] = {"start": start, "end": end}
+                continue
+            nodes.append({
+                "name": subject or "—",
+                "start": start,
+                "end": end,
+                "period": f"第{idx}节" if idx else "—",
+                "break": None,
+            })
+        return nodes
+
+    def _build_html(self) -> str:
+        theme = self._theme_dark if isDarkTheme() else self._theme_light
+        tc = cfg.themeColor.value
+        tc = QColor(tc) if isinstance(tc, str) else tc
+        theme = dict(theme)
+        theme["accent"] = tc.name()[:7]
+        theme["glow"] = f"rgba({tc.red()}, {tc.green()}, {tc.blue()}, 0.32)"
+        theme["fill_tail"] = f"rgba({tc.red()}, {tc.green()}, {tc.blue()}, 0.20)"
+        theme["dot_past"] = f"rgba({tc.red()}, {tc.green()}, {tc.blue()}, 0.45)"
+        html = self._HTML_TEMPLATE.substitute(font=FONT_FAMILY, **theme)
+        return html.replace("/*DATA*/[]", json.dumps(self._nodes, ensure_ascii=False))
+
+    def _render(self):
+        self.webView.setHtml(self._build_html())
+
+    def _apply_style(self):
+        self._apply_card_style()
+        self._render()
+
+    def apply_scale(self, factor):
+        self._scale_factor = factor
+        self.webView.setZoomFactor(factor)
+        self._apply_style()
+
+
 class CountdownEventComponent(DraggableContainer):
     """事件倒计时组件"""
 
@@ -9762,6 +10247,7 @@ COMPONENT_STYLES["quick_launch"]["dock"]["class"] = QuickLaunchDockComponent
 COMPONENT_STYLES["clock"]["calendar_month"]["class"] = CalendarMonthComponent
 COMPONENT_STYLES["linkage"]["timetable_preview"]["class"] = TimetablePreviewComponent
 COMPONENT_STYLES["linkage"]["timetable_nowlesson"]["class"] = TimetableNowLessonComponent
+COMPONENT_STYLES["linkage"]["timetable_timeline"]["class"] = TimetableTimelineComponent
 COMPONENT_STYLES["Math"]["calculator"]["class"] = CalculatorComponent
 COMPONENT_STYLES["writing"]["pad"]["class"] = WritingPadComponent
 COMPONENT_STYLES["class_album"]["horizontal"]["class"] = ClassAlbumHorizontalComponent

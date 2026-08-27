@@ -560,6 +560,18 @@ BUILTIN_COMPONENT_DEFINITIONS = [
         },
     ),
     ComponentDefinition(
+        id="linkage_timetable_timeline",
+        display_name="课程时间轴",
+        category="School",
+        icon="Education",
+        min_width_cells=2,
+        min_height_cells=2,
+        default_width_cells=2,
+        default_height_cells=2,
+        resize_mode=ResizeMode.FREE,
+        default_config={},
+    ),
+    ComponentDefinition(
         id="Math_calculator",
         display_name="计算器",
         category="Tools",
