@@ -175,6 +175,7 @@ QWidget
          ├─ SchoolInfoComponent
          ├─ MediaPlayerComponent
          ├─ QuickLaunchDockComponent
+         ├─ QuickLaunchGridComponent 
          ├─ TimetablePreviewComponent
         ├─ TimetableNowLessonComponent
         ├─ TimetableTimelineComponent

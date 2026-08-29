@@ -90,9 +90,9 @@ NavigationPage 提示文字颜色随主题：深色 `rgba(230,230,230,0.95)`，�
 | -------- | ------------------------------------------------------- | -------------------------------------------------------------- |
 | Clock    | `DigitalClockComponent`                                 | 数字时钟（秒/农历）                                                     |
 | Clock    | `SquareClock1Component`                                 | 方形钟表I（SVG）                                                     |
-| Clock    | `SquareClock2Component`                                 | 方形钟表II（SVG）                                        |
+| Clock    | `SquareClock2Component`                                 | 方形钟表II（SVG）                                                    |
 | Clock    | `CalendarMonthComponent`                                | 月历（`_DayCell`）                                                 |
-| Clock    | `MiniCalendarComponent`                                 | 简约月历（HTML）                                            |
+| Clock    | `MiniCalendarComponent`                                 | 简约月历（HTML）                                                     |
 | Clock    | `CountdownEventComponent`                               | 事件倒计时                                                          |
 | Clock    | `TimerCountdownComponent`                               | 计时器（`TimeColumnWidget` / `TimerTimeDisplayWidget`）             |
 | Weather  | `WeatherIconTempComponent`                              | 图标 + 温度                                                        |
@@ -106,10 +106,11 @@ NavigationPage 提示文字颜色随主题：深色 `rgba(230,230,230,0.95)`，�
 | School   | `SchoolInfoComponent`                                   | 学校班级信息                                                         |
 | School   | `TimetablePreviewComponent`                             | 课表预览（`_TimetableRow`）                                          |
 | School   | `TimetableNowLessonComponent`                           | 当前课程                                                           |
-| School   | `TimetableTimelineComponent`                            | 课程时间轴（HTML）                                                   |
+| School   | `TimetableTimelineComponent`                            | 课程时间轴（HTML）                                                    |
 | School   | `ClassAlbumHorizontal/VerticalComponent`                | 班级相册（继承 `ClassAlbumBaseComponent`）                             |
 | Media    | `MediaPlayerComponent`                                  | 媒体播放信息                                                         |
 | Launcher | `QuickLaunchDockComponent` / `QuickLaunchDock`          | 快捷启动栏                                                          |
+| Launcher | `QuickLaunchGridComponent`                              | 快捷启动II                                                         |
 | Tools    | `CalculatorComponent`                                   | 计算器                                                            |
 | Tools    | `WritingPadComponent`                                   | 手写画板（`_WritingOverlay` / `_PenSettingsPopup` / `_OverToolBtn`） |
 | Tools    | `StickyNoteComponent`                                   | 便签                                                             |
@@ -126,7 +127,7 @@ NavigationPage 提示文字颜色随主题：深色 `rgba(230,230,230,0.95)`，�
 ### 3.5 手写画板（擦除）架构
 
 - 永久层 `_buffer` 做实际擦除，临时层渲染光标。
-- **16ms 定时器循环驱动**（非事件驱动），避免输入停止时半径冻结。
+- **16ms 定时器循环驱动**，避免输入停止时半径冻结。
 - 擦除速度：`(上次速度 + 欧氏距离) * 0.5` EMA。
 - `drawingScale = min(屏宽/1920, 屏高/1080)`。
 - 光标：灰色 `(130,130,130,200)` 3px 空心圆，实时调大小，输入停止时消失。
@@ -134,16 +135,16 @@ NavigationPage 提示文字颜色随主题：深色 `rgba(230,230,230,0.95)`，�
 
 ### 3.6 HTML 渲染组件
 
-### html组件通过 `create_html_view()`（[ui/common.py](common.py)）借用 QWebEngineView 渲染 HTML/SVG，类内不直接引用 QtWebEngine：
+html组件通过 `create_html_view()`（[ui/common.py](common.py)）借用 QWebEngineView 渲染 HTML/SVG，类内不直接引用 QtWebEngine：
 
-| 组件                       | 渲染方式       | 说明   |
-| ------------------------ | ---------- | ---- |
-| `DailySentenceComponent` | HTML + CSS | 每日英语 |
-| `DailyWordComponent`     | HTML + CSS | 每日单词 |
-| `SquareClock1Component`  | SVG        | 方形钟表I |
-| `SquareClock2Component`  | SVG        | 方形钟表II |
-| `MiniCalendarComponent`  | HTML + CSS | 简约月历 |
-| `TimetableTimelineComponent` | HTML + CSS + JS | 课程时间轴 |
+| 组件                           | 渲染方式            | 说明     |
+| ---------------------------- | --------------- | ------ |
+| `DailySentenceComponent`     | HTML + CSS      | 每日英语   |
+| `DailyWordComponent`         | HTML + CSS      | 每日单词   |
+| `SquareClock1Component`      | SVG             | 方形钟表I  |
+| `SquareClock2Component`      | SVG             | 方形钟表II |
+| `MiniCalendarComponent`      | HTML + CSS      | 简约月历   |
+| `TimetableTimelineComponent` | HTML + CSS + JS | 课程时间轴  |
 
 **需知**：
 
@@ -151,6 +152,12 @@ NavigationPage 提示文字颜色随主题：深色 `rgba(230,230,230,0.95)`，�
 - 字体 `FONT_FAMILY`（`core/constants.py`），引号 / 水印字母 / 等宽日期等保留衬线 / 等宽字体。
 - 方形钟表I/II走时由页面内 `requestAnimationFrame` 循环驱动。
 - 方形钟表II：60秒刻度随时间往前 35 个已走过刻度按 sqrt 渐回浅色。
+
+### 3.7 公用图标提取
+
+快捷启动相关组件需要显示添加的软件的图标，于[ui/component.py](component.py)中创建公用extract\_app\_icon函数，可直接导入使用。
+
+<br />
 
 ***
 
