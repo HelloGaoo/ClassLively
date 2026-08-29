@@ -739,6 +739,12 @@
     "opening": "Opening {name}",
     "launch_failed": "Launch Failed"
   },
+  "quick_launch_ii": {
+    "add_app": "Add App",
+    "select_program": "Select Program",
+    "rename": "Rename",
+    "rename_title": "Rename App"
+  },
   "color": {
     "red": "Red",
     "white": "White",

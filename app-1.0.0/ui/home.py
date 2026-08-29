@@ -1805,35 +1805,11 @@ class AppEditDialog(MessageBoxBase):
             self._set_default_icon()
 
     def _extract_icon(self, exe_path):
-        try:
-            provider = QFileIconProvider()
-            fi = QFileInfo(exe_path)
-            icon = provider.icon(fi)
-
-            sizes = icon.availableSizes()
-            if not sizes:
-                return 'exe.ico'
-
-            best_size = max(sizes, key=lambda s: s.width() * s.height())
-            pixmap = icon.pixmap(best_size)
-
-            if pixmap.isNull():
-                return 'exe.ico'
-
-            target_size = 256
-            if pixmap.width() < target_size:
-                pixmap = pixmap.scaled(target_size, target_size, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
-
-            icon_filename = self._get_icon_name()
-            icon_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'data', 'ql_icon')
-            os.makedirs(icon_dir, exist_ok=True)
-            icon_save_path = os.path.join(icon_dir, icon_filename)
-            pixmap.save(icon_save_path, 'PNG')
-
-            return icon_filename
-        except Exception as e:
-            logger.error(f"提取图标失败：{e}")
-            return 'exe.ico'
+        from ui.component import extract_app_icon
+        name = self._get_icon_name()
+        base = os.path.splitext(name)[0] if name else None
+        icon_filename = extract_app_icon(exe_path, base)
+        return icon_filename or 'exe.ico'
 
     def _get_icon_name(self):
         name_text = self.nameEdit.text().strip()

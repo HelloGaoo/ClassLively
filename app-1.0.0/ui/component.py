@@ -205,6 +205,12 @@ COMPONENT_STYLES = {
             "default_config": {},
             "default_size": (400, 200),
         },
+        "grid": {
+            "name": "快捷启动II",
+            "class": None,
+            "default_config": {"apps": []},
+            "default_size": (400, 200),
+        },
     },
     "news": {
         "baidu": {
@@ -2660,10 +2666,46 @@ def get_url_icon():
         return 'url.ico'
     return 'exe.ico'
 
+def extract_app_icon(file_path, name=None, target_size=256):
+    """提取 exe/dll/lnk 等图标保存为png
+    """
+    try:
+        provider = QFileIconProvider()
+        fi = QFileInfo(file_path)
+        icon = provider.icon(fi)
+
+        pixmap = QPixmap()
+        sizes = icon.availableSizes()
+        if sizes:
+            best_size = max(sizes, key=lambda s: s.width() * s.height())
+            pixmap = icon.pixmap(best_size)
+        if pixmap.isNull():
+            pixmap = icon.pixmap(256, 256)
+        if pixmap.isNull():
+            pixmap = icon.pixmap(32, 32)
+        if pixmap.isNull():
+            return None
+
+        if pixmap.width() < target_size:
+            pixmap = pixmap.scaled(target_size, target_size,
+                                    Qt.AspectRatioMode.KeepAspectRatio,
+                                    Qt.TransformationMode.SmoothTransformation)
+
+        base = name or os.path.splitext(os.path.basename(file_path))[0]
+        cleaned = re.sub(r'[^\w\u4e00-\u9fff]', '', base)
+        icon_filename = (cleaned or 'app') + '.png'
+        icon_dir = get_ql_icon_save_dir()
+        pixmap.save(os.path.join(icon_dir, icon_filename), 'PNG')
+        return icon_filename
+    except Exception as e:
+        logger.error(f"提取图标失败: {e}")
+        return None
+
+
 def resolve_app_from_path(file_path):
     real_path = file_path
     app_type = "app"
-    
+
     if file_path.lower().endswith('.lnk'):
         try:
             shortcut = pythoncom.CoCreateInstance(
@@ -2681,37 +2723,14 @@ def resolve_app_from_path(file_path):
         name = os.path.splitext(os.path.basename(file_path))[0]
     else:
         name = os.path.splitext(os.path.basename(real_path))[0]
-    
+
     if os.path.isdir(real_path):
         app_type = "folder"
         icon_filename = get_folder_icon()
         return {"name": name, "path": real_path, "icon": icon_filename, "type": app_type}
-    
-    provider = QFileIconProvider()
-    fi = QFileInfo(real_path if os.path.exists(real_path) else file_path)
-    icon = provider.icon(fi)
-    icon_filename = 'exe.ico'
-    pixmap = QPixmap()
-    sizes = icon.availableSizes()
-    if sizes:
-        best_size = max(sizes, key=lambda s: s.width() * s.height())
-        pixmap = icon.pixmap(best_size)
-    if pixmap.isNull():
-        pixmap = icon.pixmap(256, 256)
-    if pixmap.isNull():
-        pixmap = icon.pixmap(32, 32)
-    if not pixmap.isNull():
-        target_size = 256
-        if pixmap.width() < target_size:
-            pixmap = pixmap.scaled(target_size, target_size, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
-        cleaned_name = re.sub(r'[^\w\u4e00-\u9fff]', '', name)
-        if cleaned_name:
-            icon_filename = cleaned_name + '.png'
-        else:
-            icon_filename = 'exe.png'
-        icon_dir = get_ql_icon_save_dir()
-        icon_save_path = os.path.join(icon_dir, icon_filename)
-        pixmap.save(icon_save_path, 'PNG')
+
+    icon_filename = extract_app_icon(
+        real_path if os.path.exists(real_path) else file_path, name) or 'exe.ico'
 
     return {"name": name, "path": real_path, "icon": icon_filename, "type": app_type}
 
@@ -6704,6 +6723,429 @@ class QuickLaunchDockComponent(DraggableContainer):
         super().mouseReleaseEvent(event)
 
 
+class QuickLaunchGridComponent(DraggableContainer):
+    """快捷启动II组件"""
+
+    CELL_COUNT = 8
+    COLUMN_COUNT = 4
+    _launch_result = pyqtSignal(str, str, bool)
+
+    def __init__(self, parent, component_data: dict):
+        super().__init__(parent, component_id=component_data["id"], layout_direction="vertical")
+        self.setObjectName("quickLaunchGridContainer")
+        self._config = dict(component_data.get("config", {}))
+        self._apps = self._normalize_apps(self._config.get("apps"))
+        self._executor = ThreadPoolExecutor(max_workers=1)
+        self._launch_result.connect(self._on_launch_result)
+        self._pixmaps = [None] * self.CELL_COUNT  # 各格子图标缓存
+        self._press_idx = -1   # 左键按下的格子
+        self._hover_idx = -1   # 悬停的格子
+        self._drag_idx = -1    # 拖放悬停的格子
+        self._plus_pm = None
+        self._plus_key = ""
+        self._setup_ui()
+        self._apply_style()
+
+    def _setup_ui(self):
+        self.setAcceptDrops(True)
+        self._set_natural_size(400, 200)
+        self.setMinimumSize(180, 100)
+        self._size_explicitly_set = True
+        self.resize(400, 200)
+        self._reload_pixmaps()
+
+    def _normalize_apps(self, apps):
+        result = []
+        for i in range(self.CELL_COUNT):
+            item = apps[i] if isinstance(apps, list) and i < len(apps) else None
+            result.append(item if isinstance(item, dict) else None)
+        return result
+
+    def _reload_pixmaps(self):
+        for i in range(self.CELL_COUNT):
+            self._load_pixmap(i)
+        self.update()
+
+    def _load_pixmap(self, idx):
+        app = self._apps[idx] if 0 <= idx < self.CELL_COUNT else None
+        pm = None
+        if app:
+            icon_path = get_ql_icon_path(app.get("icon", ""))
+            if icon_path and os.path.exists(icon_path):
+                raw = QPixmap(icon_path)
+                if not raw.isNull():
+                    raw.setDevicePixelRatio(self.devicePixelRatioF())
+                    pm = raw
+        self._pixmaps[idx] = pm
+
+    def _apply_style(self):
+        self._apply_card_style()
+
+    def apply_scale(self, factor):
+        self._apply_style()
+
+    def apply_config(self, config: dict):
+        self._config = dict(config or {})
+        apps = self._normalize_apps(self._config.get("apps"))
+        if apps != self._apps:
+            self._apps = apps
+            self._reload_pixmaps()
+        super().apply_config(config)
+
+    def _cell_rects(self) -> list:
+        """格子矩形"""
+        m = max(6, int(12 * self._scale_factor))
+        gap = max(4, int(10 * self._scale_factor))
+        cols = self.COLUMN_COUNT
+        rows = self.CELL_COUNT // self.COLUMN_COUNT
+        avail_w = self.width() - m * 2 - gap * (cols - 1)
+        avail_h = self.height() - m * 2 - gap * (rows - 1)
+        side = max(4, min(avail_w // cols, avail_h // rows))
+        total_w = side * cols + gap * (cols - 1)
+        total_h = side * rows + gap * (rows - 1)
+        x0 = (self.width() - total_w) / 2.0
+        y0 = (self.height() - total_h) / 2.0
+        rects = []
+        for i in range(self.CELL_COUNT):
+            r, c = divmod(i, cols)
+            rects.append(QRectF(x0 + c * (side + gap), y0 + r * (side + gap), side, side))
+        return rects
+
+    def _hit_cell(self, pos) -> int:
+        for i, rect in enumerate(self._cell_rects()):
+            if rect.contains(pos):
+                return i
+        return -1
+
+    def paintEvent(self, event):
+        super().paintEvent(event)  # 卡片背景 选中框
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
+
+        dark = isDarkTheme()
+        op = self._cell_opacity()
+        for i, rect in enumerate(self._cell_rects()):
+            side = rect.width()
+            if side < 4:
+                continue
+            radius = self._cell_radius(side)
+
+            bg = QColor(45, 45, 48) if dark else QColor(235, 235, 240)
+            bg.setAlpha(int(255 * op))
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.setBrush(bg)
+            painter.drawRoundedRect(rect, radius, radius)
+
+            if i == self._drag_idx:
+                c = self._primary_color()
+                pen = QPen(QColor(c.red(), c.green(), c.blue(), 220))
+                pen.setWidthF(2.0)
+                pen.setStyle(Qt.PenStyle.DashLine)
+            elif i == self._hover_idx:
+                c = self._primary_color()
+                pen = QPen(QColor(c.red(), c.green(), c.blue(), 180))
+                pen.setWidthF(1.8)
+            else:
+                pen = QPen(QColor(255, 255, 255, 20) if dark else QColor(0, 0, 0, 12))
+                pen.setWidthF(1.0)
+            painter.setPen(pen)
+            painter.setBrush(Qt.BrushStyle.NoBrush)
+            painter.drawRoundedRect(rect, radius, radius)
+
+            # 内容
+            cx, cy = rect.center().x(), rect.center().y()
+            app = self._apps[i]
+            if app:
+                icon_side = side * 0.52
+                pm = self._pixmaps[i]
+                if pm and not pm.isNull():
+                    painter.drawPixmap(
+                        QRectF(cx - icon_side / 2, cy - icon_side / 2, icon_side, icon_side),
+                        pm,
+                        QRectF(0, 0, pm.width(), pm.height()),
+                    )
+                else:
+                    painter.setPen(QPen(QColor(160, 160, 160, 200)))
+                    font = QFont(FONT_PRIMARY)
+                    font.setPixelSize(max(10, int(side * 0.3)))
+                    painter.setFont(font)
+                    painter.drawText(rect, Qt.AlignmentFlag.AlignCenter, "?")
+            else:
+                plus = self._plus_pixmap(max(8, int(side * 0.34)))
+                if plus and not plus.isNull():
+                    dpr = plus.devicePixelRatio() or 1.0
+                    w, h = plus.width() / dpr, plus.height() / dpr
+                    painter.setOpacity(0.5)
+                    painter.drawPixmap(QPointF(cx - w / 2, cy - h / 2), plus)
+                    painter.setOpacity(1.0)
+
+
+    def mousePressEvent(self, event):
+        if not self._draggable:
+            idx = self._hit_cell(event.position())
+            if event.button() == Qt.MouseButton.RightButton and idx >= 0:
+                self._show_cell_menu(idx, event.globalPosition().toPoint())
+                event.accept()
+                return
+            if event.button() == Qt.MouseButton.LeftButton and idx >= 0:
+                self._press_idx = idx
+                event.accept()
+                return
+        super().mousePressEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        if not self._draggable and event.button() == Qt.MouseButton.LeftButton:
+            if self._press_idx >= 0 and self._hit_cell(event.position()) == self._press_idx:
+                self._on_cell_clicked(self._press_idx)
+            self._press_idx = -1
+            event.accept()
+            return
+        self._press_idx = -1
+        super().mouseReleaseEvent(event)
+
+    def mouseMoveEvent(self, event):
+        if not self._draggable:
+            idx = self._hit_cell(event.position())
+            if idx != self._hover_idx:
+                self._hover_idx = idx
+                if idx >= 0:
+                    app = self._apps[idx]
+                    self.setToolTip(app.get("name", "") if app else "")
+                else:
+                    self.setToolTip("")
+                self.update()
+            self.setCursor(QCursor(
+                Qt.CursorShape.PointingHandCursor if idx >= 0 else Qt.CursorShape.ArrowCursor))
+        super().mouseMoveEvent(event)
+
+    def leaveEvent(self, event):
+        if self._hover_idx != -1:
+            self._hover_idx = -1
+            if not self._draggable:
+                self.setCursor(QCursor(Qt.CursorShape.ArrowCursor))
+            self.update()
+        super().leaveEvent(event)
+
+    def _accepts_drag(self, mime) -> bool:
+        if mime.hasUrls():
+            for url in mime.urls():
+                path = url.toLocalFile()
+                if path and (path.lower().endswith(('.exe', '.lnk')) or os.path.isdir(path)):
+                    return True
+        elif mime.hasText():
+            text = mime.text().strip()
+            if text.startswith(('http://', 'https://', 'www.')):
+                return True
+        return False
+
+    def dragEnterEvent(self, e):
+        if self._accepts_drag(e.mimeData()):
+            e.acceptProposedAction()
+        else:
+            e.ignore()
+
+    def dragMoveEvent(self, e):
+        if self._accepts_drag(e.mimeData()):
+            idx = self._hit_cell(e.position())
+            if idx != self._drag_idx:
+                self._drag_idx = idx
+                self.update()
+            e.acceptProposedAction()
+        else:
+            e.ignore()
+
+    def dragLeaveEvent(self, e):
+        if self._drag_idx != -1:
+            self._drag_idx = -1
+            self.update()
+        super().dragLeaveEvent(e)
+
+    def dropEvent(self, e):
+        idx = self._hit_cell(e.position())
+        self._drag_idx = -1
+        self.update()
+        if idx >= 0:
+            e.acceptProposedAction()
+            self._on_cell_drop(idx, e.mimeData())
+        else:
+            e.ignore()
+
+    def _cell_opacity(self) -> float:
+        op = self._bg_opacity if self._bg_opacity is not None else cfg.componentCardOpacity.value
+        return max(0.0, min(1.0, op / 100.0))
+
+    def _cell_radius(self, side: float) -> int:
+        r = self._corner_radius if self._corner_radius is not None else cfg.componentCardRadius.value
+        r = int(r * self._scale_factor)
+        return max(0, min(r, int(side / 2)))
+
+    def _primary_color(self) -> QColor:
+        tc = cfg.themeColor.value
+        c = QColor(tc) if isinstance(tc, str) else QColor(tc)
+        return c if c.isValid() else QColor(48, 195, 97)
+
+    def _plus_pixmap(self, size_px: int) -> QPixmap:
+        key = f"{size_px}|{isDarkTheme()}"
+        if self._plus_key == key and self._plus_pm is not None:
+            return self._plus_pm
+        path = FUI.ADD.path()
+        pm = render_svg_icon(path, size_px, self.devicePixelRatioF()) \
+            if path and os.path.exists(path) else QPixmap()
+        self._plus_pm = pm
+        self._plus_key = key
+        return pm
+
+    def _on_cell_clicked(self, idx):
+        app = self._apps[idx] if 0 <= idx < self.CELL_COUNT else None
+        if app:
+            self._launch_app(app)
+        else:
+            self._browse_add(idx)
+
+    def _browse_add(self, idx):
+        path, _ = QFileDialog.getOpenFileName(
+            self.window(), tr("quick_launch_ii.select_program"), "",
+            "Programs (*.exe *.lnk);;All Files (*)")
+        if path:
+            self._set_cell_app(idx, resolve_app_from_path(path))
+
+    def _on_cell_drop(self, idx, mime):
+        added = None
+        if mime.hasUrls():
+            for url in mime.urls():
+                path = url.toLocalFile()
+                if not path:
+                    continue
+                if os.path.isdir(path):
+                    added = {"name": os.path.basename(path), "path": path,
+                             "icon": get_folder_icon(), "type": "folder"}
+                elif path.lower().endswith(('.exe', '.lnk')):
+                    added = resolve_app_from_path(path)
+                if added:
+                    break
+        elif mime.hasText():
+            text = mime.text().strip()
+            if text.startswith(('http://', 'https://', 'www.')):
+                added = resolve_url_from_string(text)
+        if added:
+            self._set_cell_app(idx, added)
+
+    def _set_cell_app(self, idx, app):
+        if not (0 <= idx < self.CELL_COUNT) or not app:
+            return
+        self._apps[idx] = app
+        self._load_pixmap(idx)
+        self.update()
+        self._persist_config()
+        InfoBar.success(tr("quick_launch.add_success"),
+                        tr("quick_launch.added", name=app.get("name", "")),
+                        parent=self.window(), duration=2000)
+
+    def _show_cell_menu(self, idx, global_pos):
+        app = self._apps[idx] if 0 <= idx < self.CELL_COUNT else None
+        if app:
+            menu = RoundMenu(app.get("name", tr("quick_launch.app")), self)
+            open_action = Action(FUI.PLAY, tr("quick_launch.open"), self)
+            open_action.triggered.connect(lambda: self._launch_app(app))
+            menu.addAction(open_action)
+            menu.addSeparator()
+            rename_action = Action(FUI.EDIT, tr("quick_launch_ii.rename"), self)
+            rename_action.triggered.connect(lambda: self._rename_cell(idx))
+            menu.addAction(rename_action)
+            delete_action = Action(FUI.DELETE, tr("quick_launch.delete"), self)
+            delete_action.triggered.connect(lambda: self._delete_cell(idx))
+            menu.addAction(delete_action)
+        else:
+            menu = RoundMenu(tr("quick_launch_ii.add_app"), self)
+            add_action = Action(FUI.ADD, tr("quick_launch_ii.add_app"), self)
+            add_action.triggered.connect(lambda: self._browse_add(idx))
+            menu.addAction(add_action)
+        menu.exec(global_pos)
+
+    def _rename_cell(self, idx):
+        app = self._apps[idx] if 0 <= idx < self.CELL_COUNT else None
+        if not app:
+            return
+        box = MessageBoxBase(self.window())
+        title = SubtitleLabel(tr("quick_launch_ii.rename_title"), box)
+        box.viewLayout.addWidget(title)
+        edit = LineEdit(box)
+        edit.setText(app.get("name", ""))
+        edit.setClearButtonEnabled(True)
+        box.viewLayout.addWidget(edit)
+        if box.exec():
+            new_name = edit.text().strip()
+            if new_name:
+                app["name"] = new_name
+                self.setToolTip(self._hover_idx == idx and new_name or "")
+                self._persist_config()
+                InfoBar.success(tr("quick_launch.save_success"),
+                                tr("quick_launch.shortcut_updated"),
+                                parent=self.window(), duration=2000)
+
+    def _delete_cell(self, idx):
+        app = self._apps[idx] if 0 <= idx < self.CELL_COUNT else None
+        if not app:
+            return
+        app_name = app.get("name", tr("quick_launch.this_app"))
+        from qfluentwidgets import MessageBox
+        box = MessageBox(tr("quick_launch.confirm_delete"),
+                         tr("quick_launch.confirm_delete_msg", name=app_name),
+                         self.window())
+        box.yesButton.setText(tr("quick_launch.delete"))
+        box.cancelButton.setText(tr("common.cancel"))
+        if box.exec():
+            self._apps[idx] = None
+            self._pixmaps[idx] = None
+            self.setToolTip("")
+            self.update()
+            self._persist_config()
+            InfoBar.success(tr("quick_launch.delete_success"),
+                            tr("quick_launch.deleted", name=app_name),
+                            parent=self.window(), duration=2000)
+
+    def _launch_app(self, app):
+        path = app.get("path", "")
+        name = app.get("name", "")
+        app_type = app.get("type", "app")
+        if path:
+            self._executor.submit(self._launch_thread, path, name, app_type)
+
+    def _launch_thread(self, target, name, app_type):
+        try:
+            if not target:
+                self._launch_result.emit(name, tr("quick_launch.no_path"), False)
+            elif app_type == "url":
+                webbrowser.open(target)
+                self._launch_result.emit(name, target, True)
+            elif os.path.exists(target):
+                os.startfile(target)
+                self._launch_result.emit(name, target, True)
+            else:
+                self._launch_result.emit(name, tr("quick_launch.path_not_exist", path=target), False)
+        except Exception as e:
+            self._launch_result.emit(name, str(e), False)
+
+    def _on_launch_result(self, app_name, info, success):
+        if success:
+            logger.info(f"已启动：{app_name} ({info})")
+            InfoBar.success(tr("quick_launch.launch_success"),
+                            tr("quick_launch.opening", name=app_name),
+                            parent=self.window(), duration=2000)
+        else:
+            logger.warning(f"启动失败：{app_name}, {info}")
+            InfoBar.error(tr("quick_launch.launch_failed"),
+                          f"{app_name}: {info}",
+                          parent=self.window(), duration=3000)
+
+    def _persist_config(self):
+        self._config["apps"] = self._apps
+        home = self._getHomeInterface()
+        if home and hasattr(home, "component_manager"):
+            home.component_manager.update_component_config(self.component_id, self._config)
+
+
 SOLAR_TERMS_CN = [
     "小寒", "大寒", "立春", "雨水", "惊蛰", "春分",
     "清明", "谷雨", "立夏", "小满", "芒种", "夏至",
@@ -7170,17 +7612,13 @@ class _TimetableRow(QWidget):
         self._is_current = active
         if active:
             self.setObjectName("timetableRowCurrent")
-            # 有进度条就显示
-            if hasattr(self, '_progress_bar'):
-                self._progress_bar.show()
+            self._progress.show()
         else:
             if self._is_past:
                 self.setObjectName("timetableRowPast")
             else:
                 self.setObjectName("timetableRow")
-            # 隐藏进度条
-            if hasattr(self, '_progress_bar'):
-                self._progress_bar.hide()
+            self._progress.hide()
         # 刷新样式
         self.style().unpolish(self)
         self.style().polish(self)
@@ -7209,9 +7647,16 @@ class TimetablePreviewComponent(DraggableContainer):
         self._scroll_direction = 1               # 1向下，-1向上
         self._scroll_step = 2                    # 每次滚动像素数
         self._scroll_animation_timer.timeout.connect(self._animate_scroll)
+
+        self._sig = None                          # 当前行数据签名
+        self._fast_retry_count = 0
+        self._fast_timer = QTimer(self)           # 重试
+        self._fast_timer.timeout.connect(self._fast_retry)
+
         self._setup_ui()
         self._connect_timetable_page()
         self._refresh_schedule()
+        self._fast_timer.start(500)
 
     def _setup_ui(self):
         layout = self.inner_layout
@@ -7279,6 +7724,7 @@ class TimetablePreviewComponent(DraggableContainer):
         self._scroll_animation_timer.stop()
         self._preview_timer.stop()
         self._after_school_mode = False
+        self._sig = None  # 下次刷新重建为今日
         self._title_label.setText("明日课表")
         self._scroll_to_top()
 
@@ -7296,6 +7742,28 @@ class TimetablePreviewComponent(DraggableContainer):
             self._scroll_direction = 1
         sb.setValue(new_val)
 
+    def _row_flags(self, row_data):
+        subject, teacher, start, end, index, is_current, is_break, break_name = row_data
+        if is_break and not is_current:
+            return True, False
+        if self._after_school_mode:
+            return False, False
+        try:
+            from datetime import datetime as _dt, time as _time
+            eh, em = map(int, end.split(":"))
+            is_past = (not is_current and not is_break and _time(eh, em) <= _dt.now().time())
+        except Exception:
+            is_past = False
+        return False, is_past
+
+    def _fast_retry(self):
+        self._fast_retry_count += 1
+        if not self._timetable_page:
+            self._connect_timetable_page()
+        self._refresh_schedule()
+        if (self._timetable_page and self._sig and len(self._sig) > 0) or self._fast_retry_count > 60:
+            self._fast_timer.stop()
+
     def _rebuild_schedule(self, schedule):
         """用给定课表数据重建UI"""
         while self._scroll_layout.count() > 1:
@@ -7312,26 +7780,13 @@ class TimetablePreviewComponent(DraggableContainer):
             self._schedule_rows.append(row)
             return
 
-
-        from datetime import datetime as _dt, time as _time
-        now_time = _dt.now().time()
-
         last_current_row = None
         last_current_times = None
 
         for row_data in schedule:
             subject, teacher, start, end, index, is_current, is_break, break_name = row_data
-
-            if self._after_school_mode:
-                is_past = False
-            else:
-                try:
-                    eh, em = map(int, end.split(":"))
-                    is_past = (not is_current and not is_break and _time(eh, em) <= now_time)
-                except Exception:
-                    is_past = False
-
-            if is_break and not is_current:
+            skip, is_past = self._row_flags(row_data)
+            if skip:
                 continue
 
             # 构建行
@@ -7352,7 +7807,7 @@ class TimetablePreviewComponent(DraggableContainer):
             last_current_row.set_current(True)
             self._current_row_data = last_current_times
 
-        self._update_progress()    
+        self._update_progress()
     def _connect_timetable_page(self):
         """连接 TimetablePage 获取课表数据"""
         try:
@@ -7443,7 +7898,7 @@ class TimetablePreviewComponent(DraggableContainer):
     def _refresh_schedule(self):
         """刷新课表内容"""
         if self._after_school_mode:
-            return 
+            return
 
         if self._bridge:
             try:
@@ -7461,6 +7916,17 @@ class TimetablePreviewComponent(DraggableContainer):
             except Exception:
                 pass
 
+        parts = []
+        for row_data in schedule:
+            skip, is_past = self._row_flags(row_data)
+            if not skip:
+                parts.append((tuple(row_data), is_past))
+        sig = tuple(parts)
+
+        if sig == self._sig:
+            self._update_progress()
+            return
+        self._sig = sig
         self._rebuild_schedule(schedule)
     def _build_class_row(self, index, subject, teacher, start, end, is_current, is_past=False):
         """课程行: [第几节] [课程] [老师姓氏]老师 [HH:MM]~[HH:MM]"""
@@ -7471,7 +7937,9 @@ class TimetablePreviewComponent(DraggableContainer):
         idx_lbl = CaptionLabel(f"第{index}节")
         idx_lbl.setObjectName("timetableIdx" + past_suffix)
         idx_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        idx_lbl.setFixedWidth(self._scaled_px(15) * 4 + 8)
         row.addWidget(idx_lbl)
+        row._idx_lbl = idx_lbl
 
         # 课程名
         subj_lbl = BodyLabel(subject or "—")
@@ -7489,9 +7957,14 @@ class TimetablePreviewComponent(DraggableContainer):
     def _build_break_row(self, start, end, break_name, is_current=True):
         row = _TimetableRow(is_current=is_current, is_break=True, parent=self)
 
+        pad = QWidget()
+        pad.setFixedWidth(self._scaled_px(15) * 4 + 8)
+        row.addWidget(pad)
+        row._idx_lbl = pad
+
         lbl = BodyLabel(break_name or "课间")
         lbl.setObjectName("timetableBreakLabel")
-        lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        lbl.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         row.addWidget(lbl, 1)
 
         time_lbl = CaptionLabel(f"{start}~{end}")
@@ -7715,8 +8188,11 @@ class TimetablePreviewComponent(DraggableContainer):
         """)
 
     def apply_scale(self, factor):
+        idx_w = self._scaled_px(15) * 4 + 8
         for row in self._schedule_rows:
             row.apply_scale(factor)
+            if getattr(row, '_idx_lbl', None):
+                row._idx_lbl.setFixedWidth(idx_w)
         self._apply_style()
 
     def showEvent(self, e):
@@ -7724,10 +8200,14 @@ class TimetablePreviewComponent(DraggableContainer):
         self._apply_style()
         self._refresh_timer.start(5000)
         self._progress_timer.start(1000)
+        if not (self._timetable_page and self._sig) and not self._fast_timer.isActive():
+            self._fast_retry_count = 0
+            self._fast_timer.start(500)
 
     def hideEvent(self, e):
         self._refresh_timer.stop()
         self._progress_timer.stop()
+        self._fast_timer.stop()
         super().hideEvent(e)
 
 
@@ -10244,6 +10724,7 @@ COMPONENT_STYLES["countdown"]["event"]["class"] = CountdownEventComponent
 COMPONENT_STYLES["school_info"]["class_info"]["class"] = SchoolInfoComponent
 COMPONENT_STYLES["media"]["player"]["class"] = MediaPlayerComponent
 COMPONENT_STYLES["quick_launch"]["dock"]["class"] = QuickLaunchDockComponent
+COMPONENT_STYLES["quick_launch"]["grid"]["class"] = QuickLaunchGridComponent
 COMPONENT_STYLES["clock"]["calendar_month"]["class"] = CalendarMonthComponent
 COMPONENT_STYLES["linkage"]["timetable_preview"]["class"] = TimetablePreviewComponent
 COMPONENT_STYLES["linkage"]["timetable_nowlesson"]["class"] = TimetableNowLessonComponent

@@ -530,6 +530,18 @@ BUILTIN_COMPONENT_DEFINITIONS = [
         default_config={"icon_size": 64},
     ),
     ComponentDefinition(
+        id="quick_launch_grid",
+        display_name="快捷启动II",
+        category="Launcher",
+        icon="App",
+        min_width_cells=4,
+        min_height_cells=2,
+        default_width_cells=4,
+        default_height_cells=2,
+        resize_mode=ResizeMode.FREE,
+        default_config={"apps": []},
+    ),
+    ComponentDefinition(
         id="linkage_timetable_preview",
         display_name="今日课表",
         category="School",

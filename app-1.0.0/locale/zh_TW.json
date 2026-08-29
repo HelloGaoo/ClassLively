@@ -692,6 +692,12 @@
     "opening": "正在開啟 {name}",
     "launch_failed": "啟動失敗"
   },
+  "quick_launch_ii": {
+    "add_app": "新增應用",
+    "select_program": "選擇程式",
+    "rename": "重新命名",
+    "rename_title": "重新命名應用"
+  },
   "color": {
     "red": "紅色",
     "white": "白色",

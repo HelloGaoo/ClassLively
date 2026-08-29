@@ -739,6 +739,12 @@
     "opening": "正在打开 {name}",
     "launch_failed": "启动失败"
   },
+  "quick_launch_ii": {
+    "add_app": "添加应用",
+    "select_program": "选择程序",
+    "rename": "重命名",
+    "rename_title": "重命名应用"
+  },
   "color": {
     "red": "红色",
     "white": "白色",
