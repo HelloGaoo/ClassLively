@@ -946,6 +946,26 @@ _ICON_NAME_MAP = {
 
     # 书写板图标
     "CURSOR": "cursor",
+
+    # 天气类
+    "WEATHER_SUNNY": "weather_sunny",
+    "WEATHER_CLOUDY": "weather_cloudy",
+    "WEATHER_PARTLY_DAY": "weather_partly_cloudy_day",
+    "WEATHER_PARTLY_NIGHT": "weather_partly_cloudy_night",
+    "WEATHER_RAIN": "weather_rain",
+    "WEATHER_DRIZZLE": "weather_drizzle",
+    "WEATHER_SNOW": "weather_snow",
+    "WEATHER_FOG": "weather_fog",
+    "WEATHER_HAZE": "weather_haze",
+    "WEATHER_THUNDERSTORM": "weather_thunderstorm",
+    "WEATHER_MOON": "weather_moon",
+    "WEATHER_DUSTSTORM": "weather_duststorm",
+    "WEATHER_SQUALLS": "weather_squalls",
+    "WEATHER_RAIN_SNOW": "weather_rain_snow",
+    "WEATHER_BLOWING_SNOW": "weather_blowing_snow",
+    "WEATHER_HUMIDITY": "weather_humidity",
+    "WEATHER_HAIL": "weather_hail_day",
+    "TEMPERATURE": "temperature",
     "BLUR": "blur",
     "BOARD": "board",
     "PEN": "pen",

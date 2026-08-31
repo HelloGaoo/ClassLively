@@ -22,12 +22,13 @@ import json
 import os
 from datetime import datetime
 
-from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtCore import Qt, QTimer, QThread, pyqtSignal
 from PyQt6.QtGui import QPainter, QColor, QPen, QBrush, QFont, QIcon
-from PyQt6.QtWidgets import QApplication, QFileDialog, QHBoxLayout, QVBoxLayout, QWidget
+from PyQt6.QtWidgets import QApplication, QFileDialog, QHBoxLayout, QLabel, QVBoxLayout, QWidget
 from qfluentwidgets import (
     BodyLabel,
     CaptionLabel,
+    CardWidget,
     ComboBoxSettingCard,
     CustomColorSettingCard,
     FluentWindow,
@@ -38,10 +39,12 @@ from qfluentwidgets import (
     ScrollArea,
     SettingCard,
     SpinBox,
+    StrongBodyLabel,
     SubtitleLabel,
     SwitchButton,
     SwitchSettingCard,
     Theme,
+    TransparentToolButton,
     isDarkTheme,
     qconfig,
     setTheme,
@@ -50,7 +53,7 @@ from qfluentwidgets import (
 
 from core.config import cfg, default_cfg, ConfigItem, CONFIG_PATH
 from core.constants import BASE_DIR, DATA_CONFIG, load_qss, clear_qss_cache, APP_ICON, get_resPath, FONT_PRIMARY
-from core.utils import _load_app_fonts, apply_fonts, tr, get_time_sync_service, FUI
+from core.utils import _load_app_fonts, apply_fonts, tr, get_time_sync_service, get_cached_content, save_cache, FUI
 from core.logger import log_dir
 
 
@@ -410,6 +413,442 @@ class TimePage(SettingsSubPage):
     def __updateSyncStatus(self):
         sync_time = cfg.lastSyncTime.value
         self.timeSyncStatusCard.set_status(sync_time)
+
+
+class _LatLonSettingCard(SettingCard):
+    """纬度/经度卡片"""
+
+    def __init__(self, latItem, lonItem, icon, title, content=None, parent=None):
+        super().__init__(icon, title, content, parent)
+        self.latItem = latItem
+        self.lonItem = lonItem
+
+        self.latEdit = LineEdit(self)
+        self.lonEdit = LineEdit(self)
+        for edit, item, tip in ((self.latEdit, latItem, tr("settings.weather_latitude")),
+                                (self.lonEdit, lonItem, tr("settings.weather_longitude"))):
+            edit.setFixedWidth(110)
+            edit.setPlaceholderText(tip)
+            edit.setText(str(qconfig.get(item)))
+            edit.textChanged.connect(
+                lambda text, it=item: self._apply(it, text))
+
+        box = QHBoxLayout()
+        box.setSpacing(8)
+        box.addWidget(self.latEdit)
+        box.addWidget(self.lonEdit)
+        w = QWidget(self)
+        w.setLayout(box)
+        self.hBoxLayout.addWidget(w, 0, Qt.AlignmentFlag.AlignRight)
+        self.hBoxLayout.addSpacing(16)
+
+    def _apply(self, item, text):
+        try:
+            qconfig.set(item, float(text))
+        except ValueError:
+            pass
+
+
+class _DashSeparator(QWidget):
+    """短横杠分隔"""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setFixedSize(24, 6)
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        color = QColor("#FFFFFF") if isDarkTheme() else QColor("#000000")
+        color.setAlpha(140)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QBrush(color))
+        painter.drawRoundedRect(0, 2, 24, 2, 1, 1)
+        painter.end()
+
+
+class _WeatherMetricCard(CardWidget):
+    """天气卡片"""
+
+    def __init__(self, title: str, parent=None):
+        super().__init__(parent)
+        self.setFixedHeight(108)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(14, 12, 14, 12)
+        layout.setSpacing(4)
+
+        self.titleLabel = BodyLabel(title, self)
+        self.titleLabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        self.dash = _DashSeparator(self)
+        self.dash_layout = QHBoxLayout()
+        self.dash_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.dash_layout.addWidget(self.dash)
+        dash_host = QWidget(self)
+        dash_host.setLayout(self.dash_layout)
+
+        self.valueLabel = StrongBodyLabel("--", self)
+        self.valueLabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        layout.addWidget(self.titleLabel)
+        layout.addWidget(dash_host)
+        layout.addWidget(self.valueLabel)
+
+    def set_value(self, value: str):
+        self.valueLabel.setText(value or "--")
+
+
+class _WeatherFetchWorker(QThread):
+    """后台天气线程"""
+    fetched = pyqtSignal(object)
+
+    def run(self):
+        from services.weather import WeatherService
+        try:
+            ws = WeatherService()
+            self.fetched.emit(ws.fetch_all())
+        except Exception:
+            self.fetched.emit(None)
+
+
+class WeatherPage(SettingsSubPage):
+    """天气设置页面"""
+
+    def __init__(self, main_window, parent=None):
+        super().__init__(tr("settings.weather"), parent)
+        self.main_window = main_window
+        self._worker = None
+        self._icon_name = "2.svg"
+
+        self._init_header()
+        self._init_current()
+        self._init_metrics()
+        self._init_source_cards()
+        self._init_option_cards()
+        self._apply_theme_text()
+        self._load_cached()
+
+        cfg.themeChanged.connect(self._on_theme_changed)
+        self.vBoxLayout.addStretch()
+
+    # 顶部
+    def _init_header(self):
+        header = QWidget(self.scrollWidget)
+        h = QHBoxLayout(header)
+        h.setContentsMargins(4, 0, 4, 0)
+        h.setSpacing(8)
+
+        self.cityLabel = QLabel(
+            cfg.city.value or tr("settings.weather_city_unset"), header)
+        self.cityLabel.setStyleSheet("font-size: 20px; font-weight: bold; background: transparent;")
+
+        self.refreshBtn = TransparentToolButton(FUI.SYNC, header)
+        self.refreshBtn.setFixedSize(30, 30)
+        self.refreshBtn.setToolTip(tr("settings.weather_refresh"))
+        self.refreshBtn.clicked.connect(self._refresh)
+
+        h.addWidget(self.cityLabel)
+        h.addStretch()
+        h.addWidget(self.refreshBtn)
+
+        self.updateLabel = CaptionLabel(tr("settings.weather_never_updated"), self.scrollWidget)
+
+        self.vBoxLayout.addWidget(header)
+        self.vBoxLayout.addWidget(self.updateLabel)
+        self.vBoxLayout.addSpacing(6)
+
+    # 当前天气
+    def _init_current(self):
+        row = QWidget(self.scrollWidget)
+        h = QHBoxLayout(row)
+        h.setContentsMargins(4, 0, 4, 0)
+        h.setSpacing(16)
+
+        self.iconLabel = QLabel(row)
+        self.iconLabel.setFixedSize(72, 72)
+        self.iconLabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        self.tempLabel = QLabel("--°", row)
+        self.tempLabel.setAlignment(Qt.AlignmentFlag.AlignVCenter)
+        self.tempLabel.setStyleSheet("font-size: 40px; font-weight: bold; background: transparent;")
+
+        h.addWidget(self.iconLabel)
+        h.addWidget(self.tempLabel)
+        h.addStretch()
+
+        self.vBoxLayout.addWidget(row)
+        self.vBoxLayout.addSpacing(6)
+
+    # 卡片
+    def _init_metrics(self):
+        row = QWidget(self.scrollWidget)
+        h = QHBoxLayout(row)
+        h.setContentsMargins(4, 0, 4, 0)
+        h.setSpacing(10)
+
+        self.windCard = _WeatherMetricCard(tr("settings.weather_wind"), row)
+        self.aqiCard = _WeatherMetricCard(tr("settings.weather_aqi"), row)
+        self.humidityCard = _WeatherMetricCard(tr("settings.weather_humidity"), row)
+        self.feelsCard = _WeatherMetricCard(tr("settings.weather_feels"), row)
+        for c in (self.windCard, self.aqiCard, self.humidityCard, self.feelsCard):
+            h.addWidget(c, 1)
+
+        self.vBoxLayout.addWidget(row)
+        self.vBoxLayout.addSpacing(12)
+
+    # 天气源
+    def _init_source_cards(self):
+        self.sourceCard = ComboBoxSettingCard(
+            cfg.weatherSource,
+            FUI.GLOBE,
+            tr("settings.weather_source"),
+            tr("settings.weather_source_desc"),
+            texts=[tr("settings.weather_source_city"), tr("settings.weather_source_coords")],
+            parent=self.scrollWidget,
+        )
+        self.sourceCard.comboBox.currentIndexChanged.connect(
+            lambda _: self._apply_source_visibility())
+
+        self.cityCard = ButtonSettingCard(
+            FUI.LOCATION,
+            tr("settings.weather_city"),
+            tr("settings.weather_city_desc"),
+            parent=self.scrollWidget,
+        )
+        self.cityCard.button.setText(tr("settings.weather_select_city"))
+        self.cityCard.button.clicked.connect(self._select_city)
+
+        self.latLonCard = _LatLonSettingCard(
+            cfg.latitude, cfg.longitude,
+            FUI.GLOBE,
+            tr("settings.weather_latlon"),
+            tr("settings.weather_latlon_desc"),
+            parent=self.scrollWidget,
+        )
+        self.latLonCard.latEdit.textChanged.connect(lambda _: self._update_city_label())
+        self.latLonCard.lonEdit.textChanged.connect(lambda _: self._update_city_label())
+
+        self.alertCard = TextLineSettingCard(
+            cfg.weatherAlertExcluded,
+            FUI.ALERT,
+            tr("settings.weather_alert_exclude"),
+            tr("settings.weather_alert_exclude_desc"),
+            parent=self.scrollWidget,
+        )
+
+        self.vBoxLayout.addWidget(self.sourceCard)
+        self.vBoxLayout.addWidget(self.cityCard)
+        self.vBoxLayout.addWidget(self.latLonCard)
+        self.vBoxLayout.addWidget(self.alertCard)
+        self._apply_source_visibility()
+
+    def _apply_source_visibility(self):
+        by_city = cfg.weatherSource.value == "city"
+        self.cityCard.setVisible(by_city)
+        self.latLonCard.setVisible(not by_city)
+        self._update_city_label()
+
+    def _update_city_label(self):
+        if cfg.weatherSource.value == "city":
+            self.cityLabel.setText(cfg.city.value or tr("settings.weather_city_unset"))
+        else:
+            try:
+                lat = float(qconfig.get(cfg.latitude))
+                lon = float(qconfig.get(cfg.longitude))
+                self.cityLabel.setText(f"{lat:.4f}, {lon:.4f}")
+            except (TypeError, ValueError):
+                self.cityLabel.setText(tr("settings.weather_city_unset"))
+
+    # 设定
+
+    def _init_option_cards(self):
+        self.intervalCard = ComboBoxSettingCard(
+            cfg.weatherUpdateInterval,
+            FUI.SYNC,
+            tr("settings.weather_refresh_interval"),
+            tr("settings.weather_refresh_interval_desc"),
+            texts=[
+                tr("settings.weather_interval_never"),
+                tr("settings.weather_interval_5m"),
+                tr("settings.weather_interval_15m"),
+                tr("settings.weather_interval_30m"),
+                tr("settings.weather_interval_1h"),
+                tr("settings.weather_interval_3h"),
+                tr("settings.weather_interval_6h"),
+                tr("settings.weather_interval_12h"),
+                tr("settings.weather_interval_24h"),
+            ],
+            parent=self.scrollWidget,
+        )
+        self.unitCard = ComboBoxSettingCard(
+            cfg.weatherUnit,
+            FUI.TEMPERATURE,
+            tr("settings.weather_unit"),
+            tr("settings.weather_unit_desc"),
+            texts=[tr("settings.weather_unit_c"), tr("settings.weather_unit_f")],
+            parent=self.scrollWidget,
+        )
+        self.unitCard.comboBox.currentIndexChanged.connect(
+            lambda _: self._load_cached())
+
+        self.vBoxLayout.addWidget(self.intervalCard)
+        self.vBoxLayout.addWidget(self.unitCard)
+
+    # 主题文字颜色
+
+    def _apply_theme_text(self):
+        color = "#FFFFFF" if isDarkTheme() else "#000000"
+        self.cityLabel.setStyleSheet(
+            f"color: {color}; font-size: 20px; font-weight: bold; background: transparent;")
+        self.tempLabel.setStyleSheet(
+            f"color: {color}; font-size: 40px; font-weight: bold; background: transparent;")
+        self.updateLabel.setStyleSheet(
+            f"color: {color}; background: transparent;")
+        for card in (self.windCard, self.aqiCard, self.humidityCard, self.feelsCard):
+            card.titleLabel.setStyleSheet(
+                f"color: {color}; font-size: 14px; font-weight: bold; background: transparent;")
+            card.valueLabel.setStyleSheet(
+                f"color: {color}; font-size: 18px; background: transparent;")
+            card.dash.update()
+        self._render_icon()
+
+    def _on_theme_changed(self, theme):
+        self._apply_theme_text()
+
+    # 数据
+
+    def _load_cached(self):
+        data = get_cached_content("weather", ignore_expiry=True)
+        if data:
+            self._apply_data(data)
+        else:
+            self._update_city_label()
+
+    def _refresh(self):
+        w = self._worker
+        if w is not None:
+            try:
+                if w.isRunning():
+                    return
+            except RuntimeError:
+                pass
+            self._worker = None
+        w = _WeatherFetchWorker(self)
+        w.fetched.connect(self._on_fetched)
+        w.finished.connect(self._on_worker_finished)
+        self._worker = w
+        w.start()
+
+    def _on_worker_finished(self):
+        w = self._worker
+        self._worker = None
+        if w is not None:
+            w.deleteLater()
+
+    def _on_fetched(self, data):
+        if data:
+            save_cache("weather", data, cfg.weatherUpdateInterval.value)
+            self._apply_data(data)
+        else:
+            InfoBar.warning(
+                "",
+                tr("settings.weather_fetch_failed"),
+                duration=3000,
+                parent=self.window(),
+            )
+
+    def _select_city(self):
+        from services.weather import RegionSelectorDialog, RegionDatabase
+        dlg = RegionSelectorDialog(self.window())
+        if dlg.exec():
+            region = dlg.get_selected_region()
+            if region:
+                cfg.city.value = region
+                cfg.weatherSource.value = "city"
+                self.sourceCard.comboBox.setCurrentIndex(0)
+                lon, lat = RegionDatabase().get_coordinates(region)
+                if lon is not None and lat is not None:
+                    cfg.longitude.value = lon
+                    cfg.latitude.value = lat
+                self.latLonCard.latEdit.setText(str(cfg.latitude.value))
+                self.latLonCard.lonEdit.setText(str(cfg.longitude.value))
+                self._update_city_label()
+                self._refresh()
+
+    def _apply_data(self, data):
+        from services.weather import WeatherService
+
+        current = data.get("current", {}) or {}
+
+        # 更新时间：MM/DD HH:MM
+        pub = str(current.get("pubTime", "") or "")
+        if pub:
+            try:
+                dt = datetime.strptime(pub[:16].replace("T", " "), "%Y-%m-%d %H:%M")
+                self.updateLabel.setText(
+                    f"{dt.month:02d}/{dt.day:02d} {dt.hour:02d}:{dt.minute:02d} "
+                    + tr("settings.weather_updated"))
+            except ValueError:
+                pass
+
+        # 当前温度
+        temp_obj = current.get("temperature", {}) or {}
+        self.tempLabel.setText(self._fmt_temp(temp_obj.get("value", "--")) + "°")
+
+        # 天气图标 WeatherService.ICON_MAP
+        code = current.get("weather", 0)
+        try:
+            code = int(code)
+        except (ValueError, TypeError):
+            code = 0
+        self._icon_name = WeatherService.ICON_MAP.get(code, "2.svg")
+        self._render_icon()
+
+        # 四卡片
+        wind_obj = current.get("wind", {}) or {}
+        wind_speed = wind_obj.get("speed", {}) if isinstance(wind_obj, dict) else {}
+        self.windCard.set_value(self._fmt_metric(wind_speed))
+
+        aqi_obj = data.get("aqi", {}) or {}
+        aqi_val = aqi_obj.get("aqi")
+        self.aqiCard.set_value("--" if aqi_val in (None, "") else str(aqi_val))
+
+        self.humidityCard.set_value(self._fmt_metric(current.get("humidity")))
+
+        feels = current.get("feelsLike", {}) or {}
+        unit = "°F" if cfg.weatherUnit.value == "f" else (feels.get("unit", "") or "℃")
+        self.feelsCard.set_value(self._fmt_temp(feels.get("value")) + unit)
+
+        if cfg.weatherSource.value == "city" and cfg.city.value:
+            self.cityLabel.setText(cfg.city.value)
+
+    def _render_icon(self):
+        from services.weather import WeatherService
+        from ui.component import render_svg_icon
+        path = WeatherService.get_weather_icon_path(self._icon_name)
+        if path and os.path.exists(path):
+            pm = render_svg_icon(path, 64, self.iconLabel.devicePixelRatioF())
+            if not pm.isNull():
+                self.iconLabel.setPixmap(pm)
+
+    def _fmt_temp(self, raw) -> str:
+        try:
+            v = float(raw)
+        except (TypeError, ValueError):
+            return str(raw) if raw is not None and str(raw) != "" else "--"
+        if cfg.weatherUnit.value == "f":
+            v = v * 9.0 / 5.0 + 32.0
+        return str(int(round(v)))
+
+    @staticmethod
+    def _fmt_metric(obj) -> str:
+        if not isinstance(obj, dict):
+            return "--"
+        v = obj.get("value", "--")
+        u = obj.get("unit", "") or ""
+        if v is None or v == "":
+            v = "--"
+        return f"{v} {u}".strip()
 
 
 class AppearancePage(SettingsSubPage):
@@ -1068,6 +1507,9 @@ class SettingsWindow(FluentWindow):
         self.appearancePage = AppearancePage(self.main_window, self)
         self.appearancePage.setObjectName("appearancePage")
 
+        self.weatherPage = WeatherPage(self.main_window, self)
+        self.weatherPage.setObjectName("weatherPage")
+
         self.gridPage = GridPage(self.main_window, self)
         self.gridPage.setObjectName("gridPage")
 
@@ -1078,6 +1520,7 @@ class SettingsWindow(FluentWindow):
         self.addSubInterface(self.generalPage, FUI.SETTING, tr("settings.general"))
         self.addSubInterface(self.timePage, FUI.DATE_TIME, tr("settings.time"))
         self.addSubInterface(self.appearancePage, FUI.PALETTE, tr("settings.appearance"))
+        self.addSubInterface(self.weatherPage, FUI.CLOUD, tr("settings.weather"))
         self.addSubInterface(self.gridPage, FUI.TABLE, tr("settings.grid.title"))
         self.addSubInterface(self.logPage, FUI.INFO, tr("settings.log"))
         self.addSubInterface(self.advancedPage, FUI.LIBRARY, tr("settings.advanced"))

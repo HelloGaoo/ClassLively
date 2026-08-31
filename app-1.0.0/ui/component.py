@@ -6824,18 +6824,19 @@ class QuickLaunchGridComponent(DraggableContainer):
         painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
 
         dark = isDarkTheme()
-        op = self._cell_opacity()
         for i, rect in enumerate(self._cell_rects()):
             side = rect.width()
             if side < 4:
                 continue
             radius = self._cell_radius(side)
-
-            bg = QColor(45, 45, 48) if dark else QColor(235, 235, 240)
-            bg.setAlpha(int(255 * op))
-            painter.setPen(Qt.PenStyle.NoPen)
-            painter.setBrush(bg)
-            painter.drawRoundedRect(rect, radius, radius)
+            
+            if i == self._drag_idx or i == self._hover_idx:
+                c = self._primary_color()
+                fb = QColor(c.red(), c.green(), c.blue())
+                fb.setAlpha(38)
+                painter.setPen(Qt.PenStyle.NoPen)
+                painter.setBrush(fb)
+                painter.drawRoundedRect(rect, radius, radius)
 
             if i == self._drag_idx:
                 c = self._primary_color()
@@ -6970,10 +6971,6 @@ class QuickLaunchGridComponent(DraggableContainer):
             self._on_cell_drop(idx, e.mimeData())
         else:
             e.ignore()
-
-    def _cell_opacity(self) -> float:
-        op = self._bg_opacity if self._bg_opacity is not None else cfg.componentCardOpacity.value
-        return max(0.0, min(1.0, op / 100.0))
 
     def _cell_radius(self, side: float) -> int:
         r = self._corner_radius if self._corner_radius is not None else cfg.componentCardRadius.value

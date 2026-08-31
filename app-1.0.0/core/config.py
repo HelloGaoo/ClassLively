@@ -224,16 +224,25 @@ class Config(QConfig):
         "Weather", "UpdateInterval", "5m", OptionsValidator(["never", "5m", "15m", "30m", "1h", "3h", "6h", "12h", "24h"])
     )
     city = ConfigItem(
-        "Weather", "City", ""
+        "Weather", "City", "北京市"
     )
     cityCode = ConfigItem(
         "Weather", "CityCode", ""
+    )
+    weatherSource = OptionsConfigItem(
+        "Weather", "Source", "city", OptionsValidator(["city", "coords"])
     )
     latitude = ConfigItem(
         "Weather", "Latitude", 39.9042
     )
     longitude = ConfigItem(
         "Weather", "Longitude", 116.4074
+    )
+    weatherUnit = OptionsConfigItem(
+        "Weather", "Unit", "c", OptionsValidator(["c", "f"])
+    )
+    weatherAlertExcluded = ConfigItem(
+        "Weather", "AlertExcluded", ""
     )
     debugMode = ConfigItem(
         "Other", "DebugMode", False, BoolValidator()
@@ -524,9 +533,13 @@ def default_cfg():
             "WeatherTextColor": "#FFFFFF",
             "WeatherIconSize": 64,
             "UpdateInterval": "5m",
-            "City": "",
+            "City": "北京市",
+            "CityCode": "",
+            "Source": "city",
             "Latitude": 39.9042,
-            "Longitude": 116.4074
+            "Longitude": 116.4074,
+            "Unit": "c",
+            "AlertExcluded": ""
         },
         "QFluentWidgets": {
             "FontFamilies": [
