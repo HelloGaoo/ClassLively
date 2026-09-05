@@ -744,6 +744,18 @@ BUILTIN_COMPONENT_DEFINITIONS = [
         resize_mode=ResizeMode.HORIZONTAL,
         default_config={},
     ),
+    ComponentDefinition(
+        id="system_performance",
+        display_name="性能监测",
+        category="System",
+        icon="Gauge",
+        min_width_cells=4,
+        min_height_cells=2,
+        default_width_cells=4,
+        default_height_cells=2,
+        resize_mode=ResizeMode.FREE,
+        default_config={},
+    ),
 ]
 
 

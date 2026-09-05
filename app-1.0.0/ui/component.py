@@ -109,6 +109,7 @@ def get_component_display_name(component_id: str) -> str:
         "school_info": tr("component.school_info"),  # 学校信息
         "media": tr("component.media"),  # 媒体信息
         "quick_launch": tr("component.quick_launch"),  # 快捷启动
+        "system": tr("component.system"),  # 性能监测
     }
     return name_map.get(component_id, component_id)
 
@@ -335,6 +336,14 @@ COMPONENT_STYLES = {
     "sentence": {
         "daily": {
             "name": "每日英语",
+            "class": None,
+            "default_config": {},
+            "default_size": (400, 200),
+        },
+    },
+    "system": {
+        "performance": {
+            "name": "性能监测",
             "class": None,
             "default_config": {},
             "default_size": (400, 200),
@@ -6333,6 +6342,280 @@ class TimetableTimelineComponent(DraggableContainer):
         self._apply_style()
 
 
+_perf_cpu_lock = threading.Lock()
+_perf_cpu_baseline = None  # (busy, total)
+
+
+def _read_system_cpu():
+    """CPU 使用率"""
+    global _perf_cpu_baseline
+    import psutil
+    with _perf_cpu_lock:
+        t = psutil.cpu_times()
+        total = sum(t)
+        busy = total - t.idle - getattr(t, "iowait", 0.0)
+        prev = _perf_cpu_baseline
+        _perf_cpu_baseline = (busy, total)
+        if prev is None:
+            return None
+        d_total = total - prev[1]
+        if d_total <= 0:
+            return 0.0
+        return round((busy - prev[0]) / d_total * 100, 1)
+
+
+def _collect_perf_data() -> dict:
+    """后台采集 CPU/RAM/GPU 使用率（不能在主线程使用！！！）"""
+    data = {"cpu": None, "ram": None, "gpu": None}
+    # CPU / RAM
+    try:
+        import psutil
+        cpu = _read_system_cpu()
+        data["cpu"] = 0.0 if cpu is None else cpu  # 首次无先显示 0
+        data["ram"] = psutil.virtual_memory().percent
+    except Exception:
+        pass
+    # GPU：Windows GPU Engine(*engtype_3D)\Utilization Percentage
+    try:
+        import win32pdh
+        items = win32pdh.EnumObjectItems(None, None, "GPU Engine", win32pdh.PERF_DETAIL_WIZARD)
+        instances = [i for i in items[1] if i.endswith("engtype_3D")]
+        if instances:
+            query = win32pdh.OpenQuery()
+            handles = []
+            try:
+                for inst in instances:
+                    path = win32pdh.MakeCounterPath(
+                        (None, "GPU Engine", inst, None, 0, "Utilization Percentage"))
+                    handles.append(win32pdh.AddCounter(query, path))
+                win32pdh.CollectQueryData(query)
+                time.sleep(0.05)
+                win32pdh.CollectQueryData(query)
+                per_gpu = {}
+                for h, inst in zip(handles, instances):
+                    luid = inst[inst.index("luid_"):inst.index("_phys_")] if ("luid_" in inst and "_phys_" in inst) else inst
+                    try:
+                        per_gpu[luid] = per_gpu.get(luid, 0.0) + win32pdh.GetFormattedCounterValue(h, win32pdh.PDH_FMT_DOUBLE)[1]
+                    except Exception:
+                        pass
+                if per_gpu:
+                    data["gpu"] = min(100.0, max(0.0, max(per_gpu.values())))
+            finally:
+                try:
+                    win32pdh.CloseQuery(query)
+                except Exception:
+                    pass
+    except Exception:
+        pass
+    return data
+
+
+class PerformanceMonitorComponent(DraggableContainer):
+    """性能监测组件（HTML）"""
+
+    _object_name = "performanceMonitorContainer"
+
+    _theme_light = {
+        "track": "#e9e9ee",
+        "ink": "#000000",
+        "unit": "#000000",
+        "label": "#000000",
+    }
+    _theme_dark = {
+        "track": "rgba(255, 255, 255, 0.10)",
+        "ink": "#ffffff",
+        "unit": "#ffffff",
+        "label": "#ffffff",
+    }
+    _metric_colors = {"cpu": "#0078d4", "ram": "#8b5cf6", "gpu": "#10b981"}
+
+    _HTML_TEMPLATE = Template('''<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; background: transparent; overflow: hidden; }
+  body { font-family: $font; }
+  #wrap {
+    width: 100%; height: 100%;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .gauge {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+  }
+  .ring-box { position: relative; width: 104px; height: 104px; }
+  .ring-box svg { width: 100%; height: 100%; transform: rotate(-90deg); display: block; }
+  .track { fill: none; stroke: $track; stroke-width: 9; }
+  .bar {
+    fill: none; stroke-width: 9; stroke-linecap: round;
+    transition: stroke-dashoffset .7s cubic-bezier(.25, .8, .25, 1);
+  }
+  .val {
+    position: absolute; left: 0; top: 0; width: 100%; height: 100%;
+    display: flex; align-items: baseline; justify-content: center;
+    color: $ink;
+  }
+  .num { font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 104px; }
+  .unit { font-size: 12px; font-weight: 600; color: $unit; margin-left: 1px; }
+  .label {
+    margin-top: 9px; font-size: 13px; font-weight: 700;
+    letter-spacing: 2.5px; color: $label;
+  }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div class="gauge">
+    <div class="ring-box">
+      <svg viewBox="0 0 100 100">
+        <circle class="track" cx="50" cy="50" r="42"/>
+        <circle class="bar" id="bar-cpu" cx="50" cy="50" r="42" stroke="$cpu_color"/>
+      </svg>
+      <div class="val"><span class="num" id="num-cpu">--</span><span class="unit">%</span></div>
+    </div>
+    <div class="label">CPU</div>
+  </div>
+  <div class="gauge">
+    <div class="ring-box">
+      <svg viewBox="0 0 100 100">
+        <circle class="track" cx="50" cy="50" r="42"/>
+        <circle class="bar" id="bar-ram" cx="50" cy="50" r="42" stroke="$ram_color"/>
+      </svg>
+      <div class="val"><span class="num" id="num-ram">--</span><span class="unit">%</span></div>
+    </div>
+    <div class="label">RAM</div>
+  </div>
+  <div class="gauge">
+    <div class="ring-box">
+      <svg viewBox="0 0 100 100">
+        <circle class="track" cx="50" cy="50" r="42"/>
+        <circle class="bar" id="bar-gpu" cx="50" cy="50" r="42" stroke="$gpu_color"/>
+      </svg>
+      <div class="val"><span class="num" id="num-gpu">--</span><span class="unit">%</span></div>
+    </div>
+    <div class="label">GPU</div>
+  </div>
+</div>
+<script>
+(function () {
+  var C = 2 * Math.PI * 42;
+  var bars = {}, nums = {};
+  ['cpu', 'ram', 'gpu'].forEach(function (k) {
+    bars[k] = document.getElementById('bar-' + k);
+    nums[k] = document.getElementById('num-' + k);
+    bars[k].style.strokeDasharray = C;
+    bars[k].style.strokeDashoffset = C;
+  });
+  function setRing(k, v) {
+    if (v === null || v === undefined || isNaN(v)) {
+      nums[k].textContent = '--';
+      bars[k].style.strokeDashoffset = C;
+      return;
+    }
+    v = Math.max(0, Math.min(100, v));
+    nums[k].textContent = Math.round(v);
+    bars[k].style.strokeDashoffset = C * (1 - v / 100);
+  }
+  window.updatePerf = function (data) {
+    data = data || {};
+    setRing('cpu', data.cpu);
+    setRing('ram', data.ram);
+    setRing('gpu', data.gpu);
+    return true;
+  };
+})();
+</script>
+</body>
+</html>''')
+
+    _perf_ready = pyqtSignal(dict)
+
+    def __init__(self, parent, component_data: dict):
+        super().__init__(parent, component_id=component_data["id"], layout_direction="vertical")
+        self.setObjectName(self._object_name)
+        self._home = parent
+        self._scale_factor = 1.0
+        self._data = None
+        self._fetching = False
+        try:
+            _read_system_cpu()
+        except Exception:
+            pass
+        self._setup_ui()
+        self._perf_ready.connect(self._on_perf_ready)
+        self._timer = QTimer(self)
+        self._timer.timeout.connect(self._poll)
+        self._timer.start(1000)
+        self._poll()
+
+    def _poll(self):
+        if self._fetching:
+            return
+        self._fetching = True
+        threading.Thread(target=self._perf_thread, daemon=True).start()
+
+    def _perf_thread(self):
+        data = _collect_perf_data()
+        try:
+            self._perf_ready.emit(data)
+        except RuntimeError:
+            pass
+
+    def _on_perf_ready(self, data: dict):
+        self._fetching = False
+        self._data = data
+        self._push_data()
+
+    def _push_data(self):
+        try:
+            js = f"updatePerf({json.dumps(self._data)})"
+            self.webView.page().runJavaScript(js, self._on_push_result)
+        except Exception:
+            pass
+
+    def _on_push_result(self, result):
+        if not result:
+            QTimer.singleShot(300, self._push_data)
+
+    def _on_load_finished(self, ok):
+        if ok and self._data:
+            self._push_data()
+
+    def _setup_ui(self):
+        self.webView = create_html_view(self)
+        self.webView.page().loadFinished.connect(self._on_load_finished)
+
+        layout = self.inner_layout
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+        layout.addWidget(self.webView)
+
+        self._set_natural_size(400, 200)
+        self.setMinimumSize(220, 130)
+        self._size_explicitly_set = True
+        self.resize(400, 200)
+        self._apply_style()
+
+    def _build_html(self) -> str:
+        theme = self._theme_dark if isDarkTheme() else self._theme_light
+        colors = {f"{k}_color": v for k, v in self._metric_colors.items()}
+        return self._HTML_TEMPLATE.substitute(font=FONT_FAMILY, **theme, **colors)
+
+    def _render(self):
+        self.webView.setHtml(self._build_html())
+
+    def _apply_style(self):
+        self._apply_card_style()
+        self._render()
+
+    def apply_scale(self, factor):
+        self._scale_factor = factor
+        self.webView.setZoomFactor(factor)
+        self._apply_style()
+
+
 class CountdownEventComponent(DraggableContainer):
     """事件倒计时组件"""
 
@@ -10734,6 +11017,7 @@ COMPONENT_STYLES["sticky_note"]["default"]["class"] = StickyNoteComponent
 COMPONENT_STYLES["history"]["today"]["class"] = HistoryTodayComponent
 COMPONENT_STYLES["sentence"]["daily"]["class"] = DailySentenceComponent
 COMPONENT_STYLES["word"]["daily"]["class"] = DailyWordComponent
+COMPONENT_STYLES["system"]["performance"]["class"] = PerformanceMonitorComponent
 
 
 
@@ -10941,6 +11225,7 @@ class ComponentLibraryWindow(FluentWindow):
             "Launcher": FUI.APPLICATION,
             "School": FUI.EDUCATION,
             "Tools": FUI.BRUSH,
+            "System": FUI.GAUGE,
         }
 
         for category in categories:

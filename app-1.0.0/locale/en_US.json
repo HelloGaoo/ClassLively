@@ -449,6 +449,7 @@
     "school_info": "Class Card",
     "media": "Media Info",
     "quick_launch": "Quick Launch",
+    "system": "Performance Monitor",
     "click_to_settings": "Click to settings"
   },
   "component_edit": {
@@ -552,7 +553,8 @@
     "category_media": "Media",
     "category_launcher": "Launcher",
     "category_school": "School",
-    "category_tools": "Tools"
+    "category_tools": "Tools",
+    "category_system": "System"
   },
   "sticky_note": {
     "placeholder": "Write something..."

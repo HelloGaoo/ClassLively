@@ -449,6 +449,7 @@
     "school_info": "班级卡片",
     "media": "媒体信息",
     "quick_launch": "快捷启动",
+    "system": "性能监测",
     "click_to_settings": "点击设置"
   },
   "component_edit": {
@@ -552,7 +553,8 @@
     "category_media": "媒体",
     "category_launcher": "启动器",
     "category_school": "教学",
-    "category_tools": "工具"
+    "category_tools": "工具",
+    "category_system": "系统"
   },
   "history_today": {
     "title": "历史上的今天",

@@ -926,6 +926,7 @@ _ICON_NAME_MAP = {
     "UPDATE": "arrow_sync",
     "DEVELOPER_TOOLS": "window_dev_tools",
     "CODE": "code",
+    "GAUGE": "gauge",
 
     # 调试面板
     "GLOBE": "globe",
