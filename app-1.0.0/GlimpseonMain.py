@@ -1673,6 +1673,8 @@ class Preloader(QThread):
 
 if __name__ == "__main__":
     _auto_start_launch = auto_start_launch()
+    # 所有 htm;共享同一 site 的渲染进程
+    os.environ.setdefault("QTWEBENGINE_CHROMIUM_FLAGS", "--process-per-site")
 
     QApplication.setHighDpiScaleFactorRoundingPolicy(Qt.HighDpiScaleFactorRoundingPolicy.PassThrough)
 

@@ -1,10 +1,11 @@
 
 import os
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QUrl
 from PyQt6.QtGui import QColor, QFont
 from PyQt6.QtWidgets import QWidget
 from qfluentwidgets import MessageBox, ScrollArea, TextEdit, SubtitleLabel
 from core.utils import tr
+HTML_BASE_URL = QUrl("file:///glimpseon/")
 
 
 def create_html_view(parent=None, mouse_transparent: bool = True):

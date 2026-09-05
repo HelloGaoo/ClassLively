@@ -89,7 +89,7 @@ from services.news import NewsService
 from services.history import HistoryService
 from services.word import WordService
 from services.sentence import SentenceService
-from ui.common import create_html_view
+from ui.common import create_html_view, HTML_BASE_URL
 from core.constants import BASE_DIR, DATA_CONFIG, DATA_CLASSPHOTOS, DATA_NOTES, load_qss, NEWS_ICONS, get_resPath, APP_ICON, FONT_FAMILY, FONT_PRIMARY
 from resource.software_list import get_software_icon_path
 from core.component import (
@@ -5118,7 +5118,7 @@ class DailySentenceComponent(DraggableContainer):
         )
 
     def _render(self):
-        self.webView.setHtml(self._build_html())
+        self.webView.setHtml(self._build_html(), HTML_BASE_URL)
 
     def _apply_style(self):
         self._apply_card_style()
@@ -5127,7 +5127,6 @@ class DailySentenceComponent(DraggableContainer):
     def apply_scale(self, factor):
         self._scale_factor = factor
         self.webView.setZoomFactor(factor)
-        self._apply_style()
 
 
 class DailyWordComponent(DraggableContainer):
@@ -5347,7 +5346,7 @@ class DailyWordComponent(DraggableContainer):
         )
 
     def _render(self):
-        self.webView.setHtml(self._build_html())
+        self.webView.setHtml(self._build_html(), HTML_BASE_URL)
 
     def _apply_style(self):
         self._apply_card_style()
@@ -5356,7 +5355,6 @@ class DailyWordComponent(DraggableContainer):
     def apply_scale(self, factor):
         self._scale_factor = factor
         self.webView.setZoomFactor(factor)
-        self._apply_style()
 
 
 class SquareClock1Component(DraggableContainer):
@@ -5537,7 +5535,7 @@ class SquareClock1Component(DraggableContainer):
         return self._HTML_TEMPLATE.substitute(font=FONT_FAMILY, radius=cfg.componentCardRadius.value * 2, **theme)
 
     def _render(self):
-        self.webView.setHtml(self._build_html())
+        self.webView.setHtml(self._build_html(), HTML_BASE_URL)
 
     def _apply_style(self):
         # 这个组件表盘自绘 与其他有出入
@@ -5661,7 +5659,7 @@ class SquareClock2Component(DraggableContainer):
         return self._HTML_TEMPLATE.substitute(font=FONT_FAMILY, radius=cfg.componentCardRadius.value, **theme)
 
     def _render(self):
-        self.webView.setHtml(self._build_html())
+        self.webView.setHtml(self._build_html(), HTML_BASE_URL)
 
     def _apply_style(self):
         # 表盘自绘
@@ -5851,7 +5849,7 @@ class MiniCalendarComponent(DraggableContainer):
         return self._HTML_TEMPLATE.substitute(font=FONT_FAMILY, **theme)
 
     def _render(self):
-        self.webView.setHtml(self._build_html())
+        self.webView.setHtml(self._build_html(), HTML_BASE_URL)
 
     def _apply_style(self):
         self._apply_card_style()
@@ -5859,8 +5857,7 @@ class MiniCalendarComponent(DraggableContainer):
 
     def apply_scale(self, factor):
         self._scale_factor = factor
-        self.webView.setZoomFactor(factor)
-        self._apply_style()
+        self.webView.setZoomFactor(factor) 
 
 
 class TimetableTimelineComponent(DraggableContainer):
@@ -6330,7 +6327,7 @@ class TimetableTimelineComponent(DraggableContainer):
         return html.replace("/*DATA*/[]", json.dumps(self._nodes, ensure_ascii=False))
 
     def _render(self):
-        self.webView.setHtml(self._build_html())
+        self.webView.setHtml(self._build_html(), HTML_BASE_URL)
 
     def _apply_style(self):
         self._apply_card_style()
@@ -6338,8 +6335,7 @@ class TimetableTimelineComponent(DraggableContainer):
 
     def apply_scale(self, factor):
         self._scale_factor = factor
-        self.webView.setZoomFactor(factor)
-        self._apply_style()
+        self.webView.setZoomFactor(factor) 
 
 
 _perf_cpu_lock = threading.Lock()
@@ -6604,7 +6600,7 @@ class PerformanceMonitorComponent(DraggableContainer):
         return self._HTML_TEMPLATE.substitute(font=FONT_FAMILY, **theme, **colors)
 
     def _render(self):
-        self.webView.setHtml(self._build_html())
+        self.webView.setHtml(self._build_html(), HTML_BASE_URL)
 
     def _apply_style(self):
         self._apply_card_style()
@@ -6613,7 +6609,6 @@ class PerformanceMonitorComponent(DraggableContainer):
     def apply_scale(self, factor):
         self._scale_factor = factor
         self.webView.setZoomFactor(factor)
-        self._apply_style()
 
 
 class CountdownEventComponent(DraggableContainer):

@@ -53,7 +53,7 @@ from core.constants import PACKAGE_ROOT, APP_DIR, APP_ICON, get_resPath, load_qs
 from core.utils import tr, TranslatableWidget, FUI
 from core.updater import check_github_version_legacy, get_github_changelog, download_update, extract_update, create_update_script
 
-from .common import show_text_file
+from .common import show_text_file, HTML_BASE_URL
 
 logger = logging.getLogger("Glimpseon.ui.about")
 
@@ -385,7 +385,7 @@ class AboutInterface(ScrollArea, TranslatableWidget):
     def _setChangelogContent(self, text: str):
         """md渲染方式"""
         if '<div' in text or '<img' in text or '<a ' in text:
-            self.changelogContent.setHtml(text)
+            self.changelogContent.setHtml(text, HTML_BASE_URL)
         else:
             self.changelogContent.setMarkdown(text)
 
